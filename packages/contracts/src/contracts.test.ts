@@ -62,12 +62,16 @@ describe("shared runtime contracts", () => {
             index: 1,
             status: "duplicate",
             issues: [],
-            warnings: ["import.duplicate"],
+            warnings: [
+              { path: "cards[1]", messageKey: "import.duplicate" },
+            ],
           },
           {
             index: 2,
             status: "invalid",
-            issues: ["errors.required"],
+            issues: [
+              { path: "cards[2].front", messageKey: "error.field.required" },
+            ],
             warnings: [],
           },
         ],

@@ -37,8 +37,24 @@ export const ImportPreviewRowSchema = Type.Object(
       Type.Literal("duplicate"),
       Type.Literal("invalid"),
     ]),
-    issues: Type.Array(Type.String({ minLength: 1, maxLength: 200 })),
-    warnings: Type.Array(Type.String({ minLength: 1, maxLength: 200 })),
+    issues: Type.Array(
+      Type.Object(
+        {
+          path: Type.String({ minLength: 1, maxLength: 500 }),
+          messageKey: Type.String({ minLength: 1, maxLength: 200 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    warnings: Type.Array(
+      Type.Object(
+        {
+          path: Type.String({ minLength: 1, maxLength: 500 }),
+          messageKey: Type.String({ minLength: 1, maxLength: 200 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
   },
   { additionalProperties: false },
 );

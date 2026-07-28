@@ -10,3 +10,4 @@ export {
   SectionRepository,
   type Section,
 } from "./section-repository.js";
+export { CardImportRepository } from "./card-import-repository.js";
