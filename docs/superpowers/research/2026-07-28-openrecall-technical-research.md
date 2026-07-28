@@ -1,7 +1,7 @@
 # OpenRecall Technical Research
 
 **Research date:** 2026-07-28
-**Status:** Complete; product-spec amendments require approval before planning
+**Status:** Complete; product-spec amendments approved on 2026-07-28
 **Scope:** Scheduler, optimizer, time semantics, SQLite durability, local-server
 security, PWA behavior, internationalization, and Chrome/NVDA accessibility
 
@@ -705,5 +705,5 @@ clarifications should be incorporated before planning:
 11. Add `dir="auto"` to user card content.
 12. Require prompt-based PWA updates and network-only API/SSE behavior.
 
-No implementation plan should be written until these amendments are reviewed
-and approved.
+These amendments were reviewed and approved on 2026-07-28 and are binding on
+the implementation plans.

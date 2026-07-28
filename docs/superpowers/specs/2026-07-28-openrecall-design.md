@@ -1,7 +1,7 @@
 # OpenRecall Product Design
 
 **Date:** 2026-07-28  
-**Status:** Approved product design; research amendments awaiting approval before implementation planning
+**Status:** Approved product design and research amendments; implementation planning in progress
 **Primary user environment:** Windows, Chrome, and NVDA  
 **Product form:** A local, installable web application served from `127.0.0.1`
 
@@ -149,8 +149,10 @@ by replaying them through a compatible adapter.
 ### `review_sessions` and `session_queue_entries`
 
 - Session section, status, start/pause/resume/completion times, and counters.
-- Queue entries contain only currently eligible new or due learning items.
-- A queue entry has a unique session/item constraint, preventing duplicates.
+- Queue entries represent review appearances and preserve completed appearances
+  for session statistics. A partial unique session/item constraint applies only
+  to queued or active entries, preventing simultaneous duplicates while allowing
+  the same item to re-enter after its next exact due time.
 - One globally active review session is allowed. Another tab can navigate to it
   but cannot create a conflicting session.
 
@@ -188,7 +190,7 @@ revision. In one SQLite transaction, the server:
    effective settings, and effective parameter profile.
 3. Appends an immutable review log.
 4. Updates the rebuildable scheduler state and exact `due_at`.
-5. Removes the reviewed item from the current queue entry.
+5. Marks the current queue appearance completed.
 6. Adds any learning items that are now due.
 7. Updates session counters.
 
@@ -438,6 +440,11 @@ validate every value against that adapter's supported ranges. A future adapter
 can add, rename, or remove controls through its capability manifest without
 requiring page-specific conditionals. Removed controls remain readable in
 historical records but are not passed to a scheduler that does not support them.
+
+Saving scheduler-setting changes affects future rating calculations and is
+explained as such in the interface; it does not silently rewrite already stored
+due timestamps. Existing schedules change only through the separately previewed,
+snapshotted replay/application workflow.
 
 Effective model parameters use this precedence:
 
