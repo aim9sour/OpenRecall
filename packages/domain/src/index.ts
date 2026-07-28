@@ -1,5 +1,12 @@
 export { containsMarkup } from "./import/detect-markup.js";
 export {
+  validateCardEdit,
+  type CardEditIssue,
+  type CardEditPresentation,
+  type CardEditValidation,
+  type ValidatedCardEdit,
+} from "./cards/validate-card-edit.js";
+export {
   duplicateKey,
   normalizedDuplicateText,
   normalizeText,

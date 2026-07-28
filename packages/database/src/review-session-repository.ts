@@ -96,6 +96,7 @@ export class ReviewSessionRepository {
                 ON presentation_exposures.presentation_id = presentations.id
               WHERE presentations.learning_item_id =
                 session_queue_entries.learning_item_id
+                AND presentations.lifecycle = 'active'
             )
           )
           OR (
@@ -107,6 +108,7 @@ export class ReviewSessionRepository {
                 session_queue_entries.presentation_id
                 AND presentations.learning_item_id =
                   session_queue_entries.learning_item_id
+                AND presentations.lifecycle = 'active'
             )
           )
         )
@@ -162,6 +164,7 @@ export class ReviewSessionRepository {
       JOIN presentation_exposures AS exposures
         ON exposures.presentation_id = presentations.id
       WHERE presentations.learning_item_id = ?
+        AND presentations.lifecycle = 'active'
       ORDER BY presentations.ordinal, presentations.id
     `);
     const activateEntry = db.prepare<{

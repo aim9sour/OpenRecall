@@ -134,6 +134,7 @@ export class CardImportRepository {
       WHERE learning_items.section_id = ?
         AND learning_items.lifecycle = 'active'
         AND presentations.kind = 'primary'
+        AND presentations.lifecycle = 'active'
     `);
   }
 

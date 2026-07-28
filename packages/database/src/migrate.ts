@@ -2,13 +2,18 @@ import type Database from "better-sqlite3";
 import { APPLICATION_ID } from "./constants.js";
 import { coreMigration } from "./migrations/001-core.js";
 import { reviewCoreMigration } from "./migrations/002-review-core.js";
+import { cardManagementMigration } from "./migrations/003-card-management.js";
 
 export interface Migration {
   readonly version: number;
   readonly up: (db: Database.Database) => void;
 }
 
-const MIGRATIONS: readonly Migration[] = [coreMigration, reviewCoreMigration];
+const MIGRATIONS: readonly Migration[] = [
+  coreMigration,
+  reviewCoreMigration,
+  cardManagementMigration,
+];
 
 function readIntegerPragma(db: Database.Database, name: string): number {
   const value: unknown = db.pragma(name, { simple: true });

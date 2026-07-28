@@ -12,6 +12,13 @@ export {
 } from "./section-repository.js";
 export { CardImportRepository } from "./card-import-repository.js";
 export {
+  CardRepository,
+  type CardLifecycleInput,
+  type ListCardsInput,
+  type PermanentDeleteItemInput,
+  type UpdateLearningItemInput,
+} from "./card-repository.js";
+export {
   OFFICIAL_PARAMETER_PROFILE_ID,
   SCHEDULER_ADAPTER_VERSION,
   SCHEDULER_ALGORITHM_ID,
