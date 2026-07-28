@@ -1,4 +1,5 @@
 import type { StudyDayConfig } from "@openrecall/domain";
+import type { SchedulerSettings } from "@openrecall/contracts";
 
 export type Rating = 1 | 2 | 3 | 4;
 
@@ -19,14 +20,7 @@ export interface SchedulerStateV1 {
   revision: number;
 }
 
-export interface SchedulerSettingsV1 {
-  requestedRetention: number;
-  maximumIntervalDays: number;
-  enableFuzz: boolean;
-  enableShortTerm: boolean;
-  learningStepsMinutes: number[];
-  relearningStepsMinutes: number[];
-}
+export type SchedulerSettingsV1 = SchedulerSettings;
 
 export interface ScheduleContext {
   nowMs: number;

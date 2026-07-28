@@ -57,6 +57,46 @@ describe("FSRS-6 manifest", () => {
       relearningStepsMinutes: [10],
     });
   });
+
+  it("describes every supported setting as a translatable native control", () => {
+    expect(FSRS6_MANIFEST.controls).toEqual([
+      expect.objectContaining({
+        key: "requestedRetention",
+        kind: "number",
+        min: 0.8,
+        max: 0.95,
+        step: 0.01,
+        deprecated: false,
+      }),
+      expect.objectContaining({
+        key: "maximumIntervalDays",
+        kind: "integer",
+        min: 1,
+        max: 36_500,
+        step: 1,
+        deprecated: false,
+      }),
+      expect.objectContaining({ key: "enableFuzz", kind: "boolean" }),
+      expect.objectContaining({ key: "enableShortTerm", kind: "boolean" }),
+      expect.objectContaining({
+        key: "learningStepsMinutes",
+        kind: "steps",
+        maxMinutes: 1_439,
+      }),
+      expect.objectContaining({
+        key: "relearningStepsMinutes",
+        kind: "steps",
+        maxMinutes: 1_439,
+      }),
+    ]);
+    for (const item of FSRS6_MANIFEST.controls) {
+      expect(item.labelKey).toMatch(/^settings\.scheduler\./);
+      expect(item.descriptionKey).toMatch(/^settings\.scheduler\./);
+      expect(item.defaultValue).toEqual(
+        DEFAULT_SCHEDULER_SETTINGS[item.key],
+      );
+    }
+  });
 });
 
 describe("scheduler settings validation", () => {
@@ -69,7 +109,7 @@ describe("scheduler settings validation", () => {
     relearningStepsMinutes: [10],
   };
 
-  it.each([Number.NaN, 0, 1.01])(
+  it.each([Number.NaN, 0.79, 0.96])(
     "rejects requested retention %s",
     (requestedRetention) => {
       expect(() =>
@@ -81,7 +121,7 @@ describe("scheduler settings validation", () => {
     },
   );
 
-  it.each([0, 1.5, Number.NaN])(
+  it.each([0, 1.5, 36_501, Number.NaN])(
     "rejects maximum interval %s",
     (maximumIntervalDays) => {
       expect(() =>
@@ -117,6 +157,14 @@ describe("scheduler settings validation", () => {
         relearningStepsMinutes: [10, 10],
       }),
     ).toThrow(RangeError);
+  });
+
+  it("rejects missing, unsupported, and deprecated manifest properties", () => {
+    const { enableFuzz: _missing, ...missing } = validSettings;
+    expect(() => validateSchedulerSettings(missing)).toThrow(TypeError);
+    expect(() =>
+      validateSchedulerSettings({ ...validSettings, futureControl: true }),
+    ).toThrow(TypeError);
   });
 
   it("accepts an empty step list for pure FSRS scheduling", () => {

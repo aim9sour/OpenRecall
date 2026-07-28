@@ -12,6 +12,7 @@
     "test": "vitest run packages/scheduler/src"
   },
   "dependencies": {
+    "@openrecall/contracts": "workspace:*",
     "@openrecall/domain": "workspace:*",
     "ts-fsrs": "5.4.1"
   },

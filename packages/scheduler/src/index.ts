@@ -7,6 +7,7 @@ export {
 export {
   DEFAULT_SCHEDULER_SETTINGS,
   FSRS6_MANIFEST,
+  SCHEDULER_CONTROLS,
 } from "./manifest.js";
 export {
   toUpstreamStepStrings,

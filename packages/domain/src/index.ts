@@ -59,3 +59,11 @@ export type {
   StatisticsSummary,
   WorkloadForecastPoint,
 } from "./statistics/types.js";
+export {
+  MINIMUM_ELIGIBLE_EXAMPLES,
+  resolveEffectiveConfig,
+  type EffectiveConfigManifest,
+  type EffectiveSchedulerConfig,
+  type ParameterProfileCandidate,
+  type SchedulerSettingsCandidate,
+} from "./settings/resolve-effective-config.js";

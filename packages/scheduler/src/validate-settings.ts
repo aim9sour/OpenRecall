@@ -1,8 +1,22 @@
+import type { SchedulerControl } from "@openrecall/contracts";
+import { SCHEDULER_CONTROLS } from "./manifest.js";
 import type { SchedulerSettingsV1 } from "./types.js";
 
 export type UpstreamStepString = `${number}m` | `${number}h`;
 
-function validateSteps(steps: number[], fieldName: string): void {
+function control<Key extends SchedulerControl["key"]>(
+  key: Key,
+): Extract<SchedulerControl, { key: Key }> {
+  const value = SCHEDULER_CONTROLS.find((candidate) => candidate.key === key);
+  if (value === undefined) throw new Error("SCHEDULER_MANIFEST_INVALID");
+  return value as Extract<SchedulerControl, { key: Key }>;
+}
+
+function validateSteps(
+  steps: unknown,
+  fieldName: string,
+  maxMinutes: number,
+): asserts steps is number[] {
   if (!Array.isArray(steps)) {
     throw new TypeError(`${fieldName} must be an array.`);
   }
@@ -12,7 +26,7 @@ function validateSteps(steps: number[], fieldName: string): void {
     if (
       !Number.isInteger(step) ||
       step <= 0 ||
-      step >= 1440 ||
+      step > maxMinutes ||
       step <= previous
     ) {
       throw new RangeError(
@@ -23,45 +37,78 @@ function validateSteps(steps: number[], fieldName: string): void {
   }
 }
 
-export function validateSchedulerSettings(
-  settings: SchedulerSettingsV1,
-): SchedulerSettingsV1 {
+export function validateSchedulerSettings(settings: unknown): SchedulerSettingsV1 {
   if (
-    !Number.isFinite(settings.requestedRetention) ||
-    settings.requestedRetention <= 0 ||
-    settings.requestedRetention > 1
+    typeof settings !== "object" ||
+    settings === null ||
+    Array.isArray(settings)
   ) {
-    throw new RangeError("Requested retention must be in the range (0, 1].");
+    throw new TypeError("Scheduler settings must be an object.");
+  }
+  const value = settings as Record<string, unknown>;
+  const supportedKeys = new Set<string>(
+    SCHEDULER_CONTROLS.filter(({ deprecated }) => !deprecated).map(
+      ({ key }) => key,
+    ),
+  );
+  if (
+    Object.keys(value).some((key) => !supportedKeys.has(key)) ||
+    [...supportedKeys].some((key) => !(key in value))
+  ) {
+    throw new TypeError("Scheduler settings contain unsupported properties.");
+  }
+
+  const retention = control("requestedRetention");
+  if (
+    typeof value["requestedRetention"] !== "number" ||
+    !Number.isFinite(value["requestedRetention"]) ||
+    value["requestedRetention"] < retention.min ||
+    value["requestedRetention"] > retention.max
+  ) {
+    throw new RangeError("Requested retention is outside the manifest bounds.");
+  }
+
+  const maximumInterval = control("maximumIntervalDays");
+  if (
+    !Number.isInteger(value["maximumIntervalDays"]) ||
+    (value["maximumIntervalDays"] as number) < maximumInterval.min ||
+    (value["maximumIntervalDays"] as number) > maximumInterval.max
+  ) {
+    throw new RangeError("Maximum interval days are outside the manifest bounds.");
   }
 
   if (
-    !Number.isInteger(settings.maximumIntervalDays) ||
-    settings.maximumIntervalDays <= 0
-  ) {
-    throw new RangeError("Maximum interval days must be a positive integer.");
-  }
-
-  if (
-    typeof settings.enableFuzz !== "boolean" ||
-    typeof settings.enableShortTerm !== "boolean"
+    typeof value["enableFuzz"] !== "boolean" ||
+    typeof value["enableShortTerm"] !== "boolean"
   ) {
     throw new TypeError("Scheduler feature flags must be boolean values.");
   }
 
-  validateSteps(settings.learningStepsMinutes, "Learning steps");
-  validateSteps(settings.relearningStepsMinutes, "Relearning steps");
+  validateSteps(
+    value["learningStepsMinutes"],
+    "Learning steps",
+    control("learningStepsMinutes").maxMinutes,
+  );
+  validateSteps(
+    value["relearningStepsMinutes"],
+    "Relearning steps",
+    control("relearningStepsMinutes").maxMinutes,
+  );
 
   return {
-    ...settings,
-    learningStepsMinutes: [...settings.learningStepsMinutes],
-    relearningStepsMinutes: [...settings.relearningStepsMinutes],
+    requestedRetention: value["requestedRetention"],
+    maximumIntervalDays: value["maximumIntervalDays"] as number,
+    enableFuzz: value["enableFuzz"],
+    enableShortTerm: value["enableShortTerm"],
+    learningStepsMinutes: [...value["learningStepsMinutes"]],
+    relearningStepsMinutes: [...value["relearningStepsMinutes"]],
   };
 }
 
 export function toUpstreamStepStrings(
   steps: number[],
 ): UpstreamStepString[] {
-  validateSteps(steps, "Scheduler steps");
+  validateSteps(steps, "Scheduler steps", 1_439);
 
   return steps.map(
     (minutes): UpstreamStepString =>

@@ -206,6 +206,9 @@ importers:
 
   packages/scheduler:
     dependencies:
+      '@openrecall/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@openrecall/domain':
         specifier: workspace:*
         version: link:../domain

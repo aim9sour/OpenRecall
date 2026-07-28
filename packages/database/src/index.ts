@@ -58,3 +58,4 @@ export {
   type CardHistoryItem,
   type CardStatistics,
 } from "./card-statistics-repository.js";
+export { SettingsRepository } from "./settings-repository.js";

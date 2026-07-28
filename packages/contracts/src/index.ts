@@ -96,3 +96,14 @@ export {
   type StudyDay,
   type StudyStatistics,
 } from "./statistics.js";
+export {
+  SchedulerControlSchema,
+  SchedulerManifestSchema,
+  SchedulerSettingsSchema,
+  SchedulerSettingsScopeSchema,
+  SchedulerStepsSchema,
+  type SchedulerControl,
+  type SchedulerManifest,
+  type SchedulerSettings,
+  type SchedulerSettingsScope,
+} from "./settings.js";
