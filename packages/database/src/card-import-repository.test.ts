@@ -51,6 +51,29 @@ describe("CardImportRepository", () => {
           db
             .prepare(
               `
+                SELECT
+                  learning_item_id,
+                  section_id,
+                  due_at_ms,
+                  memory_state,
+                  revision,
+                  parameter_profile_id
+                FROM scheduler_states
+              `,
+            )
+            .get(),
+        ).toEqual({
+          learning_item_id: result.importedItemIds[0],
+          section_id: section.id,
+          due_at_ms: 2_000,
+          memory_state: "new",
+          revision: 0,
+          parameter_profile_id: "official-fsrs6-v1",
+        });
+        expect(
+          db
+            .prepare(
+              `
                 SELECT kind, ordinal, front, back, notes
                 FROM presentations
                 ORDER BY ordinal
@@ -138,6 +161,9 @@ describe("CardImportRepository", () => {
         ).toBe(0);
         expect(
           db.prepare("SELECT count(*) FROM presentations").pluck().get(),
+        ).toBe(0);
+        expect(
+          db.prepare("SELECT count(*) FROM scheduler_states").pluck().get(),
         ).toBe(0);
       } finally {
         db.close();

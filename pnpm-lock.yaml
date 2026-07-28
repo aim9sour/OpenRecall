@@ -146,6 +146,9 @@ importers:
       '@openrecall/domain':
         specifier: workspace:*
         version: link:../domain
+      '@openrecall/scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
       better-sqlite3:
         specifier: 13.0.1
         version: 13.0.1

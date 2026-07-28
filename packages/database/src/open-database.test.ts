@@ -133,7 +133,7 @@ describe("openDatabase", () => {
         expect(() =>
           migrateDatabase(db, [
             {
-              version: 2,
+              version: SCHEMA_VERSION + 1,
               up(database) {
                 database.exec(
                   "CREATE TABLE must_be_rolled_back (id TEXT PRIMARY KEY) STRICT;",

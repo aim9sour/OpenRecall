@@ -6,6 +6,12 @@ import {
   type AcceptedPresentation,
 } from "@openrecall/domain";
 import type Database from "better-sqlite3";
+import {
+  OFFICIAL_PARAMETER_PROFILE_ID,
+  SCHEDULER_ADAPTER_VERSION,
+  SCHEDULER_ALGORITHM_ID,
+  SCHEDULER_ALGORITHM_VERSION,
+} from "./review-types.js";
 
 interface LearningItemInsert {
   readonly id: string;
@@ -28,6 +34,7 @@ interface PresentationInsert {
 export class CardImportRepository {
   readonly #db;
   readonly #insertLearningItem;
+  readonly #insertSchedulerState;
   readonly #insertPresentation;
   readonly #insertExposure;
   readonly #selectDuplicateKeys;
@@ -39,6 +46,48 @@ export class CardImportRepository {
         (id, section_id, lifecycle, created_at_ms, updated_at_ms)
       VALUES
         (@id, @sectionId, 'active', @nowMs, @nowMs)
+    `);
+    this.#insertSchedulerState = db.prepare<LearningItemInsert>(`
+      INSERT INTO scheduler_states
+        (
+          learning_item_id,
+          section_id,
+          due_at_ms,
+          memory_state,
+          step_index,
+          stability,
+          difficulty,
+          elapsed_days_at_last_review,
+          scheduled_days,
+          last_review_at_ms,
+          repetitions,
+          lapses,
+          revision,
+          algorithm_id,
+          algorithm_version,
+          adapter_version,
+          parameter_profile_id
+        )
+      VALUES
+        (
+          @id,
+          @sectionId,
+          @nowMs,
+          'new',
+          NULL,
+          0,
+          0,
+          0,
+          0,
+          NULL,
+          0,
+          0,
+          0,
+          '${SCHEDULER_ALGORITHM_ID}',
+          '${SCHEDULER_ALGORITHM_VERSION}',
+          ${SCHEDULER_ADAPTER_VERSION},
+          '${OFFICIAL_PARAMETER_PROFILE_ID}'
+        )
     `);
     this.#insertPresentation = db.prepare<PresentationInsert>(`
       INSERT INTO presentations
@@ -111,6 +160,11 @@ export class CardImportRepository {
       for (const item of acceptedItems) {
         const learningItemId = randomUUID();
         this.#insertLearningItem.run({
+          id: learningItemId,
+          sectionId,
+          nowMs,
+        });
+        this.#insertSchedulerState.run({
           id: learningItemId,
           sectionId,
           nowMs,
