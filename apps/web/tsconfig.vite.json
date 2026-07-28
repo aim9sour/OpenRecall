@@ -9,6 +9,7 @@
     ]
   },
   "files": [
-    "vite.config.ts"
+    "vite.config.ts",
+    "vite.e2e-en.config.ts"
   ]
 }

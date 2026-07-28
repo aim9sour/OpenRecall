@@ -12,7 +12,17 @@ import type { DueWakeService } from "../../apps/server/src/review/due-wake-servi
 import { openDatabase } from "../../packages/database/src/index.js";
 
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
-const clockPath = join(process.cwd(), "tests", "e2e", ".openrecall-clock");
+const serverPort = Number(process.env["OPENRECALL_E2E_API_PORT"] ?? "3210");
+const webPort = Number(process.env["OPENRECALL_E2E_WEB_PORT"] ?? "5173");
+const locale =
+  process.env["OPENRECALL_E2E_LOCALE"] === "en" ? "en" : "ar";
+const clockSuffix = locale === "en" ? "-en" : "";
+const clockPath = join(
+  process.cwd(),
+  "tests",
+  "e2e",
+  `.openrecall-clock${clockSuffix}`,
+);
 writeFileSync(clockPath, String(INITIAL_NOW_MS), "utf8");
 let currentNowMs = INITIAL_NOW_MS;
 
@@ -28,12 +38,12 @@ const database = openDatabase(join(directory, "openrecall.sqlite3"));
 let dueWake: Pick<DueWakeService, "rearm"> | undefined;
 const server = await buildServer({
   config: {
-    authority: "127.0.0.1:3210",
+    authority: `127.0.0.1:${serverPort}`,
     dataDirectory: directory,
     host: "127.0.0.1",
-    locale: "ar",
-    port: 3_210,
-    publicOrigin: "http://127.0.0.1:5173",
+    locale,
+    port: serverPort,
+    publicOrigin: `http://127.0.0.1:${webPort}`,
   },
   database,
   nowMs: () => currentNowMs,
@@ -57,4 +67,4 @@ async function stop(): Promise<void> {
 process.once("SIGINT", () => void stop().finally(() => process.exit(0)));
 process.once("SIGTERM", () => void stop().finally(() => process.exit(0)));
 
-await server.listen({ host: "127.0.0.1", port: 3_210 });
+await server.listen({ host: "127.0.0.1", port: serverPort });

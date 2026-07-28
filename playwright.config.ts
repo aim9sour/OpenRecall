@@ -21,11 +21,33 @@ export default defineConfig({
       url: "http://127.0.0.1:5173",
       reuseExistingServer: false,
     },
+    {
+      command: "pnpm exec tsx tests/e2e/start-english-server.ts",
+      url: "http://127.0.0.1:3211/api/v1/bootstrap",
+      reuseExistingServer: false,
+    },
+    {
+      command:
+        "pnpm --filter @openrecall/web exec vite --config vite.e2e-en.config.ts",
+      url: "http://127.0.0.1:5174",
+      reuseExistingServer: false,
+    },
   ],
   projects: [
     {
-      name: "chromium",
-      use: devices["Desktop Chrome"],
+      name: "chromium-ar",
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: "http://127.0.0.1:5173",
+      },
+    },
+    {
+      name: "chromium-en",
+      testMatch: /management-statistics\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: "http://127.0.0.1:5174",
+      },
     },
   ],
 });

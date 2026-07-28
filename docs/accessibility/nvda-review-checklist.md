@@ -8,7 +8,8 @@ data; NVDA may add its normal role/state suffixes after that text.
 | Check | Version | Arabic | English |
 | --- | --- | --- | --- |
 | Automated Chromium keyboard, focus, SSE, and end-to-end review | Chrome for Testing 151.0.7922.34; Playwright 1.62.0 | Pass | Pass |
-| Automated axe serious/critical findings | axe-core 4.11.1 | None | None |
+| Automated management/statistics lifecycle, keyboard, RTL/LTR, and 400% reflow equivalent | Chrome for Testing 151.0.7922.34; Playwright 1.62.0 | Pass | Pass |
+| Automated axe serious/critical findings | axe-core 4.12.1 | None | None |
 | Installed desktop Chrome detected | Google Chrome 150.0.7871.184 | Not run manually | Not run manually |
 | Manual NVDA speech run | NVDA was not installed or discoverable on this machine on 2026-07-28 | Pending | Pending |
 
@@ -83,3 +84,48 @@ run is performed.
 - Keys 1–4 rate only while the answer is visible.
 - Browser and NVDA commands keep their native behavior when OpenRecall does not
   own the shortcut.
+
+## Management and statistics run
+
+Run once in Arabic and once in English:
+
+1. Open a section containing a reviewed multi-presentation card.
+   - Heading navigation reaches the section statistics before card management.
+   - Every presentation editor is a named fieldset.
+   - Editing question text does not change the scheduler state or the immutable
+     question snapshot in review history.
+
+2. Expand “Show card statistics” / `عرض إحصاءات البطاقة`.
+   - The disclosure button exposes its expanded state and remains the focus
+     owner while data loads.
+   - NVDA announces the busy state without moving focus.
+   - Definition-list terms expose current state, due time, retrievability,
+     stability, difficulty, repetitions, lapses, and last review.
+   - Table navigation reaches presentation exposures and paginated review
+     history, including the historical text snapshot.
+
+3. Move the card to trash, then undo.
+   - The status message announces the reversible action and its undo button.
+   - The restored card retains state and review history.
+
+4. Open permanent delete on a separate card.
+   - The dialog says that the whole learning item, every presentation, state,
+     and history will be removed.
+   - Focus is trapped and restored on cancel.
+   - After confirmation, only that card disappears.
+
+5. Open global statistics and apply section and date filters.
+   - All three controls have native labels.
+   - Focus moves to the Results / `النتائج` heading after the loader refresh.
+   - Heading navigation reaches a plain-language summary before each visual
+     chart.
+   - Each visual chart is ignored by accessibility APIs; its captioned native
+     table contains every value and is the authoritative NVDA representation.
+   - “Not enough data” is distinguishable from a real numeric zero.
+
+6. At 400% browser zoom, or an equivalent 320 CSS-pixel viewport:
+   - No horizontal page scrolling is required.
+   - Wide data tables scroll only inside their own keyboard-focusable
+     containers.
+   - Visible focus and table/heading navigation remain usable in both RTL and
+     LTR layouts.
