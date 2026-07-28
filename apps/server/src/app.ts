@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
+  CardRepository,
   RatingTransaction,
   ReviewQueueRepository,
   ReviewSessionRepository,
@@ -16,6 +17,7 @@ import { loadConfig, type ServerConfig } from "./config.js";
 import { DueWakeService } from "./review/due-wake-service.js";
 import { ReviewEvents } from "./review/review-events.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
+import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
 import { registerReviewRoutes } from "./routes/review.js";
@@ -121,6 +123,11 @@ export async function buildServer(
     options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
       repository,
+      nowMs: options.nowMs ?? Date.now,
+    });
+    registerCardRoutes(server, {
+      cards: new CardRepository(options.database),
+      sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
     registerImportRoutes(server, {

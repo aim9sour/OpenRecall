@@ -11,6 +11,8 @@ export interface ApiClient {
   readonly bootstrap: () => Promise<BootstrapResponse>;
   readonly get: <T>(path: string) => Promise<T>;
   readonly post: <T>(path: string, body: unknown) => Promise<T>;
+  readonly put: <T>(path: string, body: unknown) => Promise<T>;
+  readonly delete: <T>(path: string, body: unknown) => Promise<T>;
 }
 
 export class ApiClientError extends Error {
@@ -75,7 +77,7 @@ export function createApiClient(
   }
 
   async function request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     body: unknown,
     didRetry: boolean,
@@ -84,7 +86,8 @@ export function createApiClient(
       accept: "application/json",
     };
 
-    if (method === "POST") {
+    const isMutation = method !== "GET";
+    if (isMutation) {
       await bootstrap();
       headers["content-type"] = "application/json";
       headers["x-openrecall-csrf"] = csrfToken ?? "";
@@ -93,10 +96,10 @@ export function createApiClient(
     const response = await fetchImplementation(path, {
       method,
       headers,
-      ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
+      ...(isMutation ? { body: JSON.stringify(body) } : {}),
     });
 
-    if (method === "POST" && response.status === 403 && !didRetry) {
+    if (isMutation && response.status === 403 && !didRetry) {
       bootstrapPromise = undefined;
       csrfToken = undefined;
       await bootstrap();
@@ -119,5 +122,9 @@ export function createApiClient(
     get: <T>(path: string) => request<T>("GET", path, undefined, false),
     post: <T>(path: string, body: unknown) =>
       request<T>("POST", path, body, false),
+    put: <T>(path: string, body: unknown) =>
+      request<T>("PUT", path, body, false),
+    delete: <T>(path: string, body: unknown) =>
+      request<T>("DELETE", path, body, false),
   };
 }

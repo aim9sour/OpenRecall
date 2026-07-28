@@ -105,6 +105,8 @@ async function renderReview(
       }
       return currentState as T;
     },
+    put: async <T,>() => ({}) as T,
+    delete: async <T,>() => undefined as T,
   };
   const i18n = await createI18n(locale);
   const router = createMemoryRouter(createRoutes({ api, i18n }), {

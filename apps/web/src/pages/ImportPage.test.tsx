@@ -46,6 +46,8 @@ describe("ImportPage", () => {
         }
         return { importedItemIds: ["item-1"] } as T;
       },
+      put: async <T,>() => ({}) as T,
+      delete: async <T,>() => undefined as T,
     };
     const i18n = await createI18n("en");
     const router = createMemoryRouter(createRoutes({ api, i18n }), {

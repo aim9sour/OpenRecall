@@ -9,6 +9,30 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("API client", () => {
+  it("sends PUT and DELETE as CSRF-protected mutations", async () => {
+    const methods: string[] = [];
+    const api = createApiClient(async (input, init) => {
+      if (input === "/api/v1/bootstrap") {
+        return jsonResponse({
+          apiVersion: 1,
+          csrfToken: "one-token",
+          locale: "en",
+        });
+      }
+      methods.push(init?.method ?? "");
+      expect(new Headers(init?.headers).get("x-openrecall-csrf")).toBe(
+        "one-token",
+      );
+      return init?.method === "DELETE"
+        ? new Response(null, { status: 204 })
+        : jsonResponse({ id: "updated" });
+    });
+
+    await api.put("/api/v1/cards/one", { value: 1 });
+    await api.delete("/api/v1/cards/one", { confirmation: "one" });
+    expect(methods).toEqual(["PUT", "DELETE"]);
+  });
+
   it("accepts a successful response with no content", async () => {
     const api = createApiClient(async (input) =>
       input === "/api/v1/bootstrap"

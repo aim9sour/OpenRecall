@@ -2,6 +2,7 @@ import type { SectionSummary } from "@openrecall/contracts";
 import { Link, useLoaderData } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
 import type { ApiClient } from "../api/client.js";
+import { CardList } from "../cards/CardList.js";
 import { StartReviewButton } from "../review/StartReviewButton.js";
 
 export function SectionPage({ api }: { readonly api: ApiClient }) {
@@ -37,6 +38,7 @@ export function SectionPage({ api }: { readonly api: ApiClient }) {
         <Link to="import">{t("import.open")}</Link>
       </p>
       <StartReviewButton api={api} sectionId={section.id} />
+      <CardList api={api} sectionId={section.id} />
     </>
   );
 }

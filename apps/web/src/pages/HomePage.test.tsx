@@ -54,6 +54,8 @@ async function renderHome(
         ? waitingReview
         : sections) as T,
     post,
+    put: async <T,>() => ({}) as T,
+    delete: async <T,>() => undefined as T,
   };
   const router = createMemoryRouter(createRoutes({ api, i18n }), {
     initialEntries: ["/"],
@@ -162,6 +164,8 @@ describe("HomePage accessibility", () => {
       }),
       get: async <T,>() => [] as T,
       post: async <T,>() => ({}) as T,
+      put: async <T,>() => ({}) as T,
+      delete: async <T,>() => undefined as T,
     };
     const router = createMemoryRouter(createRoutes({ api, i18n }), {
       initialEntries: ["/"],
