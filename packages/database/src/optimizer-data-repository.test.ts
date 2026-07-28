@@ -142,6 +142,16 @@ describe("OptimizerDataRepository", () => {
           "item-a",
           "item-b",
         ]);
+        expect(
+          new OptimizerDataRepository(db).getEligibilityCounts({
+            scopeType: "global",
+            sectionId: null,
+          }),
+        ).toEqual({
+          rawReviewCount: 3,
+          eligibleExampleCount: 1,
+          sourceReviewCutoffMs: 100,
+        });
       } finally {
         db.close();
       }

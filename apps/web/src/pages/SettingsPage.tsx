@@ -1,4 +1,5 @@
 import type {
+  OptimizerEligibility,
   SectionSummary,
   SettingsView,
 } from "@openrecall/contracts";
@@ -7,9 +8,11 @@ import { Form, useLoaderData, useLocation } from "react-router";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { SchedulerSettingsForm } from "../settings/SchedulerSettingsForm.js";
+import { OptimizerPanel } from "../settings/OptimizerPanel.js";
 
 export interface SettingsPageData {
   readonly sections: readonly SectionSummary[];
+  readonly optimizerEligibility: OptimizerEligibility;
   readonly view: SettingsView;
 }
 
@@ -52,6 +55,10 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
         api={api}
         onViewChange={setView}
         view={view}
+      />
+      <OptimizerPanel
+        api={api}
+        initialEligibility={loaded.optimizerEligibility}
       />
     </>
   );

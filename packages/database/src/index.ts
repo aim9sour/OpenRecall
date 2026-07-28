@@ -64,4 +64,7 @@ export {
   SettingsRepository,
   validateCurrentSchedulerSettings,
 } from "./settings-repository.js";
-export { OptimizerDataRepository } from "./optimizer-data-repository.js";
+export {
+  OptimizerDataRepository,
+  type OptimizerEligibilityCounts,
+} from "./optimizer-data-repository.js";

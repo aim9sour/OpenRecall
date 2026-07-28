@@ -1,4 +1,5 @@
 import type {
+  OptimizerEligibility,
   ReviewPageState,
   Section,
   SectionSummary,
@@ -142,11 +143,18 @@ export function createRoutes({
               sectionId === null || sectionId === ""
                 ? "/api/v1/settings"
                 : `/api/v1/settings?sectionId=${encodeURIComponent(sectionId)}`;
-            const [sections, view] = await Promise.all([
+            const eligibilityPath =
+              sectionId === null || sectionId === ""
+                ? "/api/v1/optimizer/eligibility?scopeType=global"
+                : `/api/v1/optimizer/eligibility?scopeType=section&sectionId=${encodeURIComponent(
+                    sectionId,
+                  )}`;
+            const [sections, view, optimizerEligibility] = await Promise.all([
               api.get<SectionSummary[]>("/api/v1/sections"),
               api.get<SettingsView>(settingsPath),
+              api.get<OptimizerEligibility>(eligibilityPath),
             ]);
-            return { sections, view };
+            return { sections, view, optimizerEligibility };
           },
           element: <SettingsPage api={api} />,
         },

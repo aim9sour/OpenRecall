@@ -38,6 +38,18 @@ export {
   type ImportPreviewRow,
 } from "./import.js";
 export {
+  OptimizerEligibilitySchema,
+  OptimizerRunSchema,
+  OptimizerRunStatusSchema,
+  OptimizerScopeQuerySchema,
+  OptimizerScopeSchema,
+  type OptimizerEligibility,
+  type OptimizerRun,
+  type OptimizerRunStatus,
+  type OptimizerScope,
+  type OptimizerScopeQuery,
+} from "./optimizer.js";
+export {
   EpochMillisecondsSchema,
   SectionCreateSchema,
   SectionSchema,

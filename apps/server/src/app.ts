@@ -20,10 +20,15 @@ import Fastify, {
 import { loadConfig, type ServerConfig } from "./config.js";
 import { DueWakeService } from "./review/due-wake-service.js";
 import { ReviewEvents } from "./review/review-events.js";
+import {
+  OptimizerRunService,
+  type OptimizerRunServiceApi,
+} from "./optimizer/optimizer-run-service.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
+import { registerOptimizerRoutes } from "./routes/optimizer.js";
 import { registerReviewRoutes } from "./routes/review.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
@@ -36,6 +41,7 @@ export interface BuildServerOptions {
   readonly config?: ServerConfig;
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
+  readonly optimizerService?: OptimizerRunServiceApi;
   readonly onDueWakeReady?: (
     wake: Pick<DueWakeService, "rearm">,
   ) => void;
@@ -116,6 +122,11 @@ export async function buildServer(
   if (options.database !== undefined) {
     const repository = new SectionRepository(options.database);
     const settings = new SettingsRepository(options.database);
+    const optimizer =
+      options.optimizerService ??
+      new OptimizerRunService(options.database, {
+        nowMs: options.nowMs ?? Date.now,
+      });
     const queue = new ReviewQueueRepository(options.database);
     const sessions = new ReviewSessionRepository(options.database);
     const studyDay = (): StudyDayConfig =>
@@ -163,6 +174,11 @@ export async function buildServer(
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
+    registerOptimizerRoutes(server, {
+      optimizer,
+      sections: repository,
+      nowMs: options.nowMs ?? Date.now,
+    });
     registerImportRoutes(server, {
       cards: new CardImportRepository(options.database),
       sections: repository,
@@ -182,6 +198,8 @@ export async function buildServer(
     server.addHook("preClose", async () => {
       dueWake.stop();
       reviewEvents.closeAll();
+      optimizer.dispose();
+      await optimizer.whenIdle();
     });
     server.addHook("onClose", async () => {
       if (options.database?.open === true) {
