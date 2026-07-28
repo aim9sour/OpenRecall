@@ -17,3 +17,10 @@ export {
   toSchedulerDate,
 } from "./time/scheduler-clock.js";
 export type { StudyDayConfig } from "./time/types.js";
+export {
+  cryptoRandomIndex,
+  selectPresentation,
+  type PresentationCandidate,
+  type PresentationId,
+  type RandomIndex,
+} from "./rotation/select-presentation.js";

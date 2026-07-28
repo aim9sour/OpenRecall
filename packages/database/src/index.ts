@@ -20,3 +20,7 @@ export {
   type ReviewSessionStatus,
   type SchedulerStateRow,
 } from "./review-types.js";
+export {
+  ReviewSessionRepository,
+  type ReviewCardView,
+} from "./review-session-repository.js";
