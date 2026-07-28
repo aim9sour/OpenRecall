@@ -5,3 +5,6 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - jsdom@30.0.0
