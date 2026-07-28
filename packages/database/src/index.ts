@@ -46,3 +46,15 @@ export {
   type RatingOutcomePreview,
   type RatingTransactionOptions,
 } from "./rating-transaction.js";
+export {
+  StatisticsRepository,
+  type SectionProgressStatistics,
+  type StatisticsFilter,
+  type StatisticsStateCounts,
+  type StudyStatistics,
+} from "./statistics-repository.js";
+export {
+  CardStatisticsRepository,
+  type CardHistoryItem,
+  type CardStatistics,
+} from "./card-statistics-repository.js";

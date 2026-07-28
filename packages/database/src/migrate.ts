@@ -3,6 +3,7 @@ import { APPLICATION_ID } from "./constants.js";
 import { coreMigration } from "./migrations/001-core.js";
 import { reviewCoreMigration } from "./migrations/002-review-core.js";
 import { cardManagementMigration } from "./migrations/003-card-management.js";
+import { statisticsMigration } from "./migrations/004-statistics.js";
 
 export interface Migration {
   readonly version: number;
@@ -13,6 +14,7 @@ const MIGRATIONS: readonly Migration[] = [
   coreMigration,
   reviewCoreMigration,
   cardManagementMigration,
+  statisticsMigration,
 ];
 
 function readIntegerPragma(db: Database.Database, name: string): number {

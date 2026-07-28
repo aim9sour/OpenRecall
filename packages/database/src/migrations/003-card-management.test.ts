@@ -33,7 +33,7 @@ describe("card management migration", () => {
 
         migrateDatabase(db);
 
-        expect(db.pragma("user_version", { simple: true })).toBe(3);
+        expect(db.pragma("user_version", { simple: true })).toBe(4);
         expect(
           db
             .prepare(

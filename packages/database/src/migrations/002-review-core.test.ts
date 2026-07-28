@@ -62,7 +62,7 @@ describe("review core migration", () => {
 
         migrateDatabase(db);
 
-        expect(db.pragma("user_version", { simple: true })).toBe(3);
+        expect(db.pragma("user_version", { simple: true })).toBe(4);
         const tables = db
           .prepare(
             `
