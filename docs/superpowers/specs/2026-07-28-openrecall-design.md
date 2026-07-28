@@ -1,7 +1,7 @@
 # OpenRecall Product Design
 
 **Date:** 2026-07-28  
-**Status:** Approved conversational design, awaiting written-spec review  
+**Status:** Approved product design; research amendments awaiting approval before implementation planning
 **Primary user environment:** Windows, Chrome, and NVDA  
 **Product form:** A local, installable web application served from `127.0.0.1`
 
@@ -59,9 +59,12 @@ OpenRecall is a modular TypeScript monorepo:
 - SQLite is the sole durable store.
 - Shared packages define runtime schemas, domain types, translations, and API
   contracts.
-- A scheduler adapter is the only package allowed to import `ts-fsrs`.
+- A scheduler adapter is the only package allowed to import `ts-fsrs`. The first
+  adapter pins `ts-fsrs@5.4.1`, which implements FSRS-6. Research-only FSRS-7 is
+  not presented as a supported algorithm until a production-ready stable
+  upstream implementation exists.
 - An optimizer adapter is the only package allowed to import
-  `@open-spaced-repetition/binding`.
+  `@open-spaced-repetition/binding`; the first adapter pins version `0.5.0`.
 
 The scheduler adapter exposes application-owned types rather than upstream
 types. Its capability manifest declares:
@@ -73,9 +76,13 @@ types. Its capability manifest declares:
 - Serialization and replay support.
 - Whether fractional due intervals and short-term steps are supported.
 
-All due times crossing the adapter boundary are absolute UTC timestamps with
-millisecond precision. The application never stores a rounded integer-day
-interval as the source of truth.
+The application persists normalized OpenRecall scheduler types, never serialized
+upstream objects or deprecated upstream fields. All real due times crossing the
+adapter boundary are absolute UTC timestamps with millisecond precision. An
+OpenRecall-owned clock service projects real instants through the effective IANA
+timezone and study-day boundary before FSRS performs calendar-day arithmetic,
+then maps the result back to a real instant. The application never stores a
+rounded integer-day interval as the source of truth.
 
 The initial runtime baseline is the supported Node.js 24 LTS line. Production
 dependencies use stable release channels and an exact lockfile. Node 26 may be
@@ -117,8 +124,9 @@ The main records are:
 ### `scheduler_states`
 
 - One current state per learning item.
-- Exact `due_at`, state, step, stability, difficulty, elapsed/scheduled values,
-  last review time, lapse/repetition counters, and state revision.
+- Exact `due_at`, normalized state and step, stability, difficulty, scheduling
+  values that belong to the OpenRecall schema, last review time,
+  lapse/repetition counters, and state revision.
 - Algorithm identifier/version and parameter-profile identifier used to create
   the state.
 - This is a rebuildable cache, not the historical source of truth.
@@ -130,6 +138,8 @@ The main records are:
 - Question shown, answer revealed, and rating timestamps.
 - Rating, elapsed time, prior state, resulting state, exact resulting due time,
   algorithm identifier/version, and parameter profile.
+- Effective IANA timezone, study-day boundary, scheduler settings, and adapter
+  version needed for deterministic replay.
 - Review duration fields are retained for future analytics but are never sent
   outside the computer.
 
@@ -194,6 +204,11 @@ While a review session is active, the server queries the indexed minimum future
 `due_at` for that section and arms one timer for that instant. When it fires, the
 server queries `due_at <= now`, inserts newly due items once, and arms the next
 timer. Server-Sent Events notify the review page that the queue changed.
+
+Because Node timers cannot safely represent delays beyond 2,147,483,647
+milliseconds, a far-future wake-up is divided into capped timer slices. Every
+slice ends with a database requery; the database timestamp, not timer memory, is
+the source of truth.
 
 The server also rechecks after every rating, when the queue empties, when the
 client reconnects, when the page becomes visible, and when a session resumes.
@@ -389,16 +404,20 @@ in one transaction.
 
 Backup and restore use SQLite files only:
 
-- A manual backup creates a consistent SQLite snapshot through SQLite's backup
-  mechanism; it does not copy a live database file naively.
+- A manual browser action creates a consistent SQLite snapshot through SQLite's
+  online backup mechanism and downloads that one snapshot; it does not copy a
+  live WAL database file naively.
 - Automatic snapshots run before a schema migration, parameter-profile
   application that rebuilds schedules, and database restore.
 - The application retains the ten most recent automatic snapshots. A manual
   snapshot copied outside the application directory is never automatically
   deleted.
-- Restore first validates integrity, application identity, and schema version,
-  then creates a pre-restore snapshot, closes active sessions safely, replaces
-  the database, migrates it forward when supported, and reports the result.
+- Restore streams one bounded multipart upload to a uniquely named staged file,
+  never trusts the uploaded filename as a path, and validates integrity,
+  application identity, and schema version. It then creates a pre-restore
+  snapshot, enters maintenance mode, closes database work safely, migrates and
+  validates a separate candidate when needed, swaps only after success, reopens
+  and verifies the database, and reports the result.
 - Restoring a database from a future unsupported schema is rejected without
   changing current data.
 
@@ -422,21 +441,29 @@ historical records but are not passed to a scheduler that does not support them.
 
 Effective model parameters use this precedence:
 
-1. Active section-trained profile with at least 400 optimizer-eligible review
-   events.
+1. Active section-trained profile with at least 400 optimizer-eligible training
+   examples.
 2. Active globally trained user profile with at least 400 optimizer-eligible
-   review events.
+   training examples.
 3. Official defaults for the active algorithm version.
 
-An optimizer-eligible event has a valid rating, valid ordered timestamp, and a
-review history accepted by the optimizer adapter. The settings page displays
-the eligible count for the global scope and each section.
+An optimizer-eligible training example is an expanding review-history prefix
+accepted by the optimizer adapter whose target review has a positive whole
+study-day delta. Same-day reviews may remain in its historical prefix. The
+400-example threshold is a conservative OpenRecall product policy, not an
+upstream hard requirement. The settings page displays raw review and eligible
+example counts separately for the global scope and each section.
 
 ## 12. Optimizer Training and Parameter Application
 
 Training is user-initiated and runs in an isolated worker so the server remains
 responsive. The UI presents localized start, progress, cancellation, success,
 and failure states. Progress announcements are throttled so NVDA is not flooded.
+
+The optimizer option named `timeout` is treated only as its documented progress
+polling interval, not a wall-clock deadline. Cancellation is implemented through
+the upstream progress callback and the worker boundary; a worker crash or
+cancellation cannot alter the active profile.
 
 The optimizer package is treated as an unstable external boundary even when
 installed from its latest npm release, because upstream describes its public API
@@ -487,9 +514,10 @@ which uses the same preview, snapshot, and rebuild path.
 - Presentation show counts and last-shown times.
 - Chronological review-history table, including which presentation appeared.
 
-All time-based calculations use the configured timezone and study-day boundary.
-Changing those settings changes grouping and presentation, not immutable review
-timestamps.
+Current statistics grouping and presentation use the configured timezone and
+study-day boundary. Immutable review instants never change. Scheduler replay
+uses the timezone and study-day boundary captured at each historical review, so
+changing current settings cannot reinterpret prior scheduling days.
 
 ## 14. Internationalization and Visual System
 
@@ -503,7 +531,8 @@ require page changes. Continuous integration fails on missing or unused required
 keys. A pseudo-locale detects hard-coded text and layout assumptions.
 
 Changing locale updates `lang`, `dir`, formatting, and content without a server
-restart. RTL and LTR are tested independently.
+restart. RTL and LTR are tested independently. User-authored card text uses
+`dir="auto"` because its direction may differ from the interface locale.
 
 The visual system uses semantic design tokens for color, type, spacing, focus,
 motion, and elevation. It provides light, dark, and system themes. Layout is
@@ -514,9 +543,12 @@ decoration never carries required information.
 
 - The server binds to `127.0.0.1` and does not bind to LAN interfaces by
   default.
+- The server accepts only the configured loopback `Host` authority, preventing
+  a public origin from reaching it through DNS rebinding.
 - Production API requests must be same-origin and carry a per-process
-  anti-forgery token. Unexpected `Origin` values and cross-origin requests are
-  rejected.
+  anti-forgery token obtained from a same-origin bootstrap endpoint. Mutations
+  require that token in a custom header. Unexpected `Origin` values,
+  unexpected `Host` values, and cross-origin requests are rejected.
 - CORS is disabled.
 - Imported content is rendered as text only.
 - A restrictive Content Security Policy blocks inline script and unexpected
@@ -537,10 +569,18 @@ decoration never carries required information.
   saved session.
 - SSE automatically reconnects; reconnect always triggers a due-state query
   rather than trusting missed events.
-- On startup, SQLite integrity and migration state are checked before writes are
-  accepted.
+- SQLite access uses direct typed repositories over `better-sqlite3`. Each
+  connection verifies foreign keys, WAL mode, `synchronous=FULL`,
+  `trusted_schema=OFF`, and a bounded busy timeout. Rating uses a short
+  synchronous `BEGIN IMMEDIATE` transaction with no asynchronous work inside.
+- On startup, SQLite application identity, integrity, foreign keys, important
+  PRAGMA values, and migration state are checked before writes are accepted.
 - Unexpected fatal errors preserve the database, emit a local diagnostic without
   card content, and show the recovery/backup location.
+
+The PWA service worker caches only the application shell and immutable static
+assets. API and SSE routes are network-only. Application updates are
+prompt-based and never reload an active review or dirty form automatically.
 
 ## 17. Verification Strategy
 
