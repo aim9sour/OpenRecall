@@ -3,6 +3,13 @@ export {
   BUSY_TIMEOUT_MS,
   SCHEMA_VERSION,
 } from "./constants.js";
+export {
+  createBackupService,
+  type BackupService,
+  type Snapshot,
+  type SnapshotKind,
+  type SnapshotValidation,
+} from "./backup-service.js";
 export { migrateDatabase, type Migration } from "./migrate.js";
 export { openDatabase } from "./open-database.js";
 export {
