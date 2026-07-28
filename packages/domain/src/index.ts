@@ -42,3 +42,20 @@ export {
   type RatingResponse,
   type RevealedCardView,
 } from "./review/rating-service.js";
+export {
+  calculateStatisticsSummary,
+  StatisticsRowError,
+} from "./statistics/calculate-summary.js";
+export {
+  groupCurrentDueForecast,
+  groupDailyActivity,
+  studyDayKey,
+} from "./statistics/group-study-days.js";
+export type {
+  CurrentDueState,
+  DailyActivityPoint,
+  StatisticsEvent,
+  StatisticsRating,
+  StatisticsSummary,
+  WorkloadForecastPoint,
+} from "./statistics/types.js";

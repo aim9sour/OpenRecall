@@ -46,6 +46,7 @@ export function toSchedulerDate(
 
   const shiftedWallTime = Temporal.Instant.fromEpochMilliseconds(epochMs)
     .toZonedDateTimeISO(config.timeZone)
+    .toPlainDateTime()
     .subtract({ minutes: config.boundaryMinutes });
 
   return new Date(
@@ -79,8 +80,8 @@ export function fromSchedulerDate(
   });
 
   return shiftedWallTime
-    .toZonedDateTime(config.timeZone, { disambiguation: "compatible" })
     .add({ minutes: config.boundaryMinutes })
+    .toZonedDateTime(config.timeZone, { disambiguation: "compatible" })
     .toInstant().epochMilliseconds;
 }
 
