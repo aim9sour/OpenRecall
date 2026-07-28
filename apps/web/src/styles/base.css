@@ -93,6 +93,40 @@ form {
   gap: 0.75rem;
 }
 
+.settings-version-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+
+.settings-version-list div {
+  min-width: 10rem;
+}
+
+.settings-version-list dt {
+  font-weight: 700;
+}
+
+.settings-version-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-field p {
+  margin: 0;
+}
+
+.settings-field label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 input,
 button,
 select,

@@ -8,6 +8,7 @@ import {
   ReviewQueueRepository,
   ReviewSessionRepository,
   SectionRepository,
+  SettingsRepository,
   StatisticsRepository,
 } from "@openrecall/database";
 import type { StudyDayConfig } from "@openrecall/domain";
@@ -26,6 +27,7 @@ import { registerImportRoutes } from "./routes/import.js";
 import { registerReviewRoutes } from "./routes/review.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
+import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerSecurity } from "./security.js";
 
 const PROCESS_CSRF_TOKEN = randomBytes(32).toString("base64url");
@@ -113,9 +115,24 @@ export async function buildServer(
   });
   if (options.database !== undefined) {
     const repository = new SectionRepository(options.database);
+    const settings = new SettingsRepository(options.database);
     const queue = new ReviewQueueRepository(options.database);
     const sessions = new ReviewSessionRepository(options.database);
-    const ratings = new RatingTransaction(options.database);
+    const studyDay = (): StudyDayConfig =>
+      options.studyDay ?? {
+        timeZone:
+          Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        boundaryMinutes: 240,
+      };
+    const ratings = new RatingTransaction(options.database, {
+      resolveSettings(sectionId) {
+        const effective = settings.resolveEffective(sectionId);
+        return {
+          studyDay: studyDay(),
+          settings: effective.settings,
+        };
+      },
+    });
     const dueWake = new DueWakeService(queue, reviewEvents, {
       now: options.nowMs ?? Date.now,
       setTimer(callback, delayMs) {
@@ -139,12 +156,12 @@ export async function buildServer(
       statistics: new StatisticsRepository(options.database),
       cards: new CardStatisticsRepository(options.database),
       nowMs: options.nowMs ?? Date.now,
-      studyDay: () =>
-        options.studyDay ?? {
-          timeZone:
-            Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-          boundaryMinutes: 240,
-        },
+      studyDay,
+    });
+    registerSettingsRoutes(server, {
+      settings,
+      sections: repository,
+      nowMs: options.nowMs ?? Date.now,
     });
     registerImportRoutes(server, {
       cards: new CardImportRepository(options.database),

@@ -1,9 +1,38 @@
+import { randomUUID } from "node:crypto";
 import type {
+  SchedulerManifest,
+  SchedulerSettings,
+} from "@openrecall/contracts";
+import type {
+  EffectiveSchedulerConfig,
   ParameterProfileCandidate,
   SchedulerSettingsCandidate,
 } from "@openrecall/domain";
-import { validateSchedulerSettings } from "@openrecall/scheduler";
+import { resolveEffectiveConfig } from "@openrecall/domain";
+import {
+  DEFAULT_SCHEDULER_SETTINGS,
+  FSRS6_MANIFEST,
+  validateSchedulerSettings,
+} from "@openrecall/scheduler";
 import type Database from "better-sqlite3";
+import { OFFICIAL_PARAMETER_PROFILE_ID } from "./review-types.js";
+
+export const CURRENT_SCHEDULER_SETTINGS_MANIFEST: SchedulerManifest = {
+  algorithmId: FSRS6_MANIFEST.algorithmId,
+  algorithmVersion: FSRS6_MANIFEST.algorithmVersion,
+  upstreamPackage: FSRS6_MANIFEST.upstreamPackage,
+  adapterVersion: FSRS6_MANIFEST.adapterVersion,
+  controls: [...FSRS6_MANIFEST.controls],
+};
+
+export const CURRENT_DEFAULT_SCHEDULER_SETTINGS =
+  DEFAULT_SCHEDULER_SETTINGS;
+
+export function validateCurrentSchedulerSettings(
+  value: unknown,
+): SchedulerSettings {
+  return validateSchedulerSettings(value);
+}
 
 interface SettingsRow {
   readonly id: string;
@@ -144,5 +173,142 @@ export class SettingsRepository {
       sectionSettings: this.getSectionSettings(sectionId),
       parameterProfiles: this.getParameterProfiles(sectionId),
     };
+  }
+
+  resolveEffective(sectionId: string): EffectiveSchedulerConfig {
+    return resolveEffectiveConfig({
+      manifest: {
+        algorithmId: FSRS6_MANIFEST.algorithmId,
+        algorithmVersion: FSRS6_MANIFEST.algorithmVersion,
+        adapterVersion: FSRS6_MANIFEST.adapterVersion,
+        defaultSettings: DEFAULT_SCHEDULER_SETTINGS,
+        defaultWeights: FSRS6_MANIFEST.defaultWeights,
+        officialProfileId: OFFICIAL_PARAMETER_PROFILE_ID,
+      },
+      sectionId,
+      ...this.getResolutionInput(sectionId),
+    });
+  }
+
+  saveGlobalSettings(input: {
+    readonly expectedUpdatedAtMs: number;
+    readonly adapterVersion: number;
+    readonly settings: SchedulerSettings;
+    readonly nowMs: number;
+  }): SchedulerSettingsCandidate {
+    return this.#save({
+      ...input,
+      scopeType: "global",
+      sectionId: null,
+    });
+  }
+
+  saveSectionSettings(input: {
+    readonly sectionId: string;
+    readonly expectedUpdatedAtMs: number | null;
+    readonly adapterVersion: number;
+    readonly settings: SchedulerSettings;
+    readonly nowMs: number;
+  }): SchedulerSettingsCandidate {
+    return this.#save({
+      ...input,
+      scopeType: "section",
+    });
+  }
+
+  deleteSectionSettings(input: {
+    readonly sectionId: string;
+    readonly expectedUpdatedAtMs: number;
+  }): void {
+    const result = this.#db
+      .prepare(
+        `
+          DELETE FROM scheduler_setting_scopes
+          WHERE scope_type = 'section'
+            AND section_id = ?
+            AND updated_at_ms = ?
+        `,
+      )
+      .run(input.sectionId, input.expectedUpdatedAtMs);
+    if (result.changes !== 1) {
+      throw new Error("SETTINGS_EDIT_CONFLICT");
+    }
+  }
+
+  #save(input: {
+    readonly scopeType: "global" | "section";
+    readonly sectionId: string | null;
+    readonly expectedUpdatedAtMs: number | null;
+    readonly adapterVersion: number;
+    readonly settings: SchedulerSettings;
+    readonly nowMs: number;
+  }): SchedulerSettingsCandidate {
+    if (!Number.isSafeInteger(input.nowMs) || input.nowMs < 0) {
+      throw new RangeError("SETTINGS_TIME_INVALID");
+    }
+    const save = this.#db.transaction(() => {
+      const current =
+        input.scopeType === "global"
+          ? this.getGlobalSettings()
+          : this.getSectionSettings(input.sectionId ?? "");
+      if ((current?.updatedAtMs ?? null) !== input.expectedUpdatedAtMs) {
+        throw new Error("SETTINGS_EDIT_CONFLICT");
+      }
+      const updatedAtMs = Math.max(
+        input.nowMs,
+        (current?.updatedAtMs ?? -1) + 1,
+      );
+      const id = current?.id ?? randomUUID();
+      const canonicalJson = JSON.stringify(input.settings);
+      if (current === null) {
+        this.#db
+          .prepare(
+            `
+              INSERT INTO scheduler_setting_scopes
+                (
+                  id, scope_type, section_id, adapter_version,
+                  settings_json, updated_at_ms
+                )
+              VALUES (?, ?, ?, ?, ?, ?)
+            `,
+          )
+          .run(
+            id,
+            input.scopeType,
+            input.sectionId,
+            input.adapterVersion,
+            canonicalJson,
+            updatedAtMs,
+          );
+      } else {
+        const result = this.#db
+          .prepare(
+            `
+              UPDATE scheduler_setting_scopes
+              SET adapter_version = ?, settings_json = ?, updated_at_ms = ?
+              WHERE id = ? AND updated_at_ms = ?
+            `,
+          )
+          .run(
+            input.adapterVersion,
+            canonicalJson,
+            updatedAtMs,
+            current.id,
+            input.expectedUpdatedAtMs,
+          );
+        if (result.changes !== 1) {
+          throw new Error("SETTINGS_EDIT_CONFLICT");
+        }
+      }
+      return {
+        id,
+        scopeType: input.scopeType,
+        sectionId: input.sectionId,
+        adapterVersion: input.adapterVersion,
+        settings: input.settings,
+        updatedAtMs,
+      } satisfies SchedulerSettingsCandidate;
+    });
+    return save();
   }
 }

@@ -11,6 +11,60 @@ export const englishLocale = {
     "nav.home": "Home",
     "nav.statistics": "Statistics",
     "nav.settings": "Settings",
+    "settings.title": "Settings",
+    "settings.scope": "Settings scope",
+    "settings.global": "General settings",
+    "settings.chooseScope": "Choose scope",
+    "settings.scheduler.title": "Spaced-repetition scheduler",
+    "settings.scheduler.requestedRetention.label": "Requested retention",
+    "settings.scheduler.requestedRetention.description":
+      "Higher retention usually increases daily workload. Choose between 0.80 and 0.95.",
+    "settings.scheduler.maximumIntervalDays.label": "Maximum interval",
+    "settings.scheduler.maximumIntervalDays.description":
+      "The greatest interval, in whole days, that the scheduler may assign.",
+    "settings.scheduler.enableFuzz.label": "Vary intervals slightly",
+    "settings.scheduler.enableFuzz.description":
+      "Apply the scheduler's small random interval variation to reduce clustering.",
+    "settings.scheduler.enableShortTerm.label": "Use short-term scheduling",
+    "settings.scheduler.enableShortTerm.description":
+      "Allow FSRS to schedule short-term learning and relearning steps.",
+    "settings.scheduler.learningStepsMinutes.label": "Learning steps",
+    "settings.scheduler.learningStepsMinutes.description":
+      "Exact, strictly increasing sub-day delays in minutes, separated by commas. Leave empty for pure FSRS scheduling.",
+    "settings.scheduler.relearningStepsMinutes.label": "Relearning steps",
+    "settings.scheduler.relearningStepsMinutes.description":
+      "Exact, strictly increasing sub-day delays after a lapse, separated by commas. Leave empty for pure FSRS scheduling.",
+    "settings.algorithm": "Algorithm",
+    "settings.package": "Scheduler package",
+    "settings.adapterVersion": "Adapter version",
+    "settings.settingsSource": "Settings source",
+    "settings.parameterSource": "Parameter source",
+    "settings.source.adapter-default": "Adapter defaults",
+    "settings.source.global": "General",
+    "settings.source.section": "This section",
+    "settings.source.official": "Official defaults",
+    "settings.sectionInherited":
+      "This section inherits the global scheduler settings.",
+    "settings.futureRatingsNotice":
+      "Saved changes apply to future ratings. They do not silently rewrite already stored due dates; profile replay has a separate preview and confirmation.",
+    "settings.stepsNotice":
+      "Learning and relearning steps are exact delays shorter than one day, not fixed long-term scheduling rules.",
+    "settings.error.numberBounds": "enter a number within the allowed range.",
+    "settings.error.integerBounds":
+      "enter a whole number within the allowed range.",
+    "settings.error.stepsIncreasing":
+      "enter strictly increasing whole minutes.",
+    "settings.manifestInvalid":
+      "The scheduler manifest is incompatible with this settings page.",
+    "settings.save": "Save settings",
+    "settings.saved": "Settings saved.",
+    "settings.saveError":
+      "The settings could not be saved. Reload and try again.",
+    "settings.editConflict":
+      "These settings changed elsewhere. Reload before saving again.",
+    "settings.resetSection": "Reset section override",
+    "settings.resetDone":
+      "The section override was removed; global settings are inherited.",
     "home.title": "Learning sections",
     "home.createHeading": "Create a section",
     "home.sectionsHeading": "Your sections",

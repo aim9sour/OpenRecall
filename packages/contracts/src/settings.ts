@@ -115,9 +115,101 @@ export const SchedulerSettingsScopeSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const SettingsQuerySchema = Type.Object(
+  {
+    sectionId: Type.Optional(UuidSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const SchedulerSettingsMutationSchema = Type.Object(
+  {
+    expectedUpdatedAtMs: Type.Optional(EpochMillisecondsSchema),
+    settings: SchedulerSettingsSchema,
+  },
+  { additionalProperties: false },
+);
+
+export const SchedulerSettingsResetSchema = Type.Object(
+  {
+    expectedUpdatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
+const SettingsSourceSchema = Type.Union([
+  Type.Object(
+    {
+      kind: Type.Union([Type.Literal("global"), Type.Literal("section")]),
+      settingsId: Type.String({ minLength: 1, maxLength: 200 }),
+      updatedAtMs: EpochMillisecondsSchema,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal("adapter-default"),
+      settingsId: Type.Null(),
+      updatedAtMs: Type.Null(),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
+const ParameterSourceSchema = Type.Object(
+  {
+    kind: Type.Union([
+      Type.Literal("official"),
+      Type.Literal("global"),
+      Type.Literal("section"),
+    ]),
+    profileId: Type.String({ minLength: 1, maxLength: 200 }),
+    eligibleExampleCount: Type.Integer({ minimum: 0 }),
+  },
+  { additionalProperties: false },
+);
+
+export const SettingsViewSchema = Type.Object(
+  {
+    manifest: SchedulerManifestSchema,
+    defaults: SchedulerSettingsSchema,
+    selectedScope: Type.Object(
+      {
+        scopeType: Type.Union([
+          Type.Literal("global"),
+          Type.Literal("section"),
+        ]),
+        sectionId: Type.Union([UuidSchema, Type.Null()]),
+      },
+      { additionalProperties: false },
+    ),
+    savedOverride: Type.Union([
+      SchedulerSettingsScopeSchema,
+      Type.Null(),
+    ]),
+    effective: Type.Object(
+      {
+        settings: SchedulerSettingsSchema,
+        settingsSource: SettingsSourceSchema,
+        parameterSource: ParameterSourceSchema,
+      },
+      { additionalProperties: false },
+    ),
+  },
+  { additionalProperties: false },
+);
+
 export type SchedulerSettings = Static<typeof SchedulerSettingsSchema>;
 export type SchedulerControl = Static<typeof SchedulerControlSchema>;
 export type SchedulerManifest = Static<typeof SchedulerManifestSchema>;
 export type SchedulerSettingsScope = Static<
   typeof SchedulerSettingsScopeSchema
 >;
+export type SettingsQuery = Static<typeof SettingsQuerySchema>;
+export type SchedulerSettingsMutation = Static<
+  typeof SchedulerSettingsMutationSchema
+>;
+export type SchedulerSettingsReset = Static<
+  typeof SchedulerSettingsResetSchema
+>;
+export type SettingsView = Static<typeof SettingsViewSchema>;

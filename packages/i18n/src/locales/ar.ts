@@ -11,6 +11,59 @@ export const arabicLocale = {
     "nav.home": "الرئيسية",
     "nav.statistics": "الإحصاءات",
     "nav.settings": "الإعدادات",
+    "settings.title": "الإعدادات",
+    "settings.scope": "نطاق الإعدادات",
+    "settings.global": "الإعدادات العامة",
+    "settings.chooseScope": "اختيار النطاق",
+    "settings.scheduler.title": "مجدول المراجعة المتباعدة",
+    "settings.scheduler.requestedRetention.label": "معدل الاحتفاظ المطلوب",
+    "settings.scheduler.requestedRetention.description":
+      "رفع معدل الاحتفاظ يزيد عادةً عبء المراجعة اليومي. اختر قيمة بين 0.80 و0.95.",
+    "settings.scheduler.maximumIntervalDays.label": "أقصى فاصل زمني",
+    "settings.scheduler.maximumIntervalDays.description":
+      "أكبر فاصل، بالأيام الكاملة، يمكن للمجدول تعيينه.",
+    "settings.scheduler.enableFuzz.label": "تنويع الفواصل قليلًا",
+    "settings.scheduler.enableFuzz.description":
+      "يطبق التنويع العشوائي الصغير الخاص بالمجدول لتقليل تكدس المواعيد.",
+    "settings.scheduler.enableShortTerm.label": "استخدام الجدولة قصيرة المدى",
+    "settings.scheduler.enableShortTerm.description":
+      "يسمح لـFSRS بجدولة خطوات التعلم وإعادة التعلم قصيرة المدى.",
+    "settings.scheduler.learningStepsMinutes.label": "خطوات التعلم",
+    "settings.scheduler.learningStepsMinutes.description":
+      "تأخيرات دقيقة ومتزايدة تقل عن يوم، بالدقائق ومفصولة بفواصل. اتركها فارغة لجدولة FSRS الخالصة.",
+    "settings.scheduler.relearningStepsMinutes.label": "خطوات إعادة التعلم",
+    "settings.scheduler.relearningStepsMinutes.description":
+      "تأخيرات دقيقة ومتزايدة بعد الإخفاق، بالدقائق ومفصولة بفواصل. اتركها فارغة لجدولة FSRS الخالصة.",
+    "settings.algorithm": "الخوارزمية",
+    "settings.package": "حزمة المجدول",
+    "settings.adapterVersion": "إصدار المحول",
+    "settings.settingsSource": "مصدر الإعدادات",
+    "settings.parameterSource": "مصدر المعاملات",
+    "settings.source.adapter-default": "إعدادات المحول الافتراضية",
+    "settings.source.global": "العامة",
+    "settings.source.section": "هذا القسم",
+    "settings.source.official": "المعاملات الرسمية",
+    "settings.sectionInherited":
+      "يرث هذا القسم إعدادات المجدول العامة.",
+    "settings.futureRatingsNotice":
+      "تُطبّق التغييرات المحفوظة على التقييمات القادمة، ولا تعيد كتابة المواعيد المخزنة بصمت؛ لإعادة تطبيق المعاملات معاينة وتأكيد منفصلان.",
+    "settings.stepsNotice":
+      "خطوات التعلم وإعادة التعلم تأخيرات دقيقة تقل عن يوم، وليست قواعد ثابتة للجدولة طويلة المدى.",
+    "settings.error.numberBounds": "أدخل رقمًا داخل النطاق المسموح.",
+    "settings.error.integerBounds": "أدخل عددًا صحيحًا داخل النطاق المسموح.",
+    "settings.error.stepsIncreasing":
+      "أدخل دقائق صحيحة متزايدة ترتيبًا.",
+    "settings.manifestInvalid":
+      "بيان المجدول غير متوافق مع صفحة الإعدادات هذه.",
+    "settings.save": "حفظ الإعدادات",
+    "settings.saved": "حُفظت الإعدادات.",
+    "settings.saveError":
+      "تعذر حفظ الإعدادات. أعد تحميل الصفحة ثم حاول مجددًا.",
+    "settings.editConflict":
+      "تغيّرت هذه الإعدادات في موضع آخر. أعد التحميل قبل الحفظ.",
+    "settings.resetSection": "إزالة إعدادات القسم الخاصة",
+    "settings.resetDone":
+      "أزيلت إعدادات القسم الخاصة؛ ويستخدم الآن الإعدادات العامة.",
     "home.title": "الأقسام التعليمية",
     "home.createHeading": "إنشاء قسم",
     "home.sectionsHeading": "أقسامك",

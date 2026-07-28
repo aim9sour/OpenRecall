@@ -58,4 +58,9 @@ export {
   type CardHistoryItem,
   type CardStatistics,
 } from "./card-statistics-repository.js";
-export { SettingsRepository } from "./settings-repository.js";
+export {
+  CURRENT_DEFAULT_SCHEDULER_SETTINGS,
+  CURRENT_SCHEDULER_SETTINGS_MANIFEST,
+  SettingsRepository,
+  validateCurrentSchedulerSettings,
+} from "./settings-repository.js";

@@ -2,6 +2,7 @@ import type {
   ReviewPageState,
   Section,
   SectionSummary,
+  SettingsView,
   StudyStatistics,
 } from "@openrecall/contracts";
 import type { RouteObject } from "react-router";
@@ -25,6 +26,10 @@ import {
   StatisticsPage,
   type StatisticsPageData,
 } from "./pages/StatisticsPage.js";
+import {
+  SettingsPage,
+  type SettingsPageData,
+} from "./pages/SettingsPage.js";
 
 function statisticsPath(
   basePath: string,
@@ -125,6 +130,25 @@ export function createRoutes({
             return { sections, statistics };
           },
           element: <StatisticsPage />,
+        },
+        {
+          id: "settings",
+          path: "settings",
+          loader: async ({ request }): Promise<SettingsPageData> => {
+            const sectionId = new URL(request.url).searchParams.get(
+              "sectionId",
+            );
+            const settingsPath =
+              sectionId === null || sectionId === ""
+                ? "/api/v1/settings"
+                : `/api/v1/settings?sectionId=${encodeURIComponent(sectionId)}`;
+            const [sections, view] = await Promise.all([
+              api.get<SectionSummary[]>("/api/v1/sections"),
+              api.get<SettingsView>(settingsPath),
+            ]);
+            return { sections, view };
+          },
+          element: <SettingsPage api={api} />,
         },
         {
           id: "import",
