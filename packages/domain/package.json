@@ -12,6 +12,7 @@
     "test": "vitest run packages/domain/src"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "@openrecall/contracts": "workspace:*"
   },
   "devDependencies": {

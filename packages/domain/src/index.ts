@@ -11,3 +11,9 @@ export {
   type DuplicateKeySet,
   type ValidatedImportPreview,
 } from "./import/validate-import.js";
+export {
+  fromSchedulerDate,
+  studyDayDelta,
+  toSchedulerDate,
+} from "./time/scheduler-clock.js";
+export type { StudyDayConfig } from "./time/types.js";
