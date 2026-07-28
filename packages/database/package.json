@@ -1,0 +1,23 @@
+{
+  "name": "@openrecall/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json",
+    "test": "vitest run packages/database/src"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.1"
+  },
+  "devDependencies": {
+    "@openrecall/test-support": "workspace:*",
+    "@types/better-sqlite3": "7.6.13",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}
