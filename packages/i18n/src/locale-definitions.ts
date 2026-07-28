@@ -1,0 +1,8 @@
+import { arabicLocale } from "./locales/ar.js";
+import { englishLocale } from "./locales/en.js";
+import type { LocaleDefinition, LocaleTag } from "./types.js";
+
+export const localeDefinitions = {
+  ar: arabicLocale,
+  en: englishLocale,
+} as const satisfies Readonly<Record<LocaleTag, LocaleDefinition>>;
