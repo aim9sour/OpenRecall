@@ -10,6 +10,7 @@ import {
   HomePage,
   type CreateSectionActionData,
 } from "./pages/HomePage.js";
+import { ImportPage } from "./pages/ImportPage.js";
 import { SectionPage } from "./pages/SectionPage.js";
 
 export function createRoutes({
@@ -63,6 +64,11 @@ export function createRoutes({
               `/api/v1/sections/${encodeURIComponent(params["sectionId"] ?? "")}`,
             ),
           element: <SectionPage />,
+        },
+        {
+          id: "import",
+          path: "sections/:sectionId/import",
+          element: <ImportPage api={api} />,
         },
       ],
     },

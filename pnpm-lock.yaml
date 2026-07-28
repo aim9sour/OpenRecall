@@ -41,6 +41,9 @@ importers:
       '@openrecall/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@openrecall/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@openrecall/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

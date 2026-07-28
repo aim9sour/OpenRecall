@@ -145,6 +145,24 @@ button:disabled {
   font-size: 1.5rem;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+th,
+td {
+  padding: 0.75rem;
+  border: 1px solid #b8c5bd;
+  text-align: start;
+  vertical-align: top;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .skip-link {
     transition: transform 120ms ease;

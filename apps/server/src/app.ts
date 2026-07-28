@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { SectionRepository } from "@openrecall/database";
+import {
+  CardImportRepository,
+  SectionRepository,
+} from "@openrecall/database";
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
@@ -8,6 +11,7 @@ import Fastify, {
 } from "fastify";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
+import { registerImportRoutes } from "./routes/import.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerSecurity } from "./security.js";
 
@@ -71,6 +75,7 @@ export async function buildServer(
 ): Promise<FastifyInstance> {
   const config = options.config ?? loadConfig();
   const server = Fastify({
+    bodyLimit: 5 * 1_024 * 1_024,
     logController: new LogController({ disableRequestLogging: true }),
     logger: false,
   }).withTypeProvider<TypeBoxTypeProvider>();
@@ -85,6 +90,11 @@ export async function buildServer(
     const repository = new SectionRepository(options.database);
     registerSectionRoutes(server, {
       repository,
+      nowMs: options.nowMs ?? Date.now,
+    });
+    registerImportRoutes(server, {
+      cards: new CardImportRepository(options.database),
+      sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
     server.addHook("onClose", async () => {

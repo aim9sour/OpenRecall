@@ -32,6 +32,9 @@ export function SectionPage() {
           </div>
         </dl>
       </section>
+      <p>
+        <Link to="import">{t("import.open")}</Link>
+      </p>
       <button
         type="button"
         disabled
