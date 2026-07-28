@@ -2,7 +2,9 @@ import { randomBytes } from "node:crypto";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
+  RatingTransaction,
   ReviewQueueRepository,
+  ReviewSessionRepository,
   SectionRepository,
 } from "@openrecall/database";
 import Fastify, {
@@ -16,6 +18,7 @@ import { ReviewEvents } from "./review/review-events.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
+import { registerReviewRoutes } from "./routes/review.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerSecurity } from "./security.js";
 
@@ -101,6 +104,8 @@ export async function buildServer(
   if (options.database !== undefined) {
     const repository = new SectionRepository(options.database);
     const queue = new ReviewQueueRepository(options.database);
+    const sessions = new ReviewSessionRepository(options.database);
+    const ratings = new RatingTransaction(options.database);
     const dueWake = new DueWakeService(queue, reviewEvents, {
       now: options.nowMs ?? Date.now,
       setTimer(callback, delayMs) {
@@ -118,6 +123,14 @@ export async function buildServer(
       cards: new CardImportRepository(options.database),
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
+    });
+    registerReviewRoutes(server, {
+      events: reviewEvents,
+      nowMs: options.nowMs ?? Date.now,
+      queue,
+      ratings,
+      sessions,
+      wake: dueWake,
     });
     server.addHook("onReady", async () => {
       dueWake.start();

@@ -12,11 +12,21 @@ export interface ReviewCardView {
   readonly learningItemId: string;
   readonly presentationId: string;
   readonly front: string;
+  readonly stateRevision: number;
 }
+
+export type ReviewCurrentCardView =
+  | ({ readonly kind: "question" } & ReviewCardView)
+  | ({
+      readonly kind: "answer";
+      readonly back: string;
+      readonly notes: string | null;
+    } & ReviewCardView);
 
 interface QueuedEntryRow {
   readonly id: string;
   readonly learning_item_id: string;
+  readonly state_revision: number;
 }
 
 interface ActiveViewRow {
@@ -25,6 +35,10 @@ interface ActiveViewRow {
   readonly learning_item_id: string;
   readonly presentation_id: string;
   readonly front: string;
+  readonly back: string;
+  readonly notes: string | null;
+  readonly revealed_at_ms: number | null;
+  readonly state_revision: number;
 }
 
 interface PresentationRow {
@@ -41,6 +55,7 @@ function mapActiveView(row: ActiveViewRow): ReviewCardView {
     learningItemId: row.learning_item_id,
     presentationId: row.presentation_id,
     front: row.front,
+    stateRevision: row.state_revision,
   };
 }
 
@@ -55,6 +70,9 @@ function validateClaimInput(sessionId: string, nowMs: number): void {
 
 export class ReviewSessionRepository {
   readonly #claimNext;
+  readonly #selectCurrent: (
+    sessionId: string,
+  ) => ActiveViewRow | undefined;
 
   constructor(db: Database.Database) {
     const removeInvalidEntries = db.prepare<[string]>(`
@@ -99,11 +117,17 @@ export class ReviewSessionRepository {
         queue.id AS entry_id,
         queue.learning_item_id,
         queue.presentation_id,
-        presentations.front
+        queue.revealed_at_ms,
+        presentations.front,
+        presentations.back,
+        presentations.notes,
+        coalesce(scheduler_states.revision, 0) AS state_revision
       FROM session_queue_entries AS queue
       JOIN presentations
         ON presentations.id = queue.presentation_id
         AND presentations.learning_item_id = queue.learning_item_id
+      LEFT JOIN scheduler_states
+        ON scheduler_states.learning_item_id = queue.learning_item_id
       WHERE queue.session_id = ?
         AND queue.status = 'active'
       ORDER BY queue.activated_at_ms, queue.id
@@ -112,7 +136,8 @@ export class ReviewSessionRepository {
     const selectQueued = db.prepare<[string], QueuedEntryRow>(`
       SELECT
         queue.id,
-        queue.learning_item_id
+        queue.learning_item_id,
+        coalesce(scheduler_states.revision, 0) AS state_revision
       FROM session_queue_entries AS queue
       JOIN review_sessions
         ON review_sessions.id = queue.session_id
@@ -120,6 +145,8 @@ export class ReviewSessionRepository {
       JOIN learning_items
         ON learning_items.id = queue.learning_item_id
         AND learning_items.lifecycle = 'active'
+      LEFT JOIN scheduler_states
+        ON scheduler_states.learning_item_id = queue.learning_item_id
       WHERE queue.session_id = ?
         AND queue.status = 'queued'
       ORDER BY queue.enqueued_due_at_ms, queue.id
@@ -150,6 +177,7 @@ export class ReviewSessionRepository {
       WHERE id = @entryId
         AND status = 'queued'
     `);
+    this.#selectCurrent = (sessionId) => selectActive.get(sessionId);
 
     this.#claimNext = db.transaction(
       (
@@ -202,6 +230,7 @@ export class ReviewSessionRepository {
           learningItemId: queued.learning_item_id,
           presentationId,
           front: presentation.front,
+          stateRevision: queued.state_revision,
         };
       },
     );
@@ -214,5 +243,24 @@ export class ReviewSessionRepository {
   ): ReviewCardView | null {
     validateClaimInput(sessionId, nowMs);
     return this.#claimNext.immediate(sessionId, nowMs, randomIndex);
+  }
+
+  getCurrent(sessionId: string): ReviewCurrentCardView | null {
+    if (sessionId.length === 0) {
+      throw new RangeError("REVIEW_SESSION_ID_INVALID");
+    }
+    const row = this.#selectCurrent(sessionId);
+    if (row === undefined) {
+      return null;
+    }
+    const card = mapActiveView(row);
+    return row.revealed_at_ms === null
+      ? { kind: "question", ...card }
+      : {
+          kind: "answer",
+          ...card,
+          back: row.back,
+          notes: row.notes,
+        };
   }
 }

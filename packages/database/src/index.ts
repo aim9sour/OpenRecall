@@ -23,16 +23,19 @@ export {
 export {
   ReviewSessionRepository,
   type ReviewCardView,
+  type ReviewCurrentCardView,
 } from "./review-session-repository.js";
 export {
   OpenReviewSessionError,
   ReviewQueueRepository,
   type DueWakeTarget,
   type MergeDueItemsResult,
+  type ReviewSessionSummary,
 } from "./review-queue-repository.js";
 export {
   RatingTransaction,
   type EffectiveRatingSettings,
   type RateInput,
+  type RatingOutcomePreview,
   type RatingTransactionOptions,
 } from "./rating-transaction.js";

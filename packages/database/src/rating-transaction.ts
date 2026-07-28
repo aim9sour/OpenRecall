@@ -11,6 +11,7 @@ import {
 import {
   applyRating,
   DEFAULT_SCHEDULER_SETTINGS,
+  previewRatings as previewSchedulerRatings,
   type Rating,
   type SchedulerSettingsV1,
   type SchedulerStateV1,
@@ -27,6 +28,7 @@ interface AppearanceRow {
   readonly revealed_at_ms: number | null;
   readonly back: string;
   readonly notes: string | null;
+  readonly session_status: "active" | "paused";
 }
 
 interface RateAppearanceRow extends AppearanceRow {
@@ -77,6 +79,12 @@ export interface RateInput {
   readonly expectedStateRevision: number;
   readonly idempotencyKey: string;
   readonly nowMs: number;
+}
+
+export interface RatingOutcomePreview {
+  readonly rating: Rating;
+  readonly dueAtMs: number;
+  readonly intervalMs: number;
 }
 
 function defaultEffectiveSettings(): EffectiveRatingSettings {
@@ -149,6 +157,7 @@ function toRevealedView(
 export class RatingTransaction {
   readonly #markShown;
   readonly #markRevealed;
+  readonly #preview;
   readonly #rate;
 
   constructor(
@@ -172,9 +181,13 @@ export class RatingTransaction {
         queue.presentation_id,
         queue.shown_at_ms,
         queue.revealed_at_ms,
+        sessions.status AS session_status,
         presentations.back,
         presentations.notes
       FROM session_queue_entries AS queue
+      JOIN review_sessions AS sessions
+        ON sessions.id = queue.session_id
+        AND sessions.status IN ('active', 'paused')
       JOIN presentations
         ON presentations.id = queue.presentation_id
         AND presentations.learning_item_id = queue.learning_item_id
@@ -244,6 +257,7 @@ export class RatingTransaction {
         queue.shown_at_ms,
         queue.revealed_at_ms,
         sessions.section_id,
+        sessions.status AS session_status,
         presentations.front,
         presentations.back,
         presentations.notes,
@@ -273,7 +287,7 @@ export class RatingTransaction {
       WHERE queue.session_id = @sessionId
         AND queue.id = @entryId
         AND queue.status = 'active'
-        AND sessions.status = 'active'
+        AND sessions.status IN ('active', 'paused')
     `);
     const selectProfile = db.prepare<[string], ParameterProfileRow>(`
       SELECT
@@ -431,6 +445,9 @@ export class RatingTransaction {
         if (row.shown_at_ms !== null) {
           return;
         }
+        if (row.session_status !== "active") {
+          throw new Error("REVIEW_SESSION_NOT_ACTIVE");
+        }
 
         const shown = setShown.run({
           sessionId,
@@ -468,6 +485,9 @@ export class RatingTransaction {
         }
 
         if (row.revealed_at_ms === null) {
+          if (row.session_status !== "active") {
+            throw new Error("REVIEW_SESSION_NOT_ACTIVE");
+          }
           const revealed = setRevealed.run({ sessionId, entryId, nowMs });
           if (revealed.changes !== 1) {
             throw new Error("REVIEW_REVEAL_WRITE_FAILED");
@@ -479,6 +499,42 @@ export class RatingTransaction {
         }
 
         return toRevealedView(row, row.revealed_at_ms);
+      },
+    );
+    this.#preview = db.transaction(
+      (
+        sessionId: string,
+        entryId: string,
+        nowMs: number,
+      ): RatingOutcomePreview[] => {
+        const row = selectRateAppearance.get({ sessionId, entryId });
+        if (row === undefined) {
+          throw new Error("REVIEW_APPEARANCE_MISMATCH");
+        }
+        if (row.revealed_at_ms === null || row.shown_at_ms === null) {
+          throw new Error("REVIEW_CARD_NOT_REVEALED");
+        }
+        const effective = resolveSettings(row.section_id, nowMs);
+        const profile = selectProfile.get(row.section_id);
+        if (profile === undefined) {
+          throw new Error("SCHEDULER_PROFILE_NOT_FOUND");
+        }
+        const parsedWeights: unknown = JSON.parse(profile.weights_json);
+        if (!Array.isArray(parsedWeights)) {
+          throw new Error("SCHEDULER_PROFILE_INVALID");
+        }
+        const outcomes = previewSchedulerRatings(mapSchedulerState(row), {
+          nowMs,
+          studyDay: effective.studyDay,
+          settings: effective.settings,
+          weights: parsedWeights as number[],
+          parameterProfileId: profile.id,
+        });
+        return ([1, 2, 3, 4] as const).map((rating) => ({
+          rating,
+          dueAtMs: outcomes[rating].dueAtMs,
+          intervalMs: Math.max(0, outcomes[rating].dueAtMs - nowMs),
+        }));
       },
     );
 
@@ -500,6 +556,9 @@ export class RatingTransaction {
       }
       if (row.revealed_at_ms === null || row.shown_at_ms === null) {
         throw new Error("REVIEW_CARD_NOT_REVEALED");
+      }
+      if (row.session_status !== "active") {
+        throw new Error("REVIEW_SESSION_NOT_ACTIVE");
       }
       if (row.revision !== input.expectedStateRevision) {
         throw new Error("STALE_SCHEDULER_STATE");
@@ -667,5 +726,16 @@ export class RatingTransaction {
     }
 
     return this.#rate.immediate(input);
+  }
+
+  previewRatings(
+    sessionId: string,
+    entryId: string,
+    nowMs: number,
+  ): RatingOutcomePreview[] {
+    validateId(sessionId);
+    validateId(entryId);
+    validateNow(nowMs);
+    return this.#preview.deferred(sessionId, entryId, nowMs);
   }
 }

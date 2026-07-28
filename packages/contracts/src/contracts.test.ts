@@ -4,6 +4,7 @@ import {
   ApiErrorSchema,
   CardImportSchema,
   ImportPreviewSchema,
+  ReviewPageStateSchema,
   SectionSummarySchema,
 } from "./index.js";
 
@@ -77,5 +78,40 @@ describe("shared runtime contracts", () => {
         ],
       }),
     ).toBe(true);
+  });
+
+  it("keeps unrevealed question contracts free of answer content", () => {
+    const questionState = {
+      kind: "question",
+      card: {
+        entryId: "d9428888-122b-41e1-985c-61cd3cbb3210",
+        learningItemId: "a8f65aa8-122b-41e1-985c-61cd3cbb3210",
+        presentationId: "b9f65aa8-122b-41e1-985c-61cd3cbb3210",
+        front: "Question",
+        stateRevision: 0,
+      },
+      session: {
+        id: "c9f65aa8-122b-41e1-985c-61cd3cbb3210",
+        sectionId: "d9428888-122b-41e1-985c-61cd3cbb3210",
+        status: "active",
+        revision: 1,
+        completedAppearances: 0,
+        currentlyRemaining: 1,
+        newRemaining: 1,
+        repeatedWithinSession: 0,
+        elapsedActiveMs: 0,
+        newlyJoined: 1,
+        nextDueAtMs: null,
+        remainingSnapshotAtMs: 1000,
+      },
+    };
+
+    expect(Value.Check(ReviewPageStateSchema, questionState)).toBe(true);
+    expect(
+      Value.Check(ReviewPageStateSchema, {
+        ...questionState,
+        card: { ...questionState.card, back: "must not be present" },
+      }),
+    ).toBe(false);
   });
 });

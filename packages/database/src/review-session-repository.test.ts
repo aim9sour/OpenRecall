@@ -133,6 +133,7 @@ describe("ReviewSessionRepository.claimNext", () => {
           learningItemId: "item-2",
           presentationId: "presentation-2",
           front: "Question 2",
+          stateRevision: 0,
         });
         expect(repeated).toEqual(first);
         expect(randomIndex).not.toHaveBeenCalled();
@@ -186,6 +187,7 @@ describe("ReviewSessionRepository.claimNext", () => {
           learningItemId: "item-1",
           presentationId: "presentation-1b",
           front: "Question 1B",
+          stateRevision: 0,
         });
         expect(view).not.toHaveProperty("back");
         expect(view).not.toHaveProperty("notes");

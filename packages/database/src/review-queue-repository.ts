@@ -20,9 +20,38 @@ interface SnapshotCountRow {
   readonly distinct_items: number;
 }
 
+interface SummaryRow {
+  readonly session_id: string;
+  readonly section_id: string;
+  readonly completed_at_ms: number;
+  readonly review_events: number;
+  readonly unique_items: number;
+  readonly again_count: number;
+  readonly hard_count: number;
+  readonly good_count: number;
+  readonly easy_count: number;
+  readonly elapsed_active_ms: number;
+}
+
 export interface MergeDueItemsResult {
   readonly added: number;
   readonly revision: number;
+}
+
+export interface ReviewSessionSummary {
+  readonly sessionId: string;
+  readonly sectionId: string;
+  readonly completedAtMs: number;
+  readonly reviewEvents: number;
+  readonly uniqueItems: number;
+  readonly repeatedWithinSession: number;
+  readonly elapsedActiveMs: number;
+  readonly ratingCounts: {
+    readonly again: number;
+    readonly hard: number;
+    readonly good: number;
+    readonly easy: number;
+  };
 }
 
 export interface DueWakeTarget {
@@ -64,8 +93,15 @@ export class ReviewQueueRepository {
   readonly #selectNearestFutureDue;
   readonly #selectNextDueWake;
   readonly #updateSessionAfterMerge;
+  readonly #pauseOpenSession;
+  readonly #finishOpenSession;
+  readonly #removePendingEntries;
+  readonly #selectSummary;
   readonly #startOrResume;
   readonly #merge;
+  readonly #pause;
+  readonly #resume;
+  readonly #finish;
 
   constructor(db: Database.Database) {
     this.#selectOpenSession = db.prepare<[], SessionRow>(`
@@ -77,6 +113,11 @@ export class ReviewQueueRepository {
     this.#selectSession = db.prepare<[string], SessionRow>(`
       SELECT id, section_id, status, revision
       FROM review_sessions
+      WHERE id = ?
+    `);
+    const sectionExists = db.prepare<[string], number>(`
+      SELECT 1
+      FROM sections
       WHERE id = ?
     `);
     this.#insertSession = db.prepare<{
@@ -115,7 +156,14 @@ export class ReviewQueueRepository {
           enqueued_at_ms
         )
       SELECT
-        lower(hex(randomblob(16))),
+        lower(
+          hex(randomblob(4)) || '-' ||
+          hex(randomblob(2)) || '-' ||
+          '4' || substr(hex(randomblob(2)), 2) || '-' ||
+          substr('89ab', (random() & 3) + 1, 1) ||
+          substr(hex(randomblob(2)), 2) || '-' ||
+          hex(randomblob(6))
+        ),
         @sessionId,
         scheduler_states.learning_item_id,
         'queued',
@@ -207,6 +255,55 @@ export class ReviewQueueRepository {
         revision = revision + @incrementRevision
       WHERE id = @id
     `);
+    this.#pauseOpenSession = db.prepare<{
+      readonly id: string;
+      readonly nowMs: number;
+    }>(`
+      UPDATE review_sessions
+      SET
+        status = 'paused',
+        paused_at_ms = @nowMs,
+        revision = revision + 1
+      WHERE id = @id
+        AND status IN ('active', 'waiting')
+    `);
+    this.#finishOpenSession = db.prepare<{
+      readonly id: string;
+      readonly nowMs: number;
+    }>(`
+      UPDATE review_sessions
+      SET
+        status = 'completed',
+        completed_at_ms = @nowMs,
+        revision = revision + 1
+      WHERE id = @id
+        AND status IN ('active', 'waiting', 'paused')
+    `);
+    this.#removePendingEntries = db.prepare<[string]>(`
+      UPDATE session_queue_entries
+      SET status = 'removed'
+      WHERE session_id = ?
+        AND status IN ('queued', 'active')
+    `);
+    this.#selectSummary = db.prepare<[string], SummaryRow>(`
+      SELECT
+        sessions.id AS session_id,
+        sessions.section_id,
+        sessions.completed_at_ms,
+        count(logs.id) AS review_events,
+        count(DISTINCT logs.learning_item_id) AS unique_items,
+        count(logs.id) FILTER (WHERE logs.rating = 1) AS again_count,
+        count(logs.id) FILTER (WHERE logs.rating = 2) AS hard_count,
+        count(logs.id) FILTER (WHERE logs.rating = 3) AS good_count,
+        count(logs.id) FILTER (WHERE logs.rating = 4) AS easy_count,
+        coalesce(sum(logs.review_duration_ms), 0) AS elapsed_active_ms
+      FROM review_sessions AS sessions
+      LEFT JOIN review_logs AS logs
+        ON logs.session_id = sessions.id
+      WHERE sessions.id = ?
+        AND sessions.status = 'completed'
+      GROUP BY sessions.id
+    `);
 
     this.#merge = db.transaction(
       (sessionId: string, nowMs: number): MergeDueItemsResult => {
@@ -228,6 +325,9 @@ export class ReviewQueueRepository {
         let resumed = false;
 
         if (session === undefined) {
+          if (sectionExists.pluck().get(sectionId) === undefined) {
+            throw new Error("REVIEW_SECTION_NOT_FOUND");
+          }
           const id = randomUUID();
           this.#insertSession.run({ id, sectionId, nowMs });
           session = this.#selectSession.get(id);
@@ -252,6 +352,78 @@ export class ReviewQueueRepository {
         }
 
         return this.#snapshot(updated, nowMs, merged.added);
+      },
+    );
+    this.#pause = db.transaction(
+      (sessionId: string, nowMs: number): ReviewSessionSnapshot => {
+        let session = this.#selectSession.get(sessionId);
+        if (session === undefined) {
+          throw new Error("REVIEW_SESSION_NOT_FOUND");
+        }
+        if (session.status === "completed") {
+          throw new Error("REVIEW_SESSION_COMPLETED");
+        }
+        if (session.status !== "paused") {
+          if (
+            this.#pauseOpenSession.run({ id: sessionId, nowMs }).changes !== 1
+          ) {
+            throw new Error("REVIEW_SESSION_PAUSE_FAILED");
+          }
+          session = this.#selectSession.get(sessionId);
+          if (session === undefined) {
+            throw new Error("REVIEW_SESSION_NOT_FOUND");
+          }
+        }
+        return this.#snapshot(session, nowMs, 0);
+      },
+    );
+    this.#resume = db.transaction(
+      (sessionId: string, nowMs: number): ReviewSessionSnapshot => {
+        let session = this.#selectSession.get(sessionId);
+        if (session === undefined) {
+          throw new Error("REVIEW_SESSION_NOT_FOUND");
+        }
+        if (session.status === "completed") {
+          throw new Error("REVIEW_SESSION_COMPLETED");
+        }
+        let resumed = false;
+        if (session.status === "paused") {
+          if (this.#resumeSession.run({ id: sessionId, nowMs }).changes !== 1) {
+            throw new Error("REVIEW_SESSION_RESUME_FAILED");
+          }
+          resumed = true;
+          session = this.#selectSession.get(sessionId);
+          if (session === undefined) {
+            throw new Error("REVIEW_SESSION_NOT_FOUND");
+          }
+        }
+        const merge = this.#mergeWithinTransaction(
+          session,
+          nowMs,
+          resumed,
+        );
+        const updated = this.#selectSession.get(sessionId);
+        if (updated === undefined) {
+          throw new Error("REVIEW_SESSION_NOT_FOUND");
+        }
+        return this.#snapshot(updated, nowMs, merge.added);
+      },
+    );
+    this.#finish = db.transaction(
+      (sessionId: string, nowMs: number): ReviewSessionSummary => {
+        const session = this.#selectSession.get(sessionId);
+        if (session === undefined) {
+          throw new Error("REVIEW_SESSION_NOT_FOUND");
+        }
+        if (session.status !== "completed") {
+          if (
+            this.#finishOpenSession.run({ id: sessionId, nowMs }).changes !== 1
+          ) {
+            throw new Error("REVIEW_SESSION_FINISH_FAILED");
+          }
+          this.#removePendingEntries.run(sessionId);
+        }
+        return this.#summary(sessionId);
       },
     );
   }
@@ -331,6 +503,31 @@ export class ReviewQueueRepository {
     );
   }
 
+  #summary(sessionId: string): ReviewSessionSummary {
+    const row = this.#selectSummary.get(sessionId);
+    if (row === undefined) {
+      throw new Error("REVIEW_SESSION_SUMMARY_NOT_FOUND");
+    }
+    return {
+      sessionId: row.session_id,
+      sectionId: row.section_id,
+      completedAtMs: row.completed_at_ms,
+      reviewEvents: row.review_events,
+      uniqueItems: row.unique_items,
+      repeatedWithinSession: Math.max(
+        0,
+        row.review_events - row.unique_items,
+      ),
+      elapsedActiveMs: row.elapsed_active_ms,
+      ratingCounts: {
+        again: row.again_count,
+        hard: row.hard_count,
+        good: row.good_count,
+        easy: row.easy_count,
+      },
+    };
+  }
+
   startOrResumeSession(
     sectionId: string,
     nowMs: number,
@@ -361,5 +558,56 @@ export class ReviewQueueRepository {
           sessionId: row.session_id,
           dueAtMs: row.due_at_ms,
         };
+  }
+
+  getSessionSnapshot(
+    sessionId: string,
+    nowMs: number,
+    newlyJoined = 0,
+  ): ReviewSessionSnapshot | undefined {
+    validateIdentifier(sessionId, "REVIEW_SESSION_ID_INVALID");
+    validateNow(nowMs);
+    const session = this.#selectSession.get(sessionId);
+    return session === undefined
+      ? undefined
+      : this.#snapshot(session, nowMs, newlyJoined);
+  }
+
+  pauseSession(
+    sessionId: string,
+    nowMs: number,
+  ): ReviewSessionSnapshot {
+    validateIdentifier(sessionId, "REVIEW_SESSION_ID_INVALID");
+    validateNow(nowMs);
+    return this.#pause.immediate(sessionId, nowMs);
+  }
+
+  resumeSession(
+    sessionId: string,
+    nowMs: number,
+  ): ReviewSessionSnapshot {
+    validateIdentifier(sessionId, "REVIEW_SESSION_ID_INVALID");
+    validateNow(nowMs);
+    return this.#resume.immediate(sessionId, nowMs);
+  }
+
+  finishSession(
+    sessionId: string,
+    nowMs: number,
+  ): ReviewSessionSummary {
+    validateIdentifier(sessionId, "REVIEW_SESSION_ID_INVALID");
+    validateNow(nowMs);
+    return this.#finish.immediate(sessionId, nowMs);
+  }
+
+  getSessionSummary(
+    sessionId: string,
+  ): ReviewSessionSummary | undefined {
+    validateIdentifier(sessionId, "REVIEW_SESSION_ID_INVALID");
+    const session = this.#selectSession.get(sessionId);
+    if (session === undefined || session.status !== "completed") {
+      return undefined;
+    }
+    return this.#summary(sessionId);
   }
 }
