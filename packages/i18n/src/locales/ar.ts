@@ -68,6 +68,7 @@ export const arabicLocale = {
     "statistics.sectionProgress": "تقدم الأقسام",
     "statistics.sectionProgressCaption": "التقدم الحالي حسب القسم",
     "statistics.section": "القسم",
+    "statistics.allSections": "كل الأقسام",
     "statistics.rangeInvalid":
       "اختر نطاق تواريخ صالحًا لا يزيد على خمس سنوات.",
     "form.submitting": "جارٍ الحفظ…",

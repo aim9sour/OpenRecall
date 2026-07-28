@@ -70,13 +70,21 @@ const statistics: StudyStatistics = {
     },
   ],
 };
+const sectionSummary = {
+  id: statistics.sections[0]!.sectionId,
+  name: statistics.sections[0]!.name,
+  createdAtMs: 1_000,
+  counts: { total: 4, new: 1, dueNow: 2 },
+  nextDueAtMs: null,
+} as const;
 
 async function renderStatistics(
   value: StudyStatistics = statistics,
   initialEntry = "/statistics",
 ) {
   const get = vi.fn(async (path: string) => {
-    if (path.startsWith("/api/v1/statistics")) return value;
+    if (path === "/api/v1/sections") return [sectionSummary];
+    if (path.includes("/statistics")) return value;
     return [] satisfies readonly never[];
   });
   const api: ApiClient = {
@@ -142,15 +150,22 @@ describe("StatisticsPage", () => {
 
     await user.type(screen.getByLabelText("From study day"), "2025-01-01");
     await user.type(screen.getByLabelText("To study day"), "2025-02-01");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Section" }),
+      sectionSummary.id,
+    );
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
 
-    await waitFor(() =>
-      expect(router.state.location.search).toBe(
-        "?fromStudyDay=2025-01-01&toStudyDay=2025-02-01",
-      ),
-    );
-    expect(get).toHaveBeenLastCalledWith(
-      "/api/v1/statistics?fromStudyDay=2025-01-01&toStudyDay=2025-02-01",
+    await waitFor(() => {
+      const query = new URLSearchParams(router.state.location.search);
+      expect(Object.fromEntries(query)).toEqual({
+        sectionId: sectionSummary.id,
+        fromStudyDay: "2025-01-01",
+        toStudyDay: "2025-02-01",
+      });
+    });
+    expect(get).toHaveBeenCalledWith(
+      `/api/v1/sections/${sectionSummary.id}/statistics?fromStudyDay=2025-01-01&toStudyDay=2025-02-01`,
     );
     await waitFor(() =>
       expect(document.activeElement).toBe(

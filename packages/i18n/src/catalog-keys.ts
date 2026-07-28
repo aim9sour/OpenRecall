@@ -58,6 +58,7 @@ export const COMMON_MESSAGE_KEYS = [
   "statistics.sectionProgress",
   "statistics.sectionProgressCaption",
   "statistics.section",
+  "statistics.allSections",
   "statistics.rangeInvalid",
   "form.submitting",
   "import.open",

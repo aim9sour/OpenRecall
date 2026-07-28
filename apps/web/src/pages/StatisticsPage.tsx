@@ -1,4 +1,7 @@
-import type { StudyStatistics } from "@openrecall/contracts";
+import type {
+  SectionSummary,
+  StudyStatistics,
+} from "@openrecall/contracts";
 import { useEffect, useRef } from "react";
 import {
   Form,
@@ -9,8 +12,13 @@ import {
 import { useI18n } from "../app/I18nProvider.js";
 import { StatisticsDashboard } from "../statistics/StatisticsDashboard.js";
 
+export interface StatisticsPageData {
+  readonly sections: readonly SectionSummary[];
+  readonly statistics: StudyStatistics;
+}
+
 export function StatisticsPage() {
-  const statistics = useLoaderData() as StudyStatistics;
+  const { sections, statistics } = useLoaderData() as StatisticsPageData;
   const location = useLocation();
   const navigation = useNavigation();
   const { t } = useI18n();
@@ -35,6 +43,21 @@ export function StatisticsPage() {
       </h1>
       <Form className="panel filter-form" key={location.search} method="get">
         <h2>{t("statistics.filters")}</h2>
+        <label htmlFor="statistics-section">
+          {t("statistics.section")}
+        </label>
+        <select
+          defaultValue={search.get("sectionId") ?? ""}
+          id="statistics-section"
+          name="sectionId"
+        >
+          <option value="">{t("statistics.allSections")}</option>
+          {sections.map((section) => (
+            <option key={section.id} value={section.id}>
+              {section.name}
+            </option>
+          ))}
+        </select>
         <label htmlFor="statistics-from">
           {t("statistics.fromStudyDay")}
         </label>

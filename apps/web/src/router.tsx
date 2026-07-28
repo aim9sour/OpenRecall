@@ -21,7 +21,10 @@ import {
   SectionPage,
   type SectionPageData,
 } from "./pages/SectionPage.js";
-import { StatisticsPage } from "./pages/StatisticsPage.js";
+import {
+  StatisticsPage,
+  type StatisticsPageData,
+} from "./pages/StatisticsPage.js";
 
 function statisticsPath(
   basePath: string,
@@ -106,13 +109,21 @@ export function createRoutes({
         {
           id: "statistics",
           path: "statistics",
-          loader: async ({ request }) =>
-            api.get<StudyStatistics>(
-              statisticsPath(
-                "/api/v1/statistics",
-                new URL(request.url).searchParams,
+          loader: async ({ request }): Promise<StatisticsPageData> => {
+            const searchParams = new URL(request.url).searchParams;
+            const sectionId = searchParams.get("sectionId");
+            const basePath =
+              sectionId === null || sectionId === ""
+                ? "/api/v1/statistics"
+                : `/api/v1/sections/${encodeURIComponent(sectionId)}/statistics`;
+            const [sections, statistics] = await Promise.all([
+              api.get<SectionSummary[]>("/api/v1/sections"),
+              api.get<StudyStatistics>(
+                statisticsPath(basePath, searchParams),
               ),
-            ),
+            ]);
+            return { sections, statistics };
+          },
           element: <StatisticsPage />,
         },
         {

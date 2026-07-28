@@ -67,6 +67,7 @@ export const englishLocale = {
     "statistics.sectionProgress": "Section progress",
     "statistics.sectionProgressCaption": "Current progress by section",
     "statistics.section": "Section",
+    "statistics.allSections": "All sections",
     "statistics.rangeInvalid":
       "Choose a valid date range no longer than five years.",
     "form.submitting": "Saving…",
