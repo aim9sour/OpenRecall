@@ -437,7 +437,7 @@ git commit -m "docs: prepare OpenRecall for contributors"
 
 Assert boundary checker rejects forbidden FSRS imports and external URLs;
 lockfile checker requires exact direct versions and approved
-`better-sqlite3` build only.
+`better-sqlite3` and `esbuild` builds only.
 
 - [ ] **Step 2: Run and verify RED**
 

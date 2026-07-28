@@ -645,12 +645,13 @@ Node 24.18.0 is the current LTS baseline; Node 26 remains Current. React Router
 8's engine and peer requirements fit the chosen Node and React versions.
 
 pnpm 11 blocks unreviewed install scripts. The workspace must explicitly allow
-the reviewed native build for `better-sqlite3`, rather than enabling all build
-scripts:
+the reviewed native/binary setup scripts for `better-sqlite3` and `esbuild`,
+rather than enabling all build scripts:
 
 ```yaml
 allowBuilds:
   better-sqlite3: true
+  esbuild: true
 ```
 
 Sources:

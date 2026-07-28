@@ -57,7 +57,8 @@ OpenRecall/
 ├─ package.json
 ├─ pnpm-workspace.yaml
 ├─ tsconfig.base.json
-├─ vitest.workspace.ts
+├─ tsconfig.tools.json
+├─ vitest.config.ts
 └─ playwright.config.ts
 ```
 
@@ -70,7 +71,8 @@ OpenRecall/
 - Create: `.gitignore`
 - Create: `.node-version`
 - Create: `tsconfig.base.json`
-- Create: `vitest.workspace.ts`
+- Create: `tsconfig.tools.json`
+- Create: `vitest.config.ts`
 - Create: `playwright.config.ts`
 - Create: `packages/contracts/package.json`
 - Create: `packages/contracts/tsconfig.json`
@@ -87,14 +89,15 @@ OpenRecall/
 Use a private root package with `packageManager: "pnpm@11.17.0"` and
 `engines.node: ">=24.18.0 <25"`. Add exact dev dependencies:
 `typescript@7.0.2`, `vitest@4.1.10`, `@playwright/test@1.62.0`,
-`@axe-core/playwright@4.12.1`, `fast-check@4.9.0`, and `tsx@4.23.1`.
+`@axe-core/playwright@4.12.1`, `@types/node@24.13.3`,
+`fast-check@4.9.0`, and `tsx@4.23.1`.
 Configure these scripts:
 
 ```json
 {
   "scripts": {
     "build": "pnpm -r build",
-    "check": "pnpm -r check",
+    "check": "tsc -p tsconfig.tools.json && pnpm -r check",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "dev": "pnpm --parallel --filter @openrecall/server --filter @openrecall/web dev"
@@ -112,14 +115,15 @@ packages:
 
 allowBuilds:
   better-sqlite3: true
+  esbuild: true
 ```
 
 - [ ] **Step 2: Install and lock dependencies**
 
 Run: `corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install`
 
-Expected: exit 0, `pnpm-lock.yaml` created, and no blocked-build error for
-`better-sqlite3`.
+Expected: exit 0, `pnpm-lock.yaml` created, and no blocked-build error for the
+reviewed native/binary setup packages `better-sqlite3` and `esbuild`.
 
 - [ ] **Step 3: Write the first failing identity test**
 
@@ -159,7 +163,7 @@ Expected: one passing test and zero TypeScript errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .gitignore .node-version tsconfig.base.json vitest.workspace.ts playwright.config.ts packages/contracts
+git add package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .gitignore .node-version tsconfig.base.json tsconfig.tools.json vitest.config.ts playwright.config.ts packages/contracts
 git commit -m "build: establish OpenRecall workspace"
 ```
 
