@@ -21,7 +21,10 @@ export function registerEventRoutes(
       "/api/v1/events",
       { sse: "only" },
       async (request, reply) => {
-        if (request.headers.origin !== options.publicOrigin) {
+        if (
+          request.headers.origin !== undefined &&
+          request.headers.origin !== options.publicOrigin
+        ) {
           return reply.code(403).send({
             code: "ORIGIN_NOT_ALLOWED",
             messageKey: "error.originNotAllowed",

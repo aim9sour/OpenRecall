@@ -5,6 +5,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+tests/e2e/.openrecall-clock
 .env
 .env.*
 !.env.example

@@ -47,6 +47,24 @@ afterEach(async () => {
 });
 
 describe("review event stream", () => {
+  it("accepts a same-authority browser stream without an Origin header", async () => {
+    const events = new ReviewEvents();
+    const server = await createTestServer(events);
+    const responsePromise = server.inject({
+      method: "GET",
+      url: "/api/v1/events",
+      headers: {
+        host: TEST_AUTHORITY,
+        accept: "text/event-stream",
+      },
+    });
+
+    await waitFor(() => events.subscriberCount === 1);
+    events.closeAll();
+    const response = await responsePromise;
+    expect(response.statusCode).toBe(200);
+  });
+
   it("streams only revision invalidations and content-free heartbeats", async () => {
     const events = new ReviewEvents();
     const server = await createTestServer(events);

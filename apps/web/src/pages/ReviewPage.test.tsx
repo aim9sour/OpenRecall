@@ -78,6 +78,7 @@ const nextQuestionState: ReviewPageState = {
 async function renderReview(
   locale: LocaleTag = "en",
   initialState: ReviewPageState = questionState,
+  shownGate?: Promise<void>,
 ) {
   let currentState = initialState;
   const posts: Array<{ path: string; body: unknown }> = [];
@@ -91,6 +92,7 @@ async function renderReview(
     post: async <T,>(path: string, body: unknown) => {
       posts.push({ path, body });
       if (path.endsWith("/current/shown")) {
+        await shownGate;
         return undefined as T;
       }
       if (path.endsWith("/current/reveal")) {
@@ -124,6 +126,23 @@ afterEach(() => {
 });
 
 describe("ReviewPage NVDA interaction", () => {
+  it("does not reveal until the server has recorded the shown presentation", async () => {
+    let releaseShown: (() => void) | undefined;
+    const shownGate = new Promise<void>((resolve) => {
+      releaseShown = resolve;
+    });
+    await renderReview("en", questionState, shownGate);
+
+    const showAnswer = await screen.findByRole("button", {
+      name: "Show answer",
+    });
+    expect((showAnswer as HTMLButtonElement).disabled).toBe(true);
+    releaseShown?.();
+    await waitFor(() =>
+      expect((showAnswer as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
   it("focuses card content directly through reveal and the next rating", async () => {
     const user = userEvent.setup();
     await renderReview();
@@ -180,6 +199,15 @@ describe("ReviewPage NVDA interaction", () => {
     const user = userEvent.setup();
     const { posts } = await renderReview();
     await screen.findByRole("heading", { name: "What is active recall?" });
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "Show answer",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
 
     await user.keyboard(" ");
     await screen.findByRole("heading", {

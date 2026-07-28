@@ -107,6 +107,10 @@ export function createApiClient(
       throw new ApiClientError(response.status, await readError(response));
     }
 
+    if (response.status === 204 || response.status === 205) {
+      return undefined as T;
+    }
+
     return (await response.json()) as T;
   }
 

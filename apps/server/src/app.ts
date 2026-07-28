@@ -28,6 +28,9 @@ export interface BuildServerOptions {
   readonly config?: ServerConfig;
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
+  readonly onDueWakeReady?: (
+    wake: Pick<DueWakeService, "rearm">,
+  ) => void;
   readonly reviewEvents?: ReviewEvents;
   readonly sseHeartbeatIntervalMs?: number;
 }
@@ -115,6 +118,7 @@ export async function buildServer(
         clearTimeout(timer as ReturnType<typeof setTimeout>);
       },
     });
+    options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
       repository,
       nowMs: options.nowMs ?? Date.now,

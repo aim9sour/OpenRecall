@@ -9,6 +9,20 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("API client", () => {
+  it("accepts a successful response with no content", async () => {
+    const api = createApiClient(async (input) =>
+      input === "/api/v1/bootstrap"
+        ? jsonResponse({
+            apiVersion: 1,
+            csrfToken: "one-token",
+            locale: "en",
+          })
+        : new Response(null, { status: 204 }),
+    );
+
+    await expect(api.post<void>("/api/v1/shown", {})).resolves.toBeUndefined();
+  });
+
   it("shares one in-memory bootstrap request", async () => {
     let requestCount = 0;
     const api = createApiClient(async () => {

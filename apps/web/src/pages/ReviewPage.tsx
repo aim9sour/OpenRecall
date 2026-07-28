@@ -1,10 +1,13 @@
 import type { ReviewPageState } from "@openrecall/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLoaderData, useLocation } from "react-router";
+import { useLoaderData, useLocation } from "react-router";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { RatingButtons } from "../review/RatingButtons.js";
 import { SessionProgress } from "../review/SessionProgress.js";
+import { EndSessionDialog } from "../review/EndSessionDialog.js";
+import { SessionSummary } from "../review/SessionSummary.js";
+import { WaitingState } from "../review/WaitingState.js";
 import { useReviewEvents } from "../review/use-review-events.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 
@@ -28,6 +31,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       : null;
   const [page, setPage] = useState(loaderState);
   const [busy, setBusy] = useState(false);
+  const [shownEntryId, setShownEntryId] = useState<string | null>(null);
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [announcement, setAnnouncement] = useState(
     initialNoticeKey === null ? "" : t(initialNoticeKey),
   );
@@ -78,14 +83,16 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (page.kind !== "question" || page.session.status !== "active") {
       return;
     }
+    const entryId = page.card.entryId;
     void api
       .post<void>(
         `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/current/shown`,
         {
-          entryId: page.card.entryId,
+          entryId,
           presentationId: page.card.presentationId,
         },
       )
+      .then(() => setShownEntryId(entryId))
       .catch(() => setAnnouncement(t("review.error")));
   }, [api, page, t]);
 
@@ -112,7 +119,11 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   }, [api, page, t]);
 
   const reveal = useCallback(() => {
-    if (page.kind !== "question" || busy) {
+    if (
+      page.kind !== "question" ||
+      shownEntryId !== page.card.entryId ||
+      busy
+    ) {
       return;
     }
     setBusy(true);
@@ -124,7 +135,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       .then(setPage)
       .catch(() => setAnnouncement(t("review.error")))
       .finally(() => setBusy(false));
-  }, [api, busy, page, t]);
+  }, [api, busy, page, shownEntryId, t]);
 
   const rate = useCallback(
     (rating: 1 | 2 | 3 | 4) => {
@@ -154,7 +165,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     [api, busy, page, t],
   );
 
-  const end = (): void => {
+  const pause = (): void => {
     if (page.kind === "completed" || busy) {
       return;
     }
@@ -164,7 +175,43 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/pause`,
         {},
       )
+      .then((state) => {
+        setPage(state);
+        setEndDialogOpen(false);
+      })
+      .catch(() => setAnnouncement(t("review.error")))
+      .finally(() => setBusy(false));
+  };
+
+  const resume = (): void => {
+    if (page.kind === "completed" || busy) {
+      return;
+    }
+    setBusy(true);
+    void api
+      .post<ReviewPageState>(
+        `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/resume`,
+        {},
+      )
       .then(setPage)
+      .catch(() => setAnnouncement(t("review.error")))
+      .finally(() => setBusy(false));
+  };
+
+  const finish = (): void => {
+    if (page.kind === "completed" || busy) {
+      return;
+    }
+    setBusy(true);
+    void api
+      .post<ReviewPageState>(
+        `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/finish`,
+        {},
+      )
+      .then((state) => {
+        setPage(state);
+        setEndDialogOpen(false);
+      })
       .catch(() => setAnnouncement(t("review.error")))
       .finally(() => setBusy(false));
   };
@@ -191,7 +238,11 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
           <h1 ref={questionRef} tabIndex={-1} dir="auto">
             {page.card.front}
           </h1>
-          <button type="button" disabled={busy} onClick={reveal}>
+          <button
+            type="button"
+            disabled={busy || shownEntryId !== page.card.entryId}
+            onClick={reveal}
+          >
             {t("review.showAnswer")}
           </button>
         </section>
@@ -218,35 +269,51 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       )}
 
       {page.kind === "waiting" && (
-        <>
-          <h1 data-route-heading tabIndex={-1}>
-            {t("review.waiting")}
-          </h1>
-          <p>{t("review.waitingDescription")}</p>
-        </>
+        <WaitingState
+          endButtonRef={endButtonRef}
+          nextDueAtMs={page.nextDueAtMs}
+          paused={page.session.status === "paused"}
+          onEnd={() => setEndDialogOpen(true)}
+          onResume={resume}
+        />
       )}
 
       {page.kind === "completed" && (
-        <>
-          <h1 data-route-heading tabIndex={-1}>
-            {t("review.completed")}
-          </h1>
-          <p>{t("review.completedEvents", { count: page.summary.reviewEvents })}</p>
-          <Link to="/">{t("nav.home")}</Link>
-        </>
+        <SessionSummary summary={page.summary} />
       )}
 
-      {page.kind !== "completed" && (
+      {(page.kind === "question" || page.kind === "answer") &&
+        page.session.status === "paused" && (
+          <section className="panel">
+            <h2>{t("review.paused")}</h2>
+            <button type="button" disabled={busy} onClick={resume}>
+              {t("review.resume")}
+            </button>
+          </section>
+        )}
+
+      {(page.kind === "question" || page.kind === "answer") &&
+        page.session.status !== "paused" && (
         <p>
           <button
             ref={endButtonRef}
             type="button"
             disabled={busy}
-            onClick={end}
+            onClick={() => setEndDialogOpen(true)}
           >
             {t("review.end")}
           </button>
         </p>
+      )}
+
+      {endDialogOpen && page.kind !== "completed" && (
+        <EndSessionDialog
+          busy={busy}
+          openerRef={endButtonRef}
+          onCancel={() => setEndDialogOpen(false)}
+          onFinish={finish}
+          onPause={pause}
+        />
       )}
     </>
   );
