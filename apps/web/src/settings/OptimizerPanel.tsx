@@ -5,6 +5,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
+import { ProfilePreview } from "./ProfilePreview.js";
 
 const ACTIVE_STATUSES = new Set<OptimizerRun["status"]>([
   "queued",
@@ -192,6 +193,12 @@ export function OptimizerPanel({
                   <dd>{run.metricRmseBins}</dd>
                 </div>
               </dl>
+              {run.resultProfileId !== null && (
+                <ProfilePreview
+                  api={api}
+                  profileId={run.resultProfileId}
+                />
+              )}
             </>
           )}
           {run.status === "failed" && (

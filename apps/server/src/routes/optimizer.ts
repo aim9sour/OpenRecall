@@ -1,5 +1,9 @@
 import {
   ApiErrorSchema,
+  OptimizerProfileApplicationSchema,
+  OptimizerProfileApplySchema,
+  OptimizerProfileListSchema,
+  OptimizerProfilePreviewSchema,
   OptimizerEligibilitySchema,
   OptimizerRunSchema,
   OptimizerScopeQuerySchema,
@@ -7,6 +11,7 @@ import {
   UuidSchema,
   type OptimizerScope,
   type OptimizerScopeQuery,
+  type OptimizerProfileApply,
 } from "@openrecall/contracts";
 import type { SectionRepository } from "@openrecall/database";
 import type { FastifyInstance, FastifyReply } from "fastify";
@@ -15,6 +20,7 @@ import {
   OptimizerEligibilityError,
   type OptimizerRunServiceApi,
 } from "../optimizer/optimizer-run-service.js";
+import type { ProfileApplicationServiceApi } from "../optimizer/profile-application-service.js";
 
 const RunParamsSchema = Type.Object(
   { runId: UuidSchema },
@@ -23,6 +29,17 @@ const RunParamsSchema = Type.Object(
 
 interface RunParams {
   readonly runId: string;
+}
+
+const ProfileParamsSchema = Type.Object(
+  {
+    profileId: Type.String({ minLength: 1, maxLength: 200 }),
+  },
+  { additionalProperties: false },
+);
+
+interface ProfileParams {
+  readonly profileId: string;
 }
 
 function scopeFromQuery(query: OptimizerScopeQuery): OptimizerScope | null {
@@ -52,10 +69,34 @@ function optimizerError(reply: FastifyReply, error: unknown) {
   throw error;
 }
 
+function profileError(reply: FastifyReply, error: unknown) {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "PROFILE_NOT_APPLICABLE") {
+    return reply.code(404).send({
+      code,
+      messageKey: "optimizer.profileNotFound",
+    });
+  }
+  if (
+    code === "PROFILE_APPLICATION_STALE" ||
+    code === "PROFILE_APPLICATION_BUSY"
+  ) {
+    return reply.code(409).send({
+      code,
+      messageKey:
+        code === "PROFILE_APPLICATION_STALE"
+          ? "optimizer.profileStale"
+          : "optimizer.profileBusy",
+    });
+  }
+  throw error;
+}
+
 export function registerOptimizerRoutes(
   server: FastifyInstance,
   options: {
     readonly optimizer: OptimizerRunServiceApi;
+    readonly profiles: ProfileApplicationServiceApi;
     readonly sections: SectionRepository;
     readonly nowMs: () => number;
   },
@@ -183,6 +224,102 @@ export function registerOptimizerRoutes(
       return reply.code(202).send(
         options.optimizer.getRun(request.params.runId) ?? run,
       );
+    },
+  );
+
+  server.get(
+    "/api/v1/optimizer/profiles",
+    {
+      schema: {
+        response: {
+          200: OptimizerProfileListSchema,
+        },
+      },
+    },
+    async (_request, reply) =>
+      reply.code(200).send(options.profiles.listProfiles()),
+  );
+
+  server.post<{ Params: ProfileParams }>(
+    "/api/v1/optimizer/profiles/:profileId/preview",
+    {
+      schema: {
+        params: ProfileParamsSchema,
+        response: {
+          200: OptimizerProfilePreviewSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(200).send(
+          options.profiles.preview(request.params.profileId),
+        );
+      } catch (error) {
+        return profileError(reply, error);
+      }
+    },
+  );
+
+  server.post<{
+    Params: ProfileParams;
+    Body: OptimizerProfileApply;
+  }>(
+    "/api/v1/optimizer/profiles/:profileId/apply",
+    {
+      schema: {
+        params: ProfileParamsSchema,
+        body: OptimizerProfileApplySchema,
+        response: {
+          200: OptimizerProfileApplicationSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(200).send(
+          await options.profiles.apply(
+            request.params.profileId,
+            request.body.revisionToken,
+          ),
+        );
+      } catch (error) {
+        return profileError(reply, error);
+      }
+    },
+  );
+
+  server.post<{
+    Params: ProfileParams;
+    Body: OptimizerProfileApply;
+  }>(
+    "/api/v1/optimizer/profiles/:profileId/rollback",
+    {
+      schema: {
+        params: ProfileParamsSchema,
+        body: OptimizerProfileApplySchema,
+        response: {
+          200: OptimizerProfileApplicationSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(200).send(
+          await options.profiles.rollback(
+            request.params.profileId,
+            request.body.revisionToken,
+          ),
+        );
+      } catch (error) {
+        return profileError(reply, error);
+      }
     },
   );
 }

@@ -1,5 +1,6 @@
 import type {
   OptimizerEligibility,
+  OptimizerProfile,
   ReviewPageState,
   Section,
   SectionSummary,
@@ -149,12 +150,13 @@ export function createRoutes({
                 : `/api/v1/optimizer/eligibility?scopeType=section&sectionId=${encodeURIComponent(
                     sectionId,
                   )}`;
-            const [sections, view, optimizerEligibility] = await Promise.all([
+            const [sections, view, optimizerEligibility, profiles] = await Promise.all([
               api.get<SectionSummary[]>("/api/v1/sections"),
               api.get<SettingsView>(settingsPath),
               api.get<OptimizerEligibility>(eligibilityPath),
+              api.get<OptimizerProfile[]>("/api/v1/optimizer/profiles"),
             ]);
-            return { sections, view, optimizerEligibility };
+            return { sections, view, optimizerEligibility, profiles };
           },
           element: <SettingsPage api={api} />,
         },

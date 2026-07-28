@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
+import { join } from "node:path";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
   CardRepository,
   CardStatisticsRepository,
+  createBackupService,
+  ProfileApplicationRepository,
   RatingTransaction,
   ReviewQueueRepository,
   ReviewSessionRepository,
@@ -24,6 +27,10 @@ import {
   OptimizerRunService,
   type OptimizerRunServiceApi,
 } from "./optimizer/optimizer-run-service.js";
+import {
+  ProfileApplicationService,
+  type ProfileApplicationServiceApi,
+} from "./optimizer/profile-application-service.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
@@ -42,6 +49,7 @@ export interface BuildServerOptions {
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
   readonly optimizerService?: OptimizerRunServiceApi;
+  readonly profileApplicationService?: ProfileApplicationServiceApi;
   readonly onDueWakeReady?: (
     wake: Pick<DueWakeService, "rearm">,
   ) => void;
@@ -153,6 +161,18 @@ export async function buildServer(
         clearTimeout(timer as ReturnType<typeof setTimeout>);
       },
     });
+    const profiles =
+      options.profileApplicationService ??
+      new ProfileApplicationService({
+        repository: new ProfileApplicationRepository(options.database),
+        backup: createBackupService({
+          db: options.database,
+          snapshotDirectory: join(config.dataDirectory, "backups"),
+          nowMs: options.nowMs ?? Date.now,
+        }),
+        nowMs: options.nowMs ?? Date.now,
+        rearmDue: () => dueWake.rearm(),
+      });
     options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
       repository,
@@ -176,6 +196,7 @@ export async function buildServer(
     });
     registerOptimizerRoutes(server, {
       optimizer,
+      profiles,
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });

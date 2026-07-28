@@ -67,3 +67,15 @@ export {
   type ParameterProfileCandidate,
   type SchedulerSettingsCandidate,
 } from "./settings/resolve-effective-config.js";
+export {
+  replayHistory,
+  ReplayHistoryError,
+  type ReplayAdapter,
+  type ReplayContext,
+  type ReplayItemHistory,
+  type ReplayLog,
+  type ReplayMemoryState,
+  type ReplayProfile,
+  type ReplayRating,
+  type ReplaySchedulerState,
+} from "./replay/replay-history.js";

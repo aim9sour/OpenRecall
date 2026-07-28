@@ -75,3 +75,14 @@ export {
   OptimizerDataRepository,
   type OptimizerEligibilityCounts,
 } from "./optimizer-data-repository.js";
+export {
+  ProfileApplicationRepository,
+  type CapturedApplicationItem,
+  type ProfileApplicationCapture,
+  type ProfileApplicationRecord,
+  type ProfileScopeType,
+  type ProfileStatus,
+  type RebuiltSchedulerState,
+  type StoredParameterProfile,
+} from "./profile-application-repository.js";
+export { currentReplayAdapter } from "./current-replay-adapter.js";

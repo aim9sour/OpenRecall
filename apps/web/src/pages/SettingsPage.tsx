@@ -1,5 +1,6 @@
 import type {
   OptimizerEligibility,
+  OptimizerProfile,
   SectionSummary,
   SettingsView,
 } from "@openrecall/contracts";
@@ -9,10 +10,12 @@ import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { SchedulerSettingsForm } from "../settings/SchedulerSettingsForm.js";
 import { OptimizerPanel } from "../settings/OptimizerPanel.js";
+import { ProfilePreview } from "../settings/ProfilePreview.js";
 
 export interface SettingsPageData {
   readonly sections: readonly SectionSummary[];
   readonly optimizerEligibility: OptimizerEligibility;
+  readonly profiles: readonly OptimizerProfile[];
   readonly view: SettingsView;
 }
 
@@ -23,6 +26,15 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const [view, setView] = useState(loaded.view);
   const selectedSectionId =
     new URLSearchParams(location.search).get("sectionId") ?? "";
+  const selectableProfiles = loaded.profiles.filter((profile) => {
+    if (profile.status === "active" || profile.scopeType === "official") {
+      return false;
+    }
+    return selectedSectionId === ""
+      ? profile.scopeType === "global"
+      : profile.scopeType === "section" &&
+          profile.sectionId === selectedSectionId;
+  });
 
   useEffect(() => {
     setView(loaded.view);
@@ -60,6 +72,36 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
         api={api}
         initialEligibility={loaded.optimizerEligibility}
       />
+      {selectableProfiles.length > 0 && (
+        <section
+          aria-labelledby="parameter-profile-history"
+          className="panel"
+        >
+          <h2 id="parameter-profile-history">
+            {t("optimizer.profiles.title")}
+          </h2>
+          <p>{t("optimizer.profiles.description")}</p>
+          {selectableProfiles.map((profile) => (
+            <article key={profile.id}>
+              <h3>{profile.id}</h3>
+              <p>
+                {profile.status === "candidate"
+                  ? t("optimizer.profiles.candidate")
+                  : t("optimizer.profiles.previous")}
+              </p>
+              <ProfilePreview
+                action={
+                  profile.status === "candidate"
+                    ? "apply"
+                    : "rollback"
+                }
+                api={api}
+                profileId={profile.id}
+              />
+            </article>
+          ))}
+        </section>
+      )}
     </>
   );
 }

@@ -149,4 +149,129 @@ describe("optimizer routes", () => {
       }
     });
   });
+
+  it("lists, previews, applies, and rolls back profiles with validated envelopes", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      const profile = {
+        id: "c8f65aa8-122b-41e1-985c-61cd3cbb3210",
+        scopeType: "global" as const,
+        sectionId: null,
+        algorithmId: "FSRS-6",
+        algorithmVersion: "6.0",
+        adapterVersion: 1,
+        eligibleExampleCount: 400,
+        reviewCutoffMs: 5_000,
+        status: "candidate" as const,
+        createdAtMs: 6_000,
+        packageVersion: "0.5.0",
+        metricLogLoss: 0.2,
+        metricRmseBins: 0.1,
+      };
+      const previousProfile = {
+        ...profile,
+        id: "official-fsrs6-v1",
+        scopeType: "official" as const,
+        status: "active" as const,
+        createdAtMs: 0,
+        packageVersion: null,
+        metricLogLoss: null,
+        metricRmseBins: null,
+      };
+      const revisionToken = "a".repeat(64);
+      const workload = Array.from({ length: 30 }, (_, dayOffset) => ({
+        dayOffset,
+        count: 0,
+      }));
+      const preview = {
+        profile,
+        previousProfile,
+        affectedItemCount: 2,
+        reviewCount: 10,
+        sourceMatches: true,
+        revisionToken,
+        dueShift: { earlier: 1, later: 1, unchanged: 0 },
+        oldWorkload: workload,
+        newWorkload: workload,
+      };
+      const application = {
+        id: "d8f65aa8-122b-41e1-985c-61cd3cbb3210",
+        profileId: profile.id,
+        previousProfileId: previousProfile.id,
+        scopeType: "global" as const,
+        sectionId: null,
+        sourceReviewCutoffMs: 5_000,
+        backupFilename:
+          "openrecall-automatic-7000-a.sqlite3",
+        appliedAtMs: 7_000,
+        affectedItemCount: 2,
+      };
+      const profiles = {
+        listProfiles: vi.fn(() => [profile, previousProfile]),
+        preview: vi.fn(() => preview),
+        apply: vi.fn(async () => application),
+        rollback: vi.fn(async () => application),
+      };
+      const optimizer = {
+        getEligibility: vi.fn(),
+        startRun: vi.fn(),
+        getRun: vi.fn(() => null),
+        cancelRun: vi.fn(() => false),
+        whenIdle: async () => undefined,
+        dispose: () => undefined,
+      };
+      const server = await buildServer({
+        config,
+        database: db,
+        optimizerService: optimizer,
+        profileApplicationService: profiles,
+      });
+      const headers = await mutationHeaders(server);
+
+      try {
+        const listed = await server.inject({
+          method: "GET",
+          url: "/api/v1/optimizer/profiles",
+          headers: testRequestHeaders(),
+        });
+        expect(listed.statusCode).toBe(200);
+        expect(listed.json()).toEqual([profile, previousProfile]);
+
+        const viewed = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/profiles/${profile.id}/preview`,
+          headers,
+        });
+        expect(viewed.statusCode).toBe(200);
+        expect(viewed.json()).toEqual(preview);
+
+        for (const action of ["apply", "rollback"] as const) {
+          const response = await server.inject({
+            method: "POST",
+            url:
+              `/api/v1/optimizer/profiles/${profile.id}/${action}`,
+            headers,
+            payload: { revisionToken },
+          });
+          expect(response.statusCode).toBe(200);
+          expect(response.json()).toEqual(application);
+          expect(profiles[action]).toHaveBeenCalledWith(
+            profile.id,
+            revisionToken,
+          );
+        }
+
+        const invalid = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/profiles/${profile.id}/apply`,
+          headers,
+          payload: { revisionToken: "short" },
+        });
+        expect(invalid.statusCode).toBe(400);
+        expect(profiles.apply).toHaveBeenCalledOnce();
+      } finally {
+        await server.close();
+      }
+    });
+  });
 });
