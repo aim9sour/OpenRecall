@@ -27,6 +27,7 @@ export {
 export {
   OpenReviewSessionError,
   ReviewQueueRepository,
+  type DueWakeTarget,
   type MergeDueItemsResult,
 } from "./review-queue-repository.js";
 export {

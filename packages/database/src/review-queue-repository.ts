@@ -25,6 +25,11 @@ export interface MergeDueItemsResult {
   readonly revision: number;
 }
 
+export interface DueWakeTarget {
+  readonly sessionId: string;
+  readonly dueAtMs: number;
+}
+
 export class OpenReviewSessionError extends Error {
   readonly sessionId: string;
   readonly sectionId: string;
@@ -57,6 +62,7 @@ export class ReviewQueueRepository {
   readonly #selectCounts;
   readonly #selectElapsedActive;
   readonly #selectNearestFutureDue;
+  readonly #selectNextDueWake;
   readonly #updateSessionAfterMerge;
   readonly #startOrResume;
   readonly #merge;
@@ -163,6 +169,31 @@ export class ReviewQueueRepository {
       WHERE scheduler_states.section_id = @sectionId
         AND scheduler_states.due_at_ms > @nowMs
       ORDER BY scheduler_states.due_at_ms, scheduler_states.learning_item_id
+      LIMIT 1
+    `);
+    this.#selectNextDueWake = db.prepare<[], {
+      readonly session_id: string;
+      readonly due_at_ms: number;
+    }>(`
+      SELECT
+        sessions.id AS session_id,
+        min(scheduler_states.due_at_ms) AS due_at_ms
+      FROM review_sessions AS sessions
+      JOIN scheduler_states
+        ON scheduler_states.section_id = sessions.section_id
+      JOIN learning_items
+        ON learning_items.id = scheduler_states.learning_item_id
+        AND learning_items.lifecycle = 'active'
+      WHERE sessions.status IN ('active', 'waiting')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM session_queue_entries AS queue
+          WHERE queue.session_id = sessions.id
+            AND queue.learning_item_id = scheduler_states.learning_item_id
+            AND queue.status IN ('queued', 'active')
+        )
+      GROUP BY sessions.id
+      ORDER BY due_at_ms, sessions.id
       LIMIT 1
     `);
     this.#updateSessionAfterMerge = db.prepare<{
@@ -319,5 +350,16 @@ export class ReviewQueueRepository {
     validateIdentifier(sectionId, "REVIEW_SECTION_ID_INVALID");
     validateNow(nowMs);
     return this.#nearestFutureDue(sectionId, nowMs);
+  }
+
+  findNextDue(nowMs: number): DueWakeTarget | null {
+    validateNow(nowMs);
+    const row = this.#selectNextDueWake.get();
+    return row === undefined
+      ? null
+      : {
+          sessionId: row.session_id,
+          dueAtMs: row.due_at_ms,
+        };
   }
 }

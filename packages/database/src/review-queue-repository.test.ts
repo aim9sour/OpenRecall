@@ -293,6 +293,14 @@ describe("ReviewQueueRepository", () => {
           nextDueAtMs: 5000,
         });
         expect(repository.getNearestFutureDue("section-1", 1000)).toBe(5000);
+        expect(repository.findNextDue(1000)).toEqual({
+          sessionId: waiting.id,
+          dueAtMs: 5000,
+        });
+        db.prepare(
+          "UPDATE review_sessions SET status = 'paused' WHERE id = ?",
+        ).run(waiting.id);
+        expect(repository.findNextDue(1000)).toBeNull();
         expect(() =>
           repository.startOrResumeSession("section-2", 1000),
         ).toThrow(OpenReviewSessionError);

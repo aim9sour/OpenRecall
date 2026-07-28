@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
+  ReviewQueueRepository,
   SectionRepository,
 } from "@openrecall/database";
 import Fastify, {
@@ -10,7 +11,10 @@ import Fastify, {
   LogController,
 } from "fastify";
 import { loadConfig, type ServerConfig } from "./config.js";
+import { DueWakeService } from "./review/due-wake-service.js";
+import { ReviewEvents } from "./review/review-events.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
+import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerSecurity } from "./security.js";
@@ -21,6 +25,8 @@ export interface BuildServerOptions {
   readonly config?: ServerConfig;
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
+  readonly reviewEvents?: ReviewEvents;
+  readonly sseHeartbeatIntervalMs?: number;
 }
 
 function validationPath(error: {
@@ -79,15 +85,31 @@ export async function buildServer(
     logController: new LogController({ disableRequestLogging: true }),
     logger: false,
   }).withTypeProvider<TypeBoxTypeProvider>();
+  const reviewEvents = options.reviewEvents ?? new ReviewEvents();
 
   registerSecurity(server, config, PROCESS_CSRF_TOKEN);
   registerErrorHandler(server);
+  registerEventRoutes(server, {
+    events: reviewEvents,
+    heartbeatIntervalMs: options.sseHeartbeatIntervalMs,
+    publicOrigin: config.publicOrigin,
+  });
   registerBootstrapRoute(server, {
     csrfToken: PROCESS_CSRF_TOKEN,
     locale: config.locale,
   });
   if (options.database !== undefined) {
     const repository = new SectionRepository(options.database);
+    const queue = new ReviewQueueRepository(options.database);
+    const dueWake = new DueWakeService(queue, reviewEvents, {
+      now: options.nowMs ?? Date.now,
+      setTimer(callback, delayMs) {
+        return setTimeout(callback, delayMs);
+      },
+      clearTimer(timer) {
+        clearTimeout(timer as ReturnType<typeof setTimeout>);
+      },
+    });
     registerSectionRoutes(server, {
       repository,
       nowMs: options.nowMs ?? Date.now,
@@ -97,10 +119,21 @@ export async function buildServer(
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
+    server.addHook("onReady", async () => {
+      dueWake.start();
+    });
+    server.addHook("preClose", async () => {
+      dueWake.stop();
+      reviewEvents.closeAll();
+    });
     server.addHook("onClose", async () => {
       if (options.database?.open === true) {
         options.database.close();
       }
+    });
+  } else {
+    server.addHook("preClose", async () => {
+      reviewEvents.closeAll();
     });
   }
 
