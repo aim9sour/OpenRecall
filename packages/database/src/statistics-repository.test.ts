@@ -1,10 +1,11 @@
-import { withTempDatabase } from "@openrecall/test-support";
-import { describe, expect, it } from "vitest";
-import { openDatabase } from "./open-database.js";
 import {
   SECTION_ONE,
+  SECTION_TWO,
   seedStatisticsFixture,
-} from "./statistics-test-fixture.js";
+  withTempDatabase,
+} from "@openrecall/test-support";
+import { describe, expect, it } from "vitest";
+import { openDatabase } from "./open-database.js";
 import { StatisticsRepository } from "./statistics-repository.js";
 
 const studyDay = { timeZone: "Africa/Cairo", boundaryMinutes: 240 };
@@ -64,7 +65,7 @@ describe("StatisticsRepository", () => {
             dueNow: 1,
           }),
           expect.objectContaining({
-            sectionId: "section-2",
+            sectionId: SECTION_TWO,
             total: 1,
             dueNow: 0,
           }),

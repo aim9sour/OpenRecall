@@ -1,11 +1,11 @@
-import { withTempDatabase } from "@openrecall/test-support";
-import { describe, expect, it } from "vitest";
-import { CardStatisticsRepository } from "./card-statistics-repository.js";
-import { openDatabase } from "./open-database.js";
 import {
   ITEM_ONE,
   seedStatisticsFixture,
-} from "./statistics-test-fixture.js";
+  withTempDatabase,
+} from "@openrecall/test-support";
+import { describe, expect, it } from "vitest";
+import { CardStatisticsRepository } from "./card-statistics-repository.js";
+import { openDatabase } from "./open-database.js";
 
 describe("CardStatisticsRepository", () => {
   it("returns state, source, exposures, and stable paginated history snapshots", async () => {

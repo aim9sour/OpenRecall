@@ -3,11 +3,14 @@ import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
   CardRepository,
+  CardStatisticsRepository,
   RatingTransaction,
   ReviewQueueRepository,
   ReviewSessionRepository,
   SectionRepository,
+  StatisticsRepository,
 } from "@openrecall/database";
+import type { StudyDayConfig } from "@openrecall/domain";
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
@@ -22,6 +25,7 @@ import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
 import { registerReviewRoutes } from "./routes/review.js";
 import { registerSectionRoutes } from "./routes/sections.js";
+import { registerStatisticsRoutes } from "./routes/statistics.js";
 import { registerSecurity } from "./security.js";
 
 const PROCESS_CSRF_TOKEN = randomBytes(32).toString("base64url");
@@ -35,6 +39,7 @@ export interface BuildServerOptions {
   ) => void;
   readonly reviewEvents?: ReviewEvents;
   readonly sseHeartbeatIntervalMs?: number;
+  readonly studyDay?: StudyDayConfig;
 }
 
 function validationPath(error: {
@@ -129,6 +134,17 @@ export async function buildServer(
       cards: new CardRepository(options.database),
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
+    });
+    registerStatisticsRoutes(server, {
+      statistics: new StatisticsRepository(options.database),
+      cards: new CardStatisticsRepository(options.database),
+      nowMs: options.nowMs ?? Date.now,
+      studyDay: () =>
+        options.studyDay ?? {
+          timeZone:
+            Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          boundaryMinutes: 240,
+        },
     });
     registerImportRoutes(server, {
       cards: new CardImportRepository(options.database),
