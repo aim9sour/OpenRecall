@@ -1,6 +1,7 @@
 import { withTempDatabase } from "@openrecall/test-support";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { SCHEMA_VERSION } from "../constants.js";
 import { migrateDatabase } from "../migrate.js";
 import { coreMigration } from "./001-core.js";
 import { reviewCoreMigration } from "./002-review-core.js";
@@ -33,7 +34,9 @@ describe("card management migration", () => {
 
         migrateDatabase(db);
 
-        expect(db.pragma("user_version", { simple: true })).toBe(4);
+        expect(db.pragma("user_version", { simple: true })).toBe(
+          SCHEMA_VERSION,
+        );
         expect(
           db
             .prepare(

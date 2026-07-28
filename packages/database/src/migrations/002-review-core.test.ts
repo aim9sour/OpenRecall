@@ -1,6 +1,7 @@
 import { withTempDatabase } from "@openrecall/test-support";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { SCHEMA_VERSION } from "../constants.js";
 import { migrateDatabase } from "../migrate.js";
 import { coreMigration } from "./001-core.js";
 
@@ -62,7 +63,9 @@ describe("review core migration", () => {
 
         migrateDatabase(db);
 
-        expect(db.pragma("user_version", { simple: true })).toBe(4);
+        expect(db.pragma("user_version", { simple: true })).toBe(
+          SCHEMA_VERSION,
+        );
         const tables = db
           .prepare(
             `
