@@ -8,12 +8,14 @@ import {
   useNavigation,
 } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
+import type { ApiClient } from "../api/client.js";
+import { StartReviewButton } from "../review/StartReviewButton.js";
 
 export interface CreateSectionActionData {
   readonly errorMessageKeys?: readonly string[];
 }
 
-export function HomePage() {
+export function HomePage({ api }: { readonly api: ApiClient }) {
   const sections = useLoaderData() as SectionSummary[];
   const actionData = useActionData() as CreateSectionActionData | undefined;
   const navigation = useNavigation();
@@ -77,7 +79,6 @@ export function HomePage() {
         ) : (
           <ul className="section-grid">
             {sections.map((section) => {
-              const reviewDescriptionId = `review-unavailable-${section.id}`;
               return (
                 <li key={section.id} className="panel">
                   <article>
@@ -100,16 +101,7 @@ export function HomePage() {
                         <dd>{section.counts.dueNow}</dd>
                       </div>
                     </dl>
-                    <button
-                      type="button"
-                      disabled
-                      aria-describedby={reviewDescriptionId}
-                    >
-                      {t("section.startReview")}
-                    </button>
-                    <p id={reviewDescriptionId}>
-                      {t("section.reviewUnavailable")}
-                    </p>
+                    <StartReviewButton api={api} sectionId={section.id} />
                   </article>
                 </li>
               );

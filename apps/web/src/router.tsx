@@ -1,4 +1,8 @@
-import type { Section, SectionSummary } from "@openrecall/contracts";
+import type {
+  ReviewPageState,
+  Section,
+  SectionSummary,
+} from "@openrecall/contracts";
 import type { RouteObject } from "react-router";
 import { ApiClientError, type ApiClient } from "./api/client.js";
 import { AppShell } from "./app/AppShell.js";
@@ -11,6 +15,7 @@ import {
   type CreateSectionActionData,
 } from "./pages/HomePage.js";
 import { ImportPage } from "./pages/ImportPage.js";
+import { ReviewPage } from "./pages/ReviewPage.js";
 import { SectionPage } from "./pages/SectionPage.js";
 
 export function createRoutes({
@@ -28,6 +33,15 @@ export function createRoutes({
         </I18nProvider>
       ),
       children: [
+        {
+          id: "review",
+          path: "review/:sessionId",
+          loader: async ({ params }) =>
+            api.get<ReviewPageState>(
+              `/api/v1/review-sessions/${encodeURIComponent(params["sessionId"] ?? "")}`,
+            ),
+          element: <ReviewPage api={api} />,
+        },
         {
           id: "home",
           index: true,
@@ -54,7 +68,7 @@ export function createRoutes({
               return { errorMessageKeys: ["error.internal"] };
             }
           },
-          element: <HomePage />,
+          element: <HomePage api={api} />,
         },
         {
           id: "section",
@@ -63,7 +77,7 @@ export function createRoutes({
             api.get<SectionSummary>(
               `/api/v1/sections/${encodeURIComponent(params["sectionId"] ?? "")}`,
             ),
-          element: <SectionPage />,
+          element: <SectionPage api={api} />,
         },
         {
           id: "import",

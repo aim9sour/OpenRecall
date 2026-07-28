@@ -118,6 +118,50 @@ button:disabled {
   background: #fff0f0;
 }
 
+.review-progress {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  padding: 0.75rem 1rem;
+  border: 1px solid #b8c5bd;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.review-progress p {
+  margin-block: 0 0.5rem;
+}
+
+.review-progress progress {
+  width: 100%;
+}
+
+.review-card {
+  max-width: 50rem;
+  margin-block: 2rem;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  border: 1px solid #b8c5bd;
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+.review-card h1,
+.review-card h2,
+.review-card h3 {
+  overflow-wrap: anywhere;
+}
+
+.rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-block-start: 2rem;
+}
+
+.sr-status:empty {
+  position: absolute;
+}
+
 .section-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));

@@ -1,11 +1,12 @@
 import type { SectionSummary } from "@openrecall/contracts";
 import { Link, useLoaderData } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
+import type { ApiClient } from "../api/client.js";
+import { StartReviewButton } from "../review/StartReviewButton.js";
 
-export function SectionPage() {
+export function SectionPage({ api }: { readonly api: ApiClient }) {
   const section = useLoaderData() as SectionSummary;
   const { t } = useI18n();
-  const reviewDescriptionId = `section-review-unavailable-${section.id}`;
 
   return (
     <>
@@ -35,14 +36,7 @@ export function SectionPage() {
       <p>
         <Link to="import">{t("import.open")}</Link>
       </p>
-      <button
-        type="button"
-        disabled
-        aria-describedby={reviewDescriptionId}
-      >
-        {t("section.startReview")}
-      </button>
-      <p id={reviewDescriptionId}>{t("section.reviewUnavailable")}</p>
+      <StartReviewButton api={api} sectionId={section.id} />
     </>
   );
 }

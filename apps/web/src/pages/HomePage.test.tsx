@@ -1,3 +1,4 @@
+import type { ReviewPageState } from "@openrecall/contracts";
 import { createI18n } from "@openrecall/i18n";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -19,6 +20,24 @@ const sections = [
     nextDueAtMs: null,
   },
 ];
+const waitingReview: ReviewPageState = {
+  kind: "waiting",
+  nextDueAtMs: null,
+  session: {
+    id: "c9f65aa8-122b-41e1-985c-61cd3cbb3210",
+    sectionId: sections[0]!.id,
+    status: "waiting",
+    revision: 1,
+    completedAppearances: 0,
+    currentlyRemaining: 0,
+    newRemaining: 0,
+    repeatedWithinSession: 0,
+    elapsedActiveMs: 0,
+    newlyJoined: 0,
+    nextDueAtMs: null,
+    remainingSnapshotAtMs: 1_000,
+  },
+};
 
 async function renderHome(
   post: ApiClient["post"] = async <T,>() => ({}) as T,
@@ -30,7 +49,10 @@ async function renderHome(
       csrfToken: "test-token",
       locale: "en",
     }),
-    get: async <T,>() => sections as T,
+    get: async <T,>(path: string) =>
+      (path.startsWith("/api/v1/review-sessions/")
+        ? waitingReview
+        : sections) as T,
     post,
   };
   const router = createMemoryRouter(createRoutes({ api, i18n }), {
@@ -38,11 +60,11 @@ async function renderHome(
   });
   const result = render(<RouterProvider router={router} />);
   await screen.findByRole("heading", { level: 1, name: "Learning sections" });
-  return result;
+  return { ...result, router };
 }
 
 describe("HomePage accessibility", () => {
-  it("has one main landmark, one h1, a skip link, and described review controls", async () => {
+  it("has one main landmark, one h1, a skip link, and enabled review controls", async () => {
     const { container } = await renderHome();
 
     expect(screen.getAllByRole("main")).toHaveLength(1);
@@ -54,12 +76,8 @@ describe("HomePage accessibility", () => {
     const reviewButton = screen.getByRole("button", {
       name: "Start review",
     }) as HTMLButtonElement;
-    expect(reviewButton.disabled).toBe(true);
-    const descriptionId = reviewButton.getAttribute("aria-describedby");
-    expect(descriptionId).not.toBeNull();
-    expect(document.getElementById(descriptionId ?? "")?.textContent).toBe(
-      "Review becomes available after the review engine is installed.",
-    );
+    expect(reviewButton.disabled).toBe(false);
+    expect(reviewButton.getAttribute("aria-describedby")).toBeNull();
 
     await waitFor(() => {
       expect(document.activeElement).toBe(
@@ -106,6 +124,31 @@ describe("HomePage accessibility", () => {
     });
     expect(summary.textContent).toContain(
       "Please correct the following errors.",
+    );
+  });
+
+  it("opens an existing review session and announces the conflict safely", async () => {
+    const user = userEvent.setup();
+    const { router } = await renderHome(async () => {
+      throw new ApiClientError(409, {
+        code: "OPEN_REVIEW_SESSION_EXISTS",
+        messageKey: "review.openSessionExists",
+        sessionId: waitingReview.session.id,
+        sectionId: waitingReview.session.sectionId,
+      } as never);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Start review" }));
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "No cards are due now",
+    });
+    expect(router.state.location.pathname).toBe(
+      `/review/${waitingReview.session.id}`,
+    );
+    expect(screen.getByRole("status").textContent).toBe(
+      "Your existing review session was opened.",
     );
   });
 
