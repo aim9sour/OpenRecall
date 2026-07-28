@@ -260,6 +260,51 @@ button:disabled {
   font-size: 1.5rem;
 }
 
+.statistics dd small {
+  display: block;
+  max-width: 18rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.filter-form h2 {
+  margin-block: 0;
+}
+
+.bar-chart {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+
+.bar-chart-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 4fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bar-chart-label {
+  overflow-wrap: anywhere;
+}
+
+.bar-chart-bar {
+  display: block;
+  width: var(--bar-percentage);
+  min-width: 0.2rem;
+  height: 1.5rem;
+  border: 1px solid currentColor;
+  color: #075d4b;
+  background-color: #d5ebe5;
+  background-image: repeating-linear-gradient(
+    135deg,
+    currentColor 0,
+    currentColor 2px,
+    transparent 2px,
+    transparent 7px
+  );
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -270,12 +315,32 @@ table {
   background: #ffffff;
 }
 
+caption {
+  padding-block: 0.5rem;
+  font-weight: 700;
+  text-align: start;
+}
+
 th,
 td {
   padding: 0.75rem;
   border: 1px solid #b8c5bd;
   text-align: start;
   vertical-align: top;
+}
+
+.card-statistics {
+  margin-block: 1rem;
+}
+
+.card-statistics table {
+  margin-block: 1rem;
+}
+
+@media (max-width: 36rem) {
+  .bar-chart-row {
+    grid-template-columns: minmax(6rem, 1fr) minmax(4rem, 2fr) auto;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

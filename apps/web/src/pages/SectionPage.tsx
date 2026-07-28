@@ -1,12 +1,21 @@
-import type { SectionSummary } from "@openrecall/contracts";
+import type {
+  SectionSummary,
+  StudyStatistics,
+} from "@openrecall/contracts";
 import { Link, useLoaderData } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
 import type { ApiClient } from "../api/client.js";
 import { CardList } from "../cards/CardList.js";
 import { StartReviewButton } from "../review/StartReviewButton.js";
+import { StatisticsDashboard } from "../statistics/StatisticsDashboard.js";
+
+export interface SectionPageData {
+  readonly section: SectionSummary;
+  readonly statistics: StudyStatistics;
+}
 
 export function SectionPage({ api }: { readonly api: ApiClient }) {
-  const section = useLoaderData() as SectionSummary;
+  const { section, statistics } = useLoaderData() as SectionPageData;
   const { t } = useI18n();
 
   return (
@@ -17,22 +26,9 @@ export function SectionPage({ api }: { readonly api: ApiClient }) {
       <h1 data-route-heading tabIndex={-1}>
         {section.name}
       </h1>
-      <section aria-labelledby="section-statistics-heading" className="panel">
+      <section aria-labelledby="section-statistics-heading">
         <h2 id="section-statistics-heading">{t("section.statistics")}</h2>
-        <dl className="statistics">
-          <div>
-            <dt>{t("stats.total")}</dt>
-            <dd>{section.counts.total}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.new")}</dt>
-            <dd>{section.counts.new}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.due")}</dt>
-            <dd>{section.counts.dueNow}</dd>
-          </div>
-        </dl>
+        <StatisticsDashboard statistics={statistics} />
       </section>
       <p>
         <Link to="import">{t("import.open")}</Link>

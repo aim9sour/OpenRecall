@@ -104,7 +104,7 @@ export function CardList({
             <article key={card.id} className="panel">
               <h3 dir="auto">{primary?.front ?? t("card.untitled")}</h3>
               <CardEditor api={api} card={card} onUpdated={replaceCard} />
-              <CardStatisticsDisclosure card={card} />
+              <CardStatisticsDisclosure api={api} card={card} />
               <div className="review-actions">
                 {card.lifecycle === "active" && (
                   <button

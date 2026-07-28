@@ -18,7 +18,7 @@ export function AppShell() {
               <Link to="/">{t("nav.home")}</Link>
             </li>
             <li>
-              <span aria-disabled="true">{t("nav.statistics")}</span>
+              <Link to="/statistics">{t("nav.statistics")}</Link>
             </li>
             <li>
               <span aria-disabled="true">{t("nav.settings")}</span>

@@ -2,6 +2,7 @@ import type {
   ReviewPageState,
   Section,
   SectionSummary,
+  StudyStatistics,
 } from "@openrecall/contracts";
 import type { RouteObject } from "react-router";
 import { ApiClientError, type ApiClient } from "./api/client.js";
@@ -16,7 +17,24 @@ import {
 } from "./pages/HomePage.js";
 import { ImportPage } from "./pages/ImportPage.js";
 import { ReviewPage } from "./pages/ReviewPage.js";
-import { SectionPage } from "./pages/SectionPage.js";
+import {
+  SectionPage,
+  type SectionPageData,
+} from "./pages/SectionPage.js";
+import { StatisticsPage } from "./pages/StatisticsPage.js";
+
+function statisticsPath(
+  basePath: string,
+  searchParams: URLSearchParams,
+): string {
+  const query = new URLSearchParams();
+  for (const key of ["fromStudyDay", "toStudyDay"] as const) {
+    const value = searchParams.get(key);
+    if (value !== null && value !== "") query.set(key, value);
+  }
+  const text = query.toString();
+  return text === "" ? basePath : `${basePath}?${text}`;
+}
 
 export function createRoutes({
   api,
@@ -73,11 +91,29 @@ export function createRoutes({
         {
           id: "section",
           path: "sections/:sectionId",
-          loader: async ({ params }) =>
-            api.get<SectionSummary>(
-              `/api/v1/sections/${encodeURIComponent(params["sectionId"] ?? "")}`,
-            ),
+          loader: async ({ params }): Promise<SectionPageData> => {
+            const sectionId = encodeURIComponent(params["sectionId"] ?? "");
+            const [section, statistics] = await Promise.all([
+              api.get<SectionSummary>(`/api/v1/sections/${sectionId}`),
+              api.get<StudyStatistics>(
+                `/api/v1/sections/${sectionId}/statistics`,
+              ),
+            ]);
+            return { section, statistics };
+          },
           element: <SectionPage api={api} />,
+        },
+        {
+          id: "statistics",
+          path: "statistics",
+          loader: async ({ request }) =>
+            api.get<StudyStatistics>(
+              statisticsPath(
+                "/api/v1/statistics",
+                new URL(request.url).searchParams,
+              ),
+            ),
+          element: <StatisticsPage />,
         },
         {
           id: "import",
