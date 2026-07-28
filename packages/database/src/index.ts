@@ -29,3 +29,9 @@ export {
   ReviewQueueRepository,
   type MergeDueItemsResult,
 } from "./review-queue-repository.js";
+export {
+  RatingTransaction,
+  type EffectiveRatingSettings,
+  type RateInput,
+  type RatingTransactionOptions,
+} from "./rating-transaction.js";

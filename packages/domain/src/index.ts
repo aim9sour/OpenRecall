@@ -28,3 +28,10 @@ export type {
   ReviewSessionSnapshot,
   ReviewSessionStatus,
 } from "./review/session-status.js";
+export {
+  calculateReviewDuration,
+  parseRatingResponse,
+  serializeRatingResponse,
+  type RatingResponse,
+  type RevealedCardView,
+} from "./review/rating-service.js";
