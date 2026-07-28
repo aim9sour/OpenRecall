@@ -12,6 +12,7 @@
     "test": "vitest run packages/database/src"
   },
   "dependencies": {
+    "@openrecall/contracts": "workspace:*",
     "better-sqlite3": "13.0.1"
   },
   "devDependencies": {

@@ -100,6 +100,22 @@ describe("server boundary security", () => {
       messageKey: "error.csrfTokenInvalid",
     });
   });
+
+  it("uses a content-free envelope for an unknown route", async () => {
+    const server = await createTestServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/v1/private-content-in-path",
+      headers: testRequestHeaders(),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      code: "NOT_FOUND",
+      messageKey: "error.notFound",
+    });
+    expect(response.body).not.toContain("private-content-in-path");
+  });
 });
 
 describe("server configuration", () => {

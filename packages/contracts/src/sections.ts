@@ -7,6 +7,27 @@ export const UuidSchema = Type.String({
 
 export const EpochMillisecondsSchema = Type.Integer({ minimum: 0 });
 
+export const SectionCreateSchema = Type.Object(
+  {
+    name: Type.String({
+      minLength: 1,
+      maxLength: 200,
+      pattern: "\\S",
+    }),
+  },
+  { additionalProperties: false },
+);
+
+export const SectionSchema = Type.Object(
+  {
+    id: UuidSchema,
+    name: Type.String({ minLength: 1, maxLength: 200, pattern: "\\S" }),
+    createdAtMs: EpochMillisecondsSchema,
+    updatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
 export const SectionSummarySchema = Type.Object(
   {
     id: UuidSchema,
@@ -25,4 +46,6 @@ export const SectionSummarySchema = Type.Object(
   { additionalProperties: false },
 );
 
+export type SectionCreate = Static<typeof SectionCreateSchema>;
+export type Section = Static<typeof SectionSchema>;
 export type SectionSummary = Static<typeof SectionSummarySchema>;

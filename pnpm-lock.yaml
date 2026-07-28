@@ -38,6 +38,9 @@ importers:
       '@openrecall/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@openrecall/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@openrecall/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -82,6 +85,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@openrecall/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       better-sqlite3:
         specifier: 13.0.1
         version: 13.0.1

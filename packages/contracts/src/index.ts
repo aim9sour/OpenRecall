@@ -17,7 +17,11 @@ export {
 } from "./import.js";
 export {
   EpochMillisecondsSchema,
+  SectionCreateSchema,
+  SectionSchema,
   SectionSummarySchema,
   UuidSchema,
+  type Section,
+  type SectionCreate,
   type SectionSummary,
 } from "./sections.js";

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { SectionRepository } from "@openrecall/database";
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
@@ -7,12 +8,15 @@ import Fastify, {
 } from "fastify";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
+import { registerSectionRoutes } from "./routes/sections.js";
 import { registerSecurity } from "./security.js";
 
 const PROCESS_CSRF_TOKEN = randomBytes(32).toString("base64url");
 
 export interface BuildServerOptions {
   readonly config?: ServerConfig;
+  readonly database?: ConstructorParameters<typeof SectionRepository>[0];
+  readonly nowMs?: () => number;
 }
 
 function validationPath(error: {
@@ -28,6 +32,13 @@ function validationPath(error: {
 }
 
 function registerErrorHandler(server: FastifyInstance): void {
+  server.setNotFoundHandler((_request, reply) =>
+    reply.code(404).send({
+      code: "NOT_FOUND",
+      messageKey: "error.notFound",
+    }),
+  );
+
   server.setErrorHandler((error: FastifyError, _request, reply) => {
     if (Array.isArray(error.validation)) {
       return reply.code(400).send({
@@ -70,6 +81,18 @@ export async function buildServer(
     csrfToken: PROCESS_CSRF_TOKEN,
     locale: config.locale,
   });
+  if (options.database !== undefined) {
+    const repository = new SectionRepository(options.database);
+    registerSectionRoutes(server, {
+      repository,
+      nowMs: options.nowMs ?? Date.now,
+    });
+    server.addHook("onClose", async () => {
+      if (options.database?.open === true) {
+        options.database.close();
+      }
+    });
+  }
 
   await server.ready();
   return server;
