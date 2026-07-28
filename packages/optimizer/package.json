@@ -1,0 +1,23 @@
+{
+  "name": "@openrecall/optimizer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json",
+    "test": "vitest run packages/optimizer/src"
+  },
+  "dependencies": {
+    "@open-spaced-repetition/binding": "0.5.0",
+    "@openrecall/scheduler": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}
