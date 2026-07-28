@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@open-spaced-repetition/binding": "0.5.0",
-    "@openrecall/scheduler": "workspace:*"
+    "@openrecall/scheduler": "workspace:*",
+    "tsx": "4.23.1"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
