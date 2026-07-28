@@ -153,6 +153,13 @@ export const arabicLocale = {
       "عاين المعاملات المرشحة غير المطبقة أو استعد ملفًا مدربًا سابقًا بأمان.",
     "optimizer.profiles.candidate": "معاملات مرشحة غير مطبقة",
     "optimizer.profiles.previous": "ملف معاملات مدرب سابق",
+    "backup.title": "نسخة SQLite الاحتياطية",
+    "backup.description":
+      "نزّل لقطة SQLite واحدة متحققًا منها تحتوي على كل بيانات OpenRecall.",
+    "backup.download": "تنزيل نسخة SQLite احتياطية",
+    "backup.preparing": "جارٍ إعداد النسخة…",
+    "backup.downloaded": "تم تنزيل نسخة SQLite الاحتياطية.",
+    "backup.downloadError": "تعذر تنزيل النسخة الاحتياطية.",
     "home.title": "الأقسام التعليمية",
     "home.createHeading": "إنشاء قسم",
     "home.sectionsHeading": "أقسامك",

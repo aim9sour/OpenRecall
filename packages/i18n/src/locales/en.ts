@@ -154,6 +154,13 @@ export const englishLocale = {
       "Preview unapplied candidates or safely restore a previous trained profile.",
     "optimizer.profiles.candidate": "Unapplied candidate",
     "optimizer.profiles.previous": "Previous trained profile",
+    "backup.title": "SQLite backup",
+    "backup.description":
+      "Download one validated SQLite snapshot containing all OpenRecall data.",
+    "backup.download": "Download SQLite backup",
+    "backup.preparing": "Preparing backup…",
+    "backup.downloaded": "SQLite backup downloaded.",
+    "backup.downloadError": "The backup could not be downloaded.",
     "home.title": "Learning sections",
     "home.createHeading": "Create a section",
     "home.sectionsHeading": "Your sections",

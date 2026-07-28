@@ -42,7 +42,7 @@ export interface BackupService {
   validateSnapshot(path: string): Promise<SnapshotValidation>;
 }
 
-interface CreateBackupServiceOptions {
+export interface CreateBackupServiceOptions {
   readonly db: Database.Database;
   readonly snapshotDirectory: string;
   readonly nowMs: () => number;
@@ -117,6 +117,9 @@ class SqliteBackupService implements BackupService {
 
   async #directory(): Promise<string> {
     await mkdir(this.#configuredDirectory, { recursive: true });
+    if ((await lstat(this.#configuredDirectory)).isSymbolicLink()) {
+      throw new Error("BACKUP_DIRECTORY_SYMLINK");
+    }
     return realpath(this.#configuredDirectory);
   }
 

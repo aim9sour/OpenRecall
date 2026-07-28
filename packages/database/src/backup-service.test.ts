@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { mkdir, readdir, symlink } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import {
   CardImportRepository,
@@ -261,6 +261,34 @@ describe("BackupService", () => {
         expect(files).toEqual(
           expect.arrayContaining(automatic.slice(1)),
         );
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("rejects a configured snapshot-directory symlink instead of following it", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      const root = dirname(databasePath);
+      const target = join(root, "outside-snapshots");
+      const snapshotDirectory = join(root, "snapshot-link");
+      await mkdir(target);
+      await symlink(target, snapshotDirectory, "junction");
+      const service = createBackupService({
+        db,
+        snapshotDirectory,
+        nowMs: () => 1_000,
+      });
+      try {
+        await expect(
+          service.createSnapshot(
+            "automatic",
+            "path-safety",
+            new AbortController().signal,
+          ),
+        ).rejects.toThrow("BACKUP_DIRECTORY_SYMLINK");
+        expect(await readdir(target)).toEqual([]);
       } finally {
         db.close();
       }

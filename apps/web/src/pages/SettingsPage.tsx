@@ -9,6 +9,7 @@ import { Form, useLoaderData, useLocation } from "react-router";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { SchedulerSettingsForm } from "../settings/SchedulerSettingsForm.js";
+import { BackupPanel } from "../settings/BackupPanel.js";
 import { OptimizerPanel } from "../settings/OptimizerPanel.js";
 import { ProfilePreview } from "../settings/ProfilePreview.js";
 
@@ -102,6 +103,7 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
           ))}
         </section>
       )}
+      <BackupPanel api={api} />
     </>
   );
 }

@@ -13,6 +13,10 @@ export interface ApiClient {
   readonly post: <T>(path: string, body: unknown) => Promise<T>;
   readonly put: <T>(path: string, body: unknown) => Promise<T>;
   readonly delete: <T>(path: string, body: unknown) => Promise<T>;
+  readonly download?: (path: string) => Promise<{
+    readonly blob: Blob;
+    readonly filename: string;
+  }>;
 }
 
 export class ApiClientError extends Error {
@@ -117,6 +121,42 @@ export function createApiClient(
     return (await response.json()) as T;
   }
 
+  async function download(
+    path: string,
+    didRetry = false,
+  ): Promise<{ readonly blob: Blob; readonly filename: string }> {
+    await bootstrap();
+    const response = await fetchImplementation(path, {
+      method: "POST",
+      headers: {
+        accept: "application/vnd.sqlite3",
+        "x-openrecall-csrf": csrfToken ?? "",
+      },
+    });
+    if (response.status === 403 && !didRetry) {
+      bootstrapPromise = undefined;
+      csrfToken = undefined;
+      await bootstrap();
+      return download(path, true);
+    }
+    if (!response.ok) {
+      throw new ApiClientError(
+        response.status,
+        await readError(response),
+      );
+    }
+    const disposition =
+      response.headers.get("content-disposition") ?? "";
+    const match =
+      /filename="(openrecall-manual-\d{1,16}-[0-9a-f-]{36}\.sqlite3)"/i.exec(
+        disposition,
+      );
+    return {
+      blob: await response.blob(),
+      filename: match?.[1] ?? "openrecall-backup.sqlite3",
+    };
+  }
+
   return {
     bootstrap,
     get: <T>(path: string) => request<T>("GET", path, undefined, false),
@@ -126,5 +166,6 @@ export function createApiClient(
       request<T>("PUT", path, body, false),
     delete: <T>(path: string, body: unknown) =>
       request<T>("DELETE", path, body, false),
+    download: (path: string) => download(path),
   };
 }

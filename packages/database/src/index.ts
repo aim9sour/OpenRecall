@@ -6,12 +6,17 @@ export {
 export {
   createBackupService,
   type BackupService,
+  type CreateBackupServiceOptions,
   type Snapshot,
   type SnapshotKind,
   type SnapshotValidation,
 } from "./backup-service.js";
 export { migrateDatabase, type Migration } from "./migrate.js";
-export { openDatabase } from "./open-database.js";
+export {
+  openDatabase,
+  openDatabaseWithPreMigrationBackup,
+  type PreMigrationOpenOptions,
+} from "./open-database.js";
 export {
   SectionNameError,
   SectionRepository,

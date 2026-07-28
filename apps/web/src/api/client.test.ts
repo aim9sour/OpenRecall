@@ -103,4 +103,33 @@ describe("API client", () => {
     expect(mutationCount).toBe(2);
     expect(mutationTokens).toEqual(["token-1", "token-2"]);
   });
+
+  it("downloads a CSRF-protected SQLite response and accepts only a safe generated filename", async () => {
+    const api = createApiClient(async (input, init) => {
+      if (input === "/api/v1/bootstrap") {
+        return jsonResponse({
+          apiVersion: 1,
+          csrfToken: "download-token",
+          locale: "en",
+        });
+      }
+      expect(init?.method).toBe("POST");
+      expect(
+        new Headers(init?.headers).get("x-openrecall-csrf"),
+      ).toBe("download-token");
+      return new Response("SQLite format 3\u0000", {
+        headers: {
+          "content-disposition":
+            'attachment; filename="openrecall-manual-8000-01234567-89ab-4cde-8fab-0123456789ab.sqlite3"',
+          "content-type": "application/vnd.sqlite3",
+        },
+      });
+    });
+
+    const result = await api.download?.("/api/v1/backup");
+    expect(result?.filename).toBe(
+      "openrecall-manual-8000-01234567-89ab-4cde-8fab-0123456789ab.sqlite3",
+    );
+    expect(await result?.blob.text()).toBe("SQLite format 3\u0000");
+  });
 });

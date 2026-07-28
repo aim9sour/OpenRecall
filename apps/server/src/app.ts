@@ -6,6 +6,7 @@ import {
   CardRepository,
   CardStatisticsRepository,
   createBackupService,
+  type BackupService,
   ProfileApplicationRepository,
   RatingTransaction,
   ReviewQueueRepository,
@@ -32,6 +33,7 @@ import {
   type ProfileApplicationServiceApi,
 } from "./optimizer/profile-application-service.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
+import { registerBackupRoutes } from "./routes/backup.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerImportRoutes } from "./routes/import.js";
@@ -49,6 +51,7 @@ export interface BuildServerOptions {
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
   readonly optimizerService?: OptimizerRunServiceApi;
+  readonly backupService?: BackupService;
   readonly profileApplicationService?: ProfileApplicationServiceApi;
   readonly onDueWakeReady?: (
     wake: Pick<DueWakeService, "rearm">,
@@ -161,15 +164,18 @@ export async function buildServer(
         clearTimeout(timer as ReturnType<typeof setTimeout>);
       },
     });
+    const backups =
+      options.backupService ??
+      createBackupService({
+        db: options.database,
+        snapshotDirectory: join(config.dataDirectory, "backups"),
+        nowMs: options.nowMs ?? Date.now,
+      });
     const profiles =
       options.profileApplicationService ??
       new ProfileApplicationService({
         repository: new ProfileApplicationRepository(options.database),
-        backup: createBackupService({
-          db: options.database,
-          snapshotDirectory: join(config.dataDirectory, "backups"),
-          nowMs: options.nowMs ?? Date.now,
-        }),
+        backup: backups,
         nowMs: options.nowMs ?? Date.now,
         rearmDue: () => dueWake.rearm(),
       });
@@ -178,6 +184,7 @@ export async function buildServer(
       repository,
       nowMs: options.nowMs ?? Date.now,
     });
+    registerBackupRoutes(server, { backups });
     registerCardRoutes(server, {
       cards: new CardRepository(options.database),
       sections: repository,
