@@ -24,3 +24,7 @@ export {
   type PresentationId,
   type RandomIndex,
 } from "./rotation/select-presentation.js";
+export type {
+  ReviewSessionSnapshot,
+  ReviewSessionStatus,
+} from "./review/session-status.js";

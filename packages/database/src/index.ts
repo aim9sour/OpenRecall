@@ -24,3 +24,8 @@ export {
   ReviewSessionRepository,
   type ReviewCardView,
 } from "./review-session-repository.js";
+export {
+  OpenReviewSessionError,
+  ReviewQueueRepository,
+  type MergeDueItemsResult,
+} from "./review-queue-repository.js";

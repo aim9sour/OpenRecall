@@ -1,3 +1,4 @@
+import type { ReviewSessionStatus as DomainReviewSessionStatus } from "@openrecall/domain";
 import type { MemoryState } from "@openrecall/scheduler";
 
 export const OFFICIAL_PARAMETER_PROFILE_ID = "official-fsrs6-v1" as const;
@@ -25,11 +26,7 @@ export interface SchedulerStateRow {
   readonly parameterProfileId: string;
 }
 
-export type ReviewSessionStatus =
-  | "active"
-  | "waiting"
-  | "paused"
-  | "completed";
+export type ReviewSessionStatus = DomainReviewSessionStatus;
 
 export type QueueEntryStatus =
   | "queued"
