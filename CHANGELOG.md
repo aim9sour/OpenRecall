@@ -22,6 +22,6 @@ made a public release and currently has no public-use license.
 - FSRS-7 is unsupported.
 - No accounts, cloud sync, collaboration, rich media, Anki packages, or native
   wrapper.
-- Stable Chrome/NVDA release audit and repository license selection remain
-  release blockers.
-
+- Stable Chrome automation passes on the audited Windows baseline. A signed
+  human NVDA speech audit, a fresh Linux run, and repository license selection
+  remain release blockers.
