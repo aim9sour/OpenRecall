@@ -107,6 +107,7 @@ function stableFailureCode(error: unknown): string {
 }
 
 export interface OptimizerRunServiceApi {
+  recoverInterruptedRuns?(): void;
   getEligibility(scope: OptimizerScope): OptimizerEligibility;
   startRun(scope: OptimizerScope): OptimizerRun;
   getRun(runId: string): OptimizerRun | null;
@@ -158,7 +159,9 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
             };
           });
     this.#train = dependencies.train ?? trainOptimizer;
+  }
 
+  recoverInterruptedRuns(): void {
     const nowMs = this.#nowMs();
     validateNow(nowMs);
     this.#db

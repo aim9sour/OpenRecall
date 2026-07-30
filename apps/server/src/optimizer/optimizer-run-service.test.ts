@@ -258,11 +258,24 @@ describe("OptimizerRunService", () => {
               )
           `,
         ).run();
-        new OptimizerRunService(db, {
+        const service = new OptimizerRunService(db, {
           loadTrainingSet: () => trainingSet(0),
           nowMs: () => 1_000,
           train: async () => trainedResult,
         });
+        expect(
+          db
+            .prepare(
+              "SELECT status, error_code, finished_at_ms FROM optimizer_runs WHERE id = 'abandoned'",
+            )
+            .get(),
+        ).toEqual({
+          status: "running",
+          error_code: null,
+          finished_at_ms: null,
+        });
+
+        service.recoverInterruptedRuns();
         expect(
           db
             .prepare(

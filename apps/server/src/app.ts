@@ -108,6 +108,7 @@ export async function buildServer(
   const config = options.config ?? loadConfig();
   const server = Fastify({
     bodyLimit: 5 * 1_024 * 1_024,
+    forceCloseConnections: false,
     logController: new LogController({ disableRequestLogging: true }),
     logger: false,
   }).withTypeProvider<TypeBoxTypeProvider>();
@@ -333,15 +334,29 @@ export async function buildServer(
     server.addHook("onReady", async () => {
       dueWake.start();
     });
-    server.addHook("preClose", async () => {
-      dueWake.stop();
-      reviewEvents.closeAll();
-      optimizerImplementation.dispose();
-      await optimizerImplementation.whenIdle();
+    server.addHook("onListen", async () => {
+      optimizerImplementation.recoverInterruptedRuns?.();
     });
+    server.addHook("preClose", async () => {
+      reviewEvents.closeAll();
+    });
+    let stopDatabaseServicesPromise: Promise<void> | undefined;
+    const stopDatabaseServices = (): Promise<void> => {
+      stopDatabaseServicesPromise ??= (async () => {
+        dueWake.stop();
+        optimizerImplementation.dispose();
+        await optimizerImplementation.whenIdle();
+      })();
+      return stopDatabaseServicesPromise;
+    };
     server.addHook("onClose", async () => {
+      await stopDatabaseServices();
       if (database.open) {
-        database.close();
+        try {
+          database.pragma("wal_checkpoint(PASSIVE)");
+        } finally {
+          database.close();
+        }
       }
     });
   } else {

@@ -1,3 +1,4 @@
+import { parse, resolve } from "node:path";
 import {
   TEST_AUTHORITY,
   TEST_ORIGIN,
@@ -182,6 +183,30 @@ describe("server boundary security", () => {
 });
 
 describe("server configuration", () => {
+  it("accepts only an explicit absolute data-directory override", () => {
+    const temporaryDataDirectory = resolve(
+      "temporary-openrecall-smoke-data",
+    );
+
+    expect(
+      loadConfig({
+        OPENRECALL_DATA_DIRECTORY: temporaryDataDirectory,
+      }).dataDirectory,
+    ).toBe(temporaryDataDirectory);
+    expect(() =>
+      loadConfig({
+        OPENRECALL_DATA_DIRECTORY: "relative-data",
+      }),
+    ).toThrowError("SERVER_DATA_DIRECTORY_NOT_ABSOLUTE");
+    expect(() =>
+      loadConfig({
+        OPENRECALL_DATA_DIRECTORY: parse(
+          temporaryDataDirectory,
+        ).root,
+      }),
+    ).toThrowError("SERVER_DATA_DIRECTORY_TOO_BROAD");
+  });
+
   it("uses fixed loopback boundaries in production and development", () => {
     expect(loadConfig({}).publicOrigin).toBe("http://127.0.0.1:3210");
     expect(loadConfig({ NODE_ENV: "development" }).publicOrigin).toBe(

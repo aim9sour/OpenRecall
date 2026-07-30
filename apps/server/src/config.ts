@@ -1,3 +1,4 @@
+import { isAbsolute, parse, resolve } from "node:path";
 import envPaths from "env-paths";
 import {
   isDevelopmentLocale,
@@ -62,10 +63,19 @@ export function loadConfig(env: Environment = process.env): ServerConfig {
     throw new Error("SERVER_LOCALE_NOT_SUPPORTED");
   }
   const locale: LocaleTag = localeCandidate;
+  const configuredDataDirectory =
+    env["OPENRECALL_DATA_DIRECTORY"] ?? envPaths("OpenRecall").data;
+  if (!isAbsolute(configuredDataDirectory)) {
+    throw new Error("SERVER_DATA_DIRECTORY_NOT_ABSOLUTE");
+  }
+  const dataDirectory = resolve(configuredDataDirectory);
+  if (dataDirectory === parse(dataDirectory).root) {
+    throw new Error("SERVER_DATA_DIRECTORY_TOO_BROAD");
+  }
 
   return {
     authority: `${LOOPBACK_HOST}:${SERVER_PORT}`,
-    dataDirectory: envPaths("OpenRecall").data,
+    dataDirectory,
     host: LOOPBACK_HOST,
     locale,
     port: SERVER_PORT,
