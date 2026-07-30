@@ -28,6 +28,9 @@ describe("ServerUnavailable", () => {
         .getByRole("link", { name: "How to start OpenRecall" })
         .getAttribute("href"),
     ).toBe("#startup-instructions");
+    expect(
+      screen.getByText("pnpm --filter @openrecall/server start"),
+    ).not.toBeNull();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalledOnce();
   });

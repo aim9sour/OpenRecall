@@ -3,10 +3,8 @@ import { useI18n } from "../app/I18nProvider.js";
 import type { ServiceWorkerUpdateController } from "./register-service-worker.js";
 
 export function UpdatePrompt({
-  activeReview,
   controller,
 }: {
-  readonly activeReview: boolean;
   readonly controller: ServiceWorkerUpdateController;
 }) {
   const { t } = useI18n();
@@ -21,10 +19,13 @@ export function UpdatePrompt({
   if (!snapshot.needRefresh && !snapshot.offlineReady) return null;
 
   const update = async (): Promise<void> => {
+    const activeReview = document.querySelector(
+      '[data-openrecall-review-active="true"]',
+    );
     const dirtyEditor = document.querySelector(
       '[data-openrecall-dirty="true"]',
     );
-    if (activeReview || dirtyEditor !== null) {
+    if (activeReview !== null || dirtyEditor !== null) {
       setBlocked(true);
       return;
     }

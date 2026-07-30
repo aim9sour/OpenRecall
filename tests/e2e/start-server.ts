@@ -11,6 +11,7 @@ import { buildServer } from "../../apps/server/src/app.js";
 import type { DueWakeService } from "../../apps/server/src/review/due-wake-service.js";
 import { openDatabase } from "../../packages/database/src/index.js";
 import { seedOptimizerFixture } from "./seed-optimizer-fixture.js";
+import { e2eClockPath } from "./e2e-paths.js";
 
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
 const serverPort = Number(process.env["OPENRECALL_E2E_API_PORT"] ?? "3210");
@@ -22,14 +23,7 @@ const locale =
     : localeCandidate === "en"
       ? "en"
       : "ar";
-const clockSuffix =
-  locale === "ar" ? "" : locale === "en" ? "-en" : "-xa";
-const clockPath = join(
-  process.cwd(),
-  "tests",
-  "e2e",
-  `.openrecall-clock${clockSuffix}`,
-);
+const clockPath = e2eClockPath(serverPort);
 writeFileSync(clockPath, String(INITIAL_NOW_MS), "utf8");
 let currentNowMs = INITIAL_NOW_MS;
 

@@ -44,6 +44,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   );
   const claimInFlight = useRef(false);
   const sessionId = sessionIdOf(page);
+  const activeReview =
+    page.kind !== "completed" && page.session.status === "active";
 
   useReviewEvents(sessionId);
 
@@ -224,7 +226,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   });
 
   return (
-    <>
+    <div data-openrecall-review-active={activeReview ? "true" : "false"}>
       <div role="status" aria-atomic="true" className="sr-status">
         {announcement}
       </div>
@@ -315,6 +317,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
           onPause={pause}
         />
       )}
-    </>
+    </div>
   );
 }

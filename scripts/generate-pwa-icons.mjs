@@ -24,13 +24,35 @@ async function writeIcon(source, filename, size) {
     .toFile(resolve(outputDirectory, filename));
 }
 
+async function writeMaskableIcon(source, filename, size) {
+  const artwork = await sharp(source)
+    .resize(size, size, { fit: "fill" })
+    .png()
+    .toBuffer();
+  await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: "#103d32",
+    },
+  })
+    .composite([{ input: artwork }])
+    .png({
+      adaptiveFiltering: false,
+      compressionLevel: 9,
+      palette: false,
+    })
+    .toFile(resolve(outputDirectory, filename));
+}
+
 export async function generatePwaIcons() {
   const source = await readFile(sourcePath);
   await mkdir(outputDirectory, { recursive: true });
   await Promise.all([
     writeIcon(source, "icon-192.png", 192),
     writeIcon(source, "icon-512.png", 512),
-    writeIcon(source, "icon-maskable-512.png", 512),
+    writeMaskableIcon(source, "icon-maskable-512.png", 512),
   ]);
 }
 

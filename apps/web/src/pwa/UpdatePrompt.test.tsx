@@ -25,10 +25,7 @@ describe("UpdatePrompt", () => {
     const harness = await promptHarness();
     render(
       <I18nProvider i18n={harness.i18n}>
-        <UpdatePrompt
-          activeReview={false}
-          controller={harness.controller}
-        />
+        <UpdatePrompt controller={harness.controller} />
       </I18nProvider>,
     );
     act(() => harness.showUpdate());
@@ -51,10 +48,9 @@ describe("UpdatePrompt", () => {
     const harness = await promptHarness();
     const { rerender } = render(
       <I18nProvider i18n={harness.i18n}>
-        <UpdatePrompt
-          activeReview
-          controller={harness.controller}
-        />
+        <main data-openrecall-review-active="true">
+          <UpdatePrompt controller={harness.controller} />
+        </main>
       </I18nProvider>,
     );
     act(() => harness.showUpdate());
@@ -68,10 +64,7 @@ describe("UpdatePrompt", () => {
     rerender(
       <I18nProvider i18n={harness.i18n}>
         <form data-openrecall-dirty="true">
-          <UpdatePrompt
-            activeReview={false}
-            controller={harness.controller}
-          />
+          <UpdatePrompt controller={harness.controller} />
         </form>
       </I18nProvider>,
     );
@@ -82,10 +75,7 @@ describe("UpdatePrompt", () => {
 
     rerender(
       <I18nProvider i18n={harness.i18n}>
-        <UpdatePrompt
-          activeReview={false}
-          controller={harness.controller}
-        />
+        <UpdatePrompt controller={harness.controller} />
       </I18nProvider>,
     );
     await user.click(

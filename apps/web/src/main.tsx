@@ -62,24 +62,9 @@ async function start(): Promise<void> {
     // A service-worker registration failure must not prevent local study.
   }
 
+  let bootstrap: Awaited<ReturnType<typeof api.bootstrap>>;
   try {
-    const bootstrap = await api.bootstrap();
-    prepareLocale(bootstrap.locale);
-    try {
-      localStorage.setItem(localeStorageKey, bootstrap.locale);
-    } catch {
-      // Locale persistence is a convenience, not a startup dependency.
-    }
-    const i18n = await createI18n(bootstrap.locale);
-    const router = createBrowserRouter(
-      createRoutes({ api, i18n, updates }),
-    );
-
-    root.render(
-      <StrictMode>
-        <RouterProvider router={router} />
-      </StrictMode>,
-    );
+    bootstrap = await api.bootstrap();
   } catch {
     const locale = rememberedLocale();
     prepareLocale(locale);
@@ -91,7 +76,23 @@ async function start(): Promise<void> {
         </I18nProvider>
       </StrictMode>,
     );
+    return;
   }
+
+  prepareLocale(bootstrap.locale);
+  try {
+    localStorage.setItem(localeStorageKey, bootstrap.locale);
+  } catch {
+    // Locale persistence is a convenience, not a startup dependency.
+  }
+  const i18n = await createI18n(bootstrap.locale);
+  const router = createBrowserRouter(createRoutes({ api, i18n, updates }));
+
+  root.render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>,
+  );
 }
 
 void start().catch((error: unknown) => {

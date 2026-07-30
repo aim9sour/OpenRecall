@@ -1,8 +1,8 @@
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { e2eClockPath } from "./e2e-paths.js";
 
-const clockPath = resolve("tests/e2e/.openrecall-clock");
+const clockPath = e2eClockPath(3_210);
 
 test("review core continuously rotates variants, resumes, and finishes with a summary", async ({
   page,

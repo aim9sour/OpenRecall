@@ -36,7 +36,7 @@ export function ServerUnavailable({
         </h2>
         <p>{t("serverUnavailable.helpBody")}</p>
         <pre>
-          <code>pnpm start</code>
+          <code>pnpm --filter @openrecall/server start</code>
         </pre>
       </section>
     </main>

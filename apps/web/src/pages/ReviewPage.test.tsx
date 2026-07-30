@@ -128,6 +128,53 @@ afterEach(() => {
 });
 
 describe("ReviewPage NVDA interaction", () => {
+  it("marks only an actually active review as update-blocking", async () => {
+    const active = await renderReview();
+    await screen.findByRole("heading", {
+      name: "What is active recall?",
+    });
+    expect(
+      active.container.querySelector(
+        '[data-openrecall-review-active="true"]',
+      ),
+    ).not.toBeNull();
+    active.unmount();
+
+    const paused = await renderReview("en", {
+      ...questionState,
+      session: progress({ status: "paused" }),
+    });
+    await screen.findByRole("heading", {
+      name: "What is active recall?",
+    });
+    expect(
+      paused.container.querySelector(
+        '[data-openrecall-review-active="true"]',
+      ),
+    ).toBeNull();
+    paused.unmount();
+
+    const completed = await renderReview("en", {
+      kind: "completed",
+      summary: {
+        sessionId: SESSION_ID,
+        sectionId: SECTION_ID,
+        completedAtMs: 2_000,
+        reviewEvents: 1,
+        uniqueItems: 1,
+        repeatedWithinSession: 0,
+        elapsedActiveMs: 1_000,
+        ratingCounts: { again: 0, hard: 0, good: 1, easy: 0 },
+      },
+    });
+    await screen.findByRole("heading", { name: "Review complete" });
+    expect(
+      completed.container.querySelector(
+        '[data-openrecall-review-active="true"]',
+      ),
+    ).toBeNull();
+  });
+
   it("does not reveal until the server has recorded the shown presentation", async () => {
     let releaseShown: (() => void) | undefined;
     const shownGate = new Promise<void>((resolve) => {

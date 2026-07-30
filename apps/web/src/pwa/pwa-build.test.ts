@@ -2,6 +2,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import sharp from "sharp";
 import { build } from "vite";
 
 const webRoot = resolve("apps/web");
@@ -106,5 +107,18 @@ describe("production PWA build", () => {
         ),
       ).toEqual({ width: size, height: size });
     }
+
+    const regular = await readFile(
+      resolve(outputDirectory, "icon-512.png"),
+    );
+    const maskable = await readFile(
+      resolve(outputDirectory, "icon-maskable-512.png"),
+    );
+    expect(maskable.equals(regular)).toBe(false);
+    const { data } = await sharp(maskable)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect(data[3]).toBe(255);
   });
 });
