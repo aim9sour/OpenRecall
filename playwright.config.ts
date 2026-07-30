@@ -1,5 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const requestedBrowserChannel =
+  process.env["OPENRECALL_BROWSER_CHANNEL"];
+if (
+  requestedBrowserChannel !== undefined &&
+  requestedBrowserChannel !== "chrome"
+) {
+  throw new Error(
+    "OPENRECALL_BROWSER_CHANNEL must be unset or equal to chrome",
+  );
+}
+const brandedBrowser =
+  requestedBrowserChannel === "chrome"
+    ? { channel: "chrome" as const }
+    : {};
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -73,6 +88,7 @@ export default defineConfig({
       testIgnore: /(optimizer-durability|pwa)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        ...brandedBrowser,
         baseURL: "http://127.0.0.1:5173",
       },
     },
@@ -82,6 +98,7 @@ export default defineConfig({
         /(management-statistics|visual-accessibility)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        ...brandedBrowser,
         baseURL: "http://127.0.0.1:5174",
       },
     },
@@ -90,6 +107,7 @@ export default defineConfig({
       testMatch: /visual-accessibility\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        ...brandedBrowser,
         baseURL: "http://127.0.0.1:5175",
       },
     },
@@ -98,6 +116,7 @@ export default defineConfig({
       testMatch: /pwa\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        ...brandedBrowser,
         baseURL: "http://127.0.0.1:5176",
       },
     },
@@ -106,6 +125,7 @@ export default defineConfig({
       testMatch: /optimizer-durability\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        ...brandedBrowser,
         baseURL: "http://127.0.0.1:5177",
       },
     },

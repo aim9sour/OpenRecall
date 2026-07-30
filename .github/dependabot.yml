@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      development-tooling:
+        dependency-type: development
+        patterns:
+          - "*"
+        exclude-patterns:
+          - ts-fsrs
+          - "@open-spaced-repetition/binding"
+          - better-sqlite3
+          - fastify
+          - "@fastify/*"
+          - react
+          - react-dom
+          - react-router
+          - vite
+          - vite-plugin-pwa
+          - workbox-*
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
