@@ -2,7 +2,10 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDatabaseWithPreMigrationBackup } from "@openrecall/database";
-import { buildServer } from "./app.js";
+import {
+  buildServer,
+  recoverInterruptedOptimizerRuns,
+} from "./app.js";
 import { loadConfig } from "./config.js";
 import { createJsonLinesLogSink } from "./logging.js";
 import { productionStaticClientRoot } from "./production/static-client.js";
@@ -33,8 +36,12 @@ async function start(): Promise<void> {
     await preflight.release();
     reservationReleased = true;
   };
-  let server: Awaited<ReturnType<typeof buildServer>>;
-  let result: Awaited<ReturnType<typeof coordinateSingleInstance>>;
+  let server:
+    | Awaited<ReturnType<typeof buildServer>>
+    | undefined;
+  let result:
+    | Awaited<ReturnType<typeof coordinateSingleInstance>>
+    | undefined;
   try {
     await mkdir(config.dataDirectory, { recursive: true });
     const logDirectory = join(config.dataDirectory, "logs");
@@ -65,9 +72,18 @@ async function start(): Promise<void> {
       port: config.port,
       server,
     });
+    if (result.kind === "started") {
+      recoverInterruptedOptimizerRuns(server);
+    }
   } catch (error) {
     await releaseReservation().catch(() => undefined);
+    if (server !== undefined) {
+      await server.close().catch(() => undefined);
+    }
     throw error;
+  }
+  if (server === undefined || result === undefined) {
+    throw new Error("OPENRECALL_STARTUP_STATE_INVALID");
   }
   if (result.kind === "already-running") {
     process.stdout.write(

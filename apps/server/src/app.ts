@@ -63,6 +63,16 @@ import {
 import { registerSecurity } from "./security.js";
 
 const PROCESS_CSRF_TOKEN = randomBytes(32).toString("base64url");
+const optimizerRecoveryByServer = new WeakMap<
+  FastifyInstance,
+  () => void
+>();
+
+export function recoverInterruptedOptimizerRuns(
+  server: FastifyInstance,
+): void {
+  optimizerRecoveryByServer.get(server)?.();
+}
 
 export interface BuildServerOptions {
   readonly config?: ServerConfig;
@@ -237,6 +247,9 @@ export async function buildServer(
     };
 
     rebuildServices();
+    optimizerRecoveryByServer.set(server, () => {
+      optimizerImplementation.recoverInterruptedRuns?.();
+    });
     dueWake = new DueWakeService(queue, reviewEvents, {
       now: options.nowMs ?? Date.now,
       setTimer(callback, delayMs) {
@@ -276,6 +289,7 @@ export async function buildServer(
             healthDatabase = reopened;
             try {
               rebuildServices();
+              recoverInterruptedOptimizerRuns(server);
               dueWake.start();
             } catch (error) {
               if (reopened.open) reopened.close();
@@ -333,9 +347,6 @@ export async function buildServer(
     });
     server.addHook("onReady", async () => {
       dueWake.start();
-    });
-    server.addHook("onListen", async () => {
-      optimizerImplementation.recoverInterruptedRuns?.();
     });
     server.addHook("preClose", async () => {
       reviewEvents.closeAll();

@@ -77,6 +77,25 @@ describe("restore route", () => {
         name: "Restored section",
         nowMs: 1_000,
       });
+      source
+        .prepare(
+          `
+            INSERT INTO optimizer_runs
+              (
+                id, scope_type, section_id, status, raw_review_count,
+                eligible_example_count, source_review_cutoff_ms,
+                package_version, algorithm_version, progress,
+                created_at_ms, started_at_ms
+              )
+            VALUES
+              (
+                'd9428888-122b-41e1-985c-61cd3cbb3210',
+                'global', NULL, 'running',
+                500, 400, 10, '0.5.0', '6.0', 0.4, 100, 100
+              )
+          `,
+        )
+        .run();
       source.close();
 
       const live = openDatabase(databasePath);
@@ -131,6 +150,18 @@ describe("restore route", () => {
         expect(listed.json()).toEqual([
           expect.objectContaining({ name: "Restored section" }),
         ]);
+
+        const recoveredRun = await server.inject({
+          method: "GET",
+          url: "/api/v1/optimizer/runs/d9428888-122b-41e1-985c-61cd3cbb3210",
+          headers: testRequestHeaders(),
+        });
+        expect(recoveredRun.statusCode).toBe(200);
+        expect(recoveredRun.json()).toMatchObject({
+          status: "failed",
+          errorCode: "OPTIMIZER_PROCESS_INTERRUPTED",
+          finishedAtMs: 2_000,
+        });
 
         const headers = await mutationHeaders(
           server,

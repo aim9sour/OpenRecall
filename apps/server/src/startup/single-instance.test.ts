@@ -7,7 +7,10 @@ import {
 } from "@openrecall/test-support";
 import { openDatabase } from "@openrecall/database";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildServer } from "../app.js";
+import {
+  buildServer,
+  recoverInterruptedOptimizerRuns,
+} from "../app.js";
 import { DueWakeService } from "../review/due-wake-service.js";
 import { ReviewEvents } from "../review/review-events.js";
 import {
@@ -299,6 +302,61 @@ describe("single-instance coordination", () => {
     expect(source.indexOf("await preflightSingleInstance(")).toBeLessThan(
       source.indexOf("await openDatabaseWithPreMigrationBackup("),
     );
+  });
+
+  it("propagates optimizer recovery failure after listen and before announcing ready", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const database = openDatabase(databasePath);
+      const recoveryError = new Error(
+        "OPTIMIZER_RECOVERY_FAILED",
+      );
+      const server = await buildServer({
+        config: {
+          authority: TEST_AUTHORITY,
+          dataDirectory: "unused-with-injected-database",
+          host: "127.0.0.1",
+          locale: "en",
+          port: 3_210,
+          publicOrigin: TEST_ORIGIN,
+        },
+        database,
+        optimizerService: {
+          cancelRun: vi.fn(() => false),
+          dispose: vi.fn(),
+          getEligibility: vi.fn(),
+          getRun: vi.fn(() => null),
+          recoverInterruptedRuns: vi.fn(() => {
+            throw recoveryError;
+          }),
+          startRun: vi.fn(),
+          whenIdle: vi.fn(async () => undefined),
+        },
+      });
+      try {
+        expect(() =>
+          recoverInterruptedOptimizerRuns(server),
+        ).toThrow(recoveryError);
+      } finally {
+        await server.close();
+      }
+    });
+
+    const source = await readFile(
+      new URL("../index.ts", import.meta.url),
+      "utf8",
+    );
+    const listenIndex = source.indexOf(
+      "await coordinateSingleInstance(",
+    );
+    const recoveryIndex = source.indexOf(
+      "recoverInterruptedOptimizerRuns(server);",
+    );
+    const readyIndex = source.indexOf(
+      "OPENRECALL_READY",
+    );
+    expect(listenIndex).toBeGreaterThan(-1);
+    expect(recoveryIndex).toBeGreaterThan(listenIndex);
+    expect(readyIndex).toBeGreaterThan(recoveryIndex);
   });
 });
 
