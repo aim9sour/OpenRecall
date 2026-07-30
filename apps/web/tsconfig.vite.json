@@ -10,6 +10,9 @@
   },
   "files": [
     "vite.config.ts",
-    "vite.e2e-en.config.ts"
+    "vite.e2e-en.config.ts",
+    "vite.e2e-optimizer.config.ts",
+    "vite.e2e-pwa.config.ts",
+    "vite.e2e-xa.config.ts"
   ]
 }

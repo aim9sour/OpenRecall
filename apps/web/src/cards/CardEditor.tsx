@@ -15,6 +15,25 @@ function draftsFrom(card: Card): DraftPresentation[] {
   }));
 }
 
+function draftsMatchCard(
+  card: Card,
+  drafts: readonly DraftPresentation[],
+): boolean {
+  return (
+    drafts.length === card.presentations.length &&
+    drafts.every((draft, index) => {
+      const presentation = card.presentations[index];
+      return (
+        presentation !== undefined &&
+        draft.id === presentation.id &&
+        draft.front === presentation.front &&
+        draft.back === presentation.back &&
+        draft.notes === presentation.notes
+      );
+    })
+  );
+}
+
 export function CardEditor({
   api,
   card,
@@ -102,6 +121,9 @@ export function CardEditor({
 
   return (
     <form
+      data-openrecall-dirty={
+        draftsMatchCard(card, drafts) ? "false" : "true"
+      }
       onSubmit={(event) => {
         event.preventDefault();
         void save();

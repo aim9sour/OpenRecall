@@ -251,6 +251,39 @@ form {
   box-shadow: var(--elevation-dialog);
 }
 
+.pwa-prompt {
+  position: fixed;
+  inset-block-end: var(--space-4);
+  inset-inline-end: var(--space-4);
+  z-index: 10;
+  inline-size: min(30rem, calc(100% - 2 * var(--space-4)));
+  margin: 0;
+  box-shadow: var(--elevation-dialog);
+}
+
+.pwa-prompt p:first-child {
+  margin-block-start: 0;
+  font-weight: 700;
+}
+
+.pwa-prompt .review-actions {
+  margin-block-end: 0;
+}
+
+.server-unavailable {
+  max-inline-size: var(--reading-width);
+}
+
+.server-unavailable pre {
+  max-inline-size: 100%;
+  overflow: auto;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface-muted);
+  direction: ltr;
+  text-align: left;
+}
+
 dialog.dialog-panel::backdrop {
   background: var(--color-overlay);
 }

@@ -173,6 +173,10 @@ describe("CardList", () => {
     await user.click(
       screen.getAllByRole("button", { name: "Edit card" })[0]!,
     );
+    const editor = screen
+      .getByRole("group", { name: "Primary presentation" })
+      .closest("form");
+    expect(editor?.getAttribute("data-openrecall-dirty")).toBe("false");
     expect(
       screen.getByRole("group", { name: "Primary presentation" }),
     ).not.toBeNull();
@@ -190,6 +194,7 @@ describe("CardList", () => {
     });
     await user.clear(question);
     await user.type(question, "<b>Kept value</b>");
+    expect(editor?.getAttribute("data-openrecall-dirty")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Save card" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(

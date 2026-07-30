@@ -17,6 +17,24 @@ export const arabicLocale = {
     "theme.light": "المظهر الفاتح",
     "theme.dark": "المظهر الداكن",
     "theme.saveError": "تعذر حفظ تفضيل المظهر.",
+    "pwa.updateAvailable":
+      "يوجد تحديث جاهز لأوبن ريكول. أنت من يختار وقت تثبيته.",
+    "pwa.offlineReady":
+      "واجهة أوبن ريكول جاهزة للبدء دون اتصال.",
+    "pwa.updateNow": "التحديث الآن",
+    "pwa.later": "لاحقًا",
+    "pwa.updateBlocked":
+      "أنه المراجعة أو أوقفها مؤقتًا، واحفظ التعديلات المفتوحة أو ألغها قبل التحديث.",
+    "pwa.updateFailed":
+      "تعذر تثبيت التحديث. يمكنك المحاولة مرة أخرى لاحقًا.",
+    "serverUnavailable.title": "خادم أوبن ريكول متوقف",
+    "serverUnavailable.description":
+      "الواجهة متاحة، لكن بيانات الدراسة لا تُعرض أبدًا من ذاكرة مخبأة قديمة. شغّل الخادم المحلي ثم أعد المحاولة.",
+    "serverUnavailable.retry": "إعادة المحاولة",
+    "serverUnavailable.helpLink": "كيفية تشغيل أوبن ريكول",
+    "serverUnavailable.helpTitle": "تشغيل الخادم المحلي",
+    "serverUnavailable.helpBody":
+      "افتح الطرفية داخل مجلد أوبن ريكول ثم شغّل:",
     "settings.title": "الإعدادات",
     "settings.scope": "نطاق الإعدادات",
     "settings.global": "الإعدادات العامة",

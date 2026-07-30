@@ -15,6 +15,8 @@ import {
   type I18nInstance,
 } from "./app/I18nProvider.js";
 import { ThemeProvider } from "./app/ThemeProvider.js";
+import type { ServiceWorkerUpdateController } from "./pwa/register-service-worker.js";
+import { inactiveServiceWorkerUpdateController } from "./pwa/register-service-worker.js";
 import {
   HomePage,
   type CreateSectionActionData,
@@ -50,16 +52,18 @@ function statisticsPath(
 export function createRoutes({
   api,
   i18n,
+  updates = inactiveServiceWorkerUpdateController,
 }: {
   readonly api: ApiClient;
   readonly i18n: I18nInstance;
+  readonly updates?: ServiceWorkerUpdateController;
 }): RouteObject[] {
   return [
     {
       element: (
         <I18nProvider i18n={i18n}>
           <ThemeProvider api={api}>
-            <AppShell />
+            <AppShell updates={updates} />
           </ThemeProvider>
         </I18nProvider>
       ),

@@ -129,7 +129,6 @@ export function CardList({
                   </button>
                 )}
                 <button
-                  ref={deleteCard?.id === card.id ? deleteOpenerRef : undefined}
                   type="button"
                   onClick={(event) => {
                     deleteOpenerRef.current = event.currentTarget;

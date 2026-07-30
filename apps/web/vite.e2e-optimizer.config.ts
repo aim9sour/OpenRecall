@@ -6,11 +6,11 @@ export default mergeConfig(
   defineConfig({
     server: {
       host: "127.0.0.1",
-      port: 5_174,
+      port: 5_177,
       strictPort: true,
       proxy: {
         "/api": {
-          target: "http://127.0.0.1:3211",
+          target: "http://127.0.0.1:3214",
           changeOrigin: true,
         },
       },

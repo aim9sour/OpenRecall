@@ -1,5 +1,10 @@
 import { useEffect, useState, type MouseEvent } from "react";
-import { Link, Outlet } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
+import { UpdatePrompt } from "../pwa/UpdatePrompt.js";
+import {
+  inactiveServiceWorkerUpdateController,
+  type ServiceWorkerUpdateController,
+} from "../pwa/register-service-worker.js";
 import { useI18n } from "./I18nProvider.js";
 import {
   MAINTENANCE_NAVIGATION_END,
@@ -8,9 +13,14 @@ import {
 import { RouteFocus } from "./RouteFocus.js";
 import { useTheme } from "./ThemeProvider.js";
 
-export function AppShell() {
+export function AppShell({
+  updates = inactiveServiceWorkerUpdateController,
+}: {
+  readonly updates?: ServiceWorkerUpdateController;
+}) {
   const { t } = useI18n();
   const theme = useTheme();
+  const location = useLocation();
   const [navigationBlocked, setNavigationBlocked] = useState(false);
 
   useEffect(() => {
@@ -90,6 +100,10 @@ export function AppShell() {
         <RouteFocus />
         <Outlet />
       </main>
+      <UpdatePrompt
+        activeReview={location.pathname.startsWith("/review/")}
+        controller={updates}
+      />
     </>
   );
 }
