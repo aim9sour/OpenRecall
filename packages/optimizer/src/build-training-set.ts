@@ -42,7 +42,10 @@ export function buildTrainingSet(
       left.ratedAtMs - right.ratedAtMs ||
       compareText(left.reviewLogId, right.reviewLogId),
   );
-  const examples: OptimizerExample[] = [];
+  const timestampedExamples: Array<{
+    readonly example: OptimizerExample;
+    readonly targetRatedAtMs: number;
+  }> = [];
   let history: OptimizerReview[] = [];
   let currentItemId: string | null = null;
 
@@ -56,13 +59,29 @@ export function buildTrainingSet(
       deltaDays: row.deltaDays,
     });
     if (history.length > 1 && row.deltaDays > 0) {
-      examples.push({
-        learningItemId: row.learningItemId,
-        targetReviewLogId: row.reviewLogId,
-        reviews: history.map((review) => ({ ...review })),
+      timestampedExamples.push({
+        targetRatedAtMs: row.ratedAtMs,
+        example: {
+          learningItemId: row.learningItemId,
+          targetReviewLogId: row.reviewLogId,
+          reviews: history.map((review) => ({ ...review })),
+        },
       });
     }
   }
+  timestampedExamples.sort(
+    (left, right) =>
+      left.targetRatedAtMs - right.targetRatedAtMs ||
+      compareText(
+        left.example.targetReviewLogId,
+        right.example.targetReviewLogId,
+      ) ||
+      compareText(
+        left.example.learningItemId,
+        right.example.learningItemId,
+      ),
+  );
+  const examples = timestampedExamples.map(({ example }) => example);
 
   return {
     rawReviewCount: rows.length,

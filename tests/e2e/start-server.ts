@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { buildServer } from "../../apps/server/src/app.js";
 import type { DueWakeService } from "../../apps/server/src/review/due-wake-service.js";
 import { openDatabase } from "../../packages/database/src/index.js";
+import { seedOptimizerFixture } from "./seed-optimizer-fixture.js";
 
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
 const serverPort = Number(process.env["OPENRECALL_E2E_API_PORT"] ?? "3210");
@@ -35,6 +36,7 @@ function refreshClock(): void {
 
 const directory = await mkdtemp(join(tmpdir(), "openrecall-e2e-"));
 const database = openDatabase(join(directory, "openrecall.sqlite3"));
+seedOptimizerFixture(database);
 let dueWake: Pick<DueWakeService, "rearm"> | undefined;
 const server = await buildServer({
   config: {

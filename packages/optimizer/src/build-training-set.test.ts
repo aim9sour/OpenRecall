@@ -85,6 +85,31 @@ describe("buildTrainingSet", () => {
     ]);
   });
 
+  it("orders eligible examples by target time for time-series evaluation", () => {
+    const summary = buildTrainingSet([
+      review("a-2", 5, {
+        learningItemId: "item-a",
+        ratedAtMs: 50,
+      }),
+      review("b-2", 3, {
+        learningItemId: "item-b",
+        ratedAtMs: 40,
+      }),
+      review("a-1", 0, {
+        learningItemId: "item-a",
+        ratedAtMs: 10,
+      }),
+      review("b-1", 0, {
+        learningItemId: "item-b",
+        ratedAtMs: 20,
+      }),
+    ]);
+
+    expect(
+      summary.examples.map(({ targetReviewLogId }) => targetReviewLogId),
+    ).toEqual(["b-2", "a-2"]);
+  });
+
   it("uses immutable log IDs to order equal timestamps and validates rows", () => {
     const summary = buildTrainingSet([
       review("log-b", 1, { ratedAtMs: 100 }),
