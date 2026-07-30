@@ -1,6 +1,28 @@
 import { Type, type Static } from "typebox";
 import { EpochMillisecondsSchema, UuidSchema } from "./sections.js";
 
+export const ThemePreferenceSchema = Type.Union([
+  Type.Literal("system"),
+  Type.Literal("light"),
+  Type.Literal("dark"),
+]);
+
+export const AppearancePreferencesSchema = Type.Object(
+  {
+    theme: ThemePreferenceSchema,
+    updatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
+export const AppearancePreferencesMutationSchema = Type.Object(
+  {
+    theme: ThemePreferenceSchema,
+    expectedUpdatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
 export const SchedulerStepsSchema = Type.Array(
   Type.Integer({ minimum: 1, maximum: 1_439 }),
   { maxItems: 64, uniqueItems: true },
@@ -200,6 +222,13 @@ export const SettingsViewSchema = Type.Object(
 );
 
 export type SchedulerSettings = Static<typeof SchedulerSettingsSchema>;
+export type ThemePreference = Static<typeof ThemePreferenceSchema>;
+export type AppearancePreferences = Static<
+  typeof AppearancePreferencesSchema
+>;
+export type AppearancePreferencesMutation = Static<
+  typeof AppearancePreferencesMutationSchema
+>;
 export type SchedulerControl = Static<typeof SchedulerControlSchema>;
 export type SchedulerManifest = Static<typeof SchedulerManifestSchema>;
 export type SchedulerSettingsScope = Static<

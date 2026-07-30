@@ -14,6 +14,7 @@ import {
   I18nProvider,
   type I18nInstance,
 } from "./app/I18nProvider.js";
+import { ThemeProvider } from "./app/ThemeProvider.js";
 import {
   HomePage,
   type CreateSectionActionData,
@@ -57,7 +58,9 @@ export function createRoutes({
     {
       element: (
         <I18nProvider i18n={i18n}>
-          <AppShell />
+          <ThemeProvider api={api}>
+            <AppShell />
+          </ThemeProvider>
         </I18nProvider>
       ),
       children: [

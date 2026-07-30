@@ -128,6 +128,8 @@ export {
   type StudyStatistics,
 } from "./statistics.js";
 export {
+  AppearancePreferencesMutationSchema,
+  AppearancePreferencesSchema,
   SchedulerControlSchema,
   SchedulerManifestSchema,
   SchedulerSettingsMutationSchema,
@@ -137,6 +139,9 @@ export {
   SchedulerStepsSchema,
   SettingsQuerySchema,
   SettingsViewSchema,
+  ThemePreferenceSchema,
+  type AppearancePreferences,
+  type AppearancePreferencesMutation,
   type SchedulerControl,
   type SchedulerManifest,
   type SchedulerSettingsMutation,
@@ -145,4 +150,5 @@ export {
   type SchedulerSettingsScope,
   type SettingsQuery,
   type SettingsView,
+  type ThemePreference,
 } from "./settings.js";

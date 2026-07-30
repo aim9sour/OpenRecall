@@ -32,6 +32,17 @@ export default defineConfig({
       url: "http://127.0.0.1:5174",
       reuseExistingServer: false,
     },
+    {
+      command: "pnpm exec tsx tests/e2e/start-pseudo-server.ts",
+      url: "http://127.0.0.1:3212/api/v1/bootstrap",
+      reuseExistingServer: false,
+    },
+    {
+      command:
+        "pnpm --filter @openrecall/web exec vite --config vite.e2e-xa.config.ts",
+      url: "http://127.0.0.1:5175",
+      reuseExistingServer: false,
+    },
   ],
   projects: [
     {
@@ -43,10 +54,19 @@ export default defineConfig({
     },
     {
       name: "chromium-en",
-      testMatch: /management-statistics\.spec\.ts/,
+      testMatch:
+        /(management-statistics|visual-accessibility)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: "http://127.0.0.1:5174",
+      },
+    },
+    {
+      name: "chromium-xa",
+      testMatch: /visual-accessibility\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: "http://127.0.0.1:5175",
       },
     },
   ],

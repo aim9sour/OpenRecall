@@ -151,9 +151,12 @@ export function seedOptimizerFixture(
 
     let reviewCutoffMs = 0;
     for (let itemIndex = 0; itemIndex < ITEM_COUNT; itemIndex += 1) {
-      const itemId = `fixture-item-${itemIndex}`;
-      const presentationId = `fixture-presentation-${itemIndex}`;
-      const queueEntryId = `fixture-entry-${itemIndex}`;
+      const identifierSuffix = itemIndex.toString().padStart(12, "0");
+      const itemId = `10000000-0000-4000-8000-${identifierSuffix}`;
+      const presentationId =
+        `20000000-0000-4000-8000-${identifierSuffix}`;
+      const queueEntryId =
+        `30000000-0000-4000-8000-${identifierSuffix}`;
       const front = `Fixture question ${itemIndex + 1}`;
       const back = `Fixture answer ${itemIndex + 1}`;
       insertItem.run(

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type {
+  AppearancePreferences,
   SchedulerManifest,
   SchedulerSettings,
+  ThemePreference,
 } from "@openrecall/contracts";
 import type {
   EffectiveSchedulerConfig,
@@ -56,6 +58,20 @@ interface ProfileRow {
   readonly created_at_ms: number;
 }
 
+interface ApplicationSettingRow {
+  readonly json_value: string;
+  readonly updated_at_ms: number;
+}
+
+const APPEARANCE_THEME_KEY = "appearance.theme";
+
+function validateTheme(value: unknown): ThemePreference {
+  if (value !== "system" && value !== "light" && value !== "dark") {
+    throw new Error("APPEARANCE_THEME_PERSISTED_INVALID");
+  }
+  return value;
+}
+
 function mapSettings(row: SettingsRow | undefined): SchedulerSettingsCandidate | null {
   if (row === undefined) return null;
   try {
@@ -104,6 +120,74 @@ export class SettingsRepository {
 
   constructor(db: Database.Database) {
     this.#db = db;
+  }
+
+  getAppearancePreferences(): AppearancePreferences {
+    const row = this.#db
+      .prepare<[string], ApplicationSettingRow>(
+        `
+          SELECT json_value, updated_at_ms
+          FROM application_settings
+          WHERE key = ?
+        `,
+      )
+      .get(APPEARANCE_THEME_KEY);
+    if (row === undefined) {
+      return { theme: "system", updatedAtMs: 0 };
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(row.json_value);
+    } catch {
+      throw new Error("APPEARANCE_THEME_PERSISTED_INVALID");
+    }
+    return {
+      theme: validateTheme(value),
+      updatedAtMs: row.updated_at_ms,
+    };
+  }
+
+  saveAppearancePreferences(input: {
+    readonly theme: ThemePreference;
+    readonly expectedUpdatedAtMs: number;
+    readonly nowMs: number;
+  }): AppearancePreferences {
+    validateTheme(input.theme);
+    if (
+      !Number.isSafeInteger(input.expectedUpdatedAtMs) ||
+      input.expectedUpdatedAtMs < 0 ||
+      !Number.isSafeInteger(input.nowMs) ||
+      input.nowMs < 0
+    ) {
+      throw new RangeError("SETTINGS_TIME_INVALID");
+    }
+    return this.#db.transaction(() => {
+      const current = this.getAppearancePreferences();
+      if (current.updatedAtMs !== input.expectedUpdatedAtMs) {
+        throw new Error("SETTINGS_EDIT_CONFLICT");
+      }
+      const updatedAtMs = Math.max(
+        input.nowMs,
+        current.updatedAtMs + 1,
+      );
+      this.#db
+        .prepare(
+          `
+            INSERT INTO application_settings
+              (key, json_value, updated_at_ms)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+              json_value = excluded.json_value,
+              updated_at_ms = excluded.updated_at_ms
+          `,
+        )
+        .run(
+          APPEARANCE_THEME_KEY,
+          JSON.stringify(input.theme),
+          updatedAtMs,
+        );
+      return { theme: input.theme, updatedAtMs };
+    })();
   }
 
   getGlobalSettings(): SchedulerSettingsCandidate | null {

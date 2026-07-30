@@ -15,9 +15,15 @@ import { seedOptimizerFixture } from "./seed-optimizer-fixture.js";
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
 const serverPort = Number(process.env["OPENRECALL_E2E_API_PORT"] ?? "3210");
 const webPort = Number(process.env["OPENRECALL_E2E_WEB_PORT"] ?? "5173");
+const localeCandidate = process.env["OPENRECALL_E2E_LOCALE"];
 const locale =
-  process.env["OPENRECALL_E2E_LOCALE"] === "en" ? "en" : "ar";
-const clockSuffix = locale === "en" ? "-en" : "";
+  localeCandidate === "en-XA"
+    ? "en-XA"
+    : localeCandidate === "en"
+      ? "en"
+      : "ar";
+const clockSuffix =
+  locale === "ar" ? "" : locale === "en" ? "-en" : "-xa";
 const clockPath = join(
   process.cwd(),
   "tests",

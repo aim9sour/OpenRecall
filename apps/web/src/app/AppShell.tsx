@@ -6,9 +6,11 @@ import {
   MAINTENANCE_NAVIGATION_START,
 } from "./maintenance-events.js";
 import { RouteFocus } from "./RouteFocus.js";
+import { useTheme } from "./ThemeProvider.js";
 
 export function AppShell() {
   const { t } = useI18n();
+  const theme = useTheme();
   const [navigationBlocked, setNavigationBlocked] = useState(false);
 
   useEffect(() => {
@@ -60,6 +62,29 @@ export function AppShell() {
             </li>
           </ul>
         </nav>
+        <div className="theme-control">
+          <label htmlFor="theme-preference">{t("theme.label")}</label>
+          <select
+            id="theme-preference"
+            value={theme.preference}
+            disabled={theme.busy}
+            onChange={(event) =>
+              void theme.setPreference(
+                event.currentTarget.value as
+                  | "system"
+                  | "light"
+                  | "dark",
+              )
+            }
+          >
+            <option value="system">{t("theme.system")}</option>
+            <option value="light">{t("theme.light")}</option>
+            <option value="dark">{t("theme.dark")}</option>
+          </select>
+          {theme.error !== null && (
+            <p role="alert">{t("theme.saveError")}</p>
+          )}
+        </div>
       </header>
       <main id="main-content" className="page-shell">
         <RouteFocus />

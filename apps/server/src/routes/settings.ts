@@ -1,4 +1,6 @@
 import {
+  AppearancePreferencesMutationSchema,
+  AppearancePreferencesSchema,
   ApiErrorSchema,
   SchedulerSettingsMutationSchema,
   SchedulerSettingsResetSchema,
@@ -9,6 +11,7 @@ import {
   type SchedulerSettingsReset,
   type SettingsQuery,
   type SettingsView,
+  type AppearancePreferencesMutation,
 } from "@openrecall/contracts";
 import {
   CURRENT_DEFAULT_SCHEDULER_SETTINGS,
@@ -102,6 +105,45 @@ export function registerSettingsRoutes(
     });
     return false;
   };
+
+  server.get(
+    "/api/v1/settings/appearance",
+    {
+      schema: {
+        response: {
+          200: AppearancePreferencesSchema,
+        },
+      },
+    },
+    async (_request, reply) =>
+      reply
+        .code(200)
+        .send(options.settings.getAppearancePreferences()),
+  );
+
+  server.put<{ Body: AppearancePreferencesMutation }>(
+    "/api/v1/settings/appearance",
+    {
+      schema: {
+        body: AppearancePreferencesMutationSchema,
+        response: {
+          200: AppearancePreferencesSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const saved = options.settings.saveAppearancePreferences({
+          ...request.body,
+          nowMs: options.nowMs(),
+        });
+        return reply.code(200).send(saved);
+      } catch (error) {
+        return settingsError(reply, error);
+      }
+    },
+  );
 
   server.get<{ Querystring: SettingsQuery }>(
     "/api/v1/settings",

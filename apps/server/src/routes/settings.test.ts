@@ -38,6 +38,75 @@ async function mutationHeaders(
 }
 
 describe("settings routes", () => {
+  it("persists a global appearance preference with optimistic concurrency", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      const server = await buildServer({
+        config,
+        database: db,
+        nowMs: () => 1_500,
+      });
+      const headers = await mutationHeaders(server);
+
+      try {
+        const initial = await server.inject({
+          method: "GET",
+          url: "/api/v1/settings/appearance",
+          headers: testRequestHeaders(),
+        });
+        expect(initial.statusCode).toBe(200);
+        expect(initial.json()).toEqual({
+          theme: "system",
+          updatedAtMs: 0,
+        });
+
+        const saved = await server.inject({
+          method: "PUT",
+          url: "/api/v1/settings/appearance",
+          headers,
+          payload: {
+            expectedUpdatedAtMs: 0,
+            theme: "dark",
+          },
+        });
+        expect(saved.statusCode).toBe(200);
+        expect(saved.json()).toEqual({
+          theme: "dark",
+          updatedAtMs: 1_500,
+        });
+
+        const stale = await server.inject({
+          method: "PUT",
+          url: "/api/v1/settings/appearance",
+          headers,
+          payload: {
+            expectedUpdatedAtMs: 0,
+            theme: "light",
+          },
+        });
+        expect(stale.statusCode).toBe(409);
+        expect(stale.json()).toMatchObject({
+          code: "SETTINGS_EDIT_CONFLICT",
+        });
+        expect(
+          JSON.parse(
+            String(
+              db
+                .prepare(
+                  "SELECT json_value FROM application_settings WHERE key = 'appearance.theme'",
+                )
+                .pluck()
+                .get(),
+            ),
+          ),
+        ).toBe("dark");
+      } finally {
+        await server.close();
+        expect(db.open).toBe(false);
+      }
+    });
+  });
+
   it("returns the manifest, defaults, explicit override, and resolved sources", async () => {
     await withTempDatabase(async (databasePath) => {
       const db = openDatabase(databasePath);

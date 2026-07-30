@@ -12,6 +12,12 @@ export const englishLocale = {
     "nav.home": "Home",
     "nav.statistics": "Statistics",
     "nav.settings": "Settings",
+    "theme.label": "Appearance",
+    "theme.system": "Use system theme",
+    "theme.light": "Light theme",
+    "theme.dark": "Dark theme",
+    "theme.saveError":
+      "The appearance preference could not be saved.",
     "settings.title": "Settings",
     "settings.scope": "Settings scope",
     "settings.global": "General settings",
