@@ -300,7 +300,7 @@ describe("single-instance coordination", () => {
       source.indexOf("await mkdir(config.dataDirectory"),
     );
     expect(source.indexOf("await preflightSingleInstance(")).toBeLessThan(
-      source.indexOf("await openDatabaseWithPreMigrationBackup("),
+      source.indexOf("openDatabaseWithPreMigrationBackup("),
     );
   });
 
@@ -314,7 +314,7 @@ describe("single-instance coordination", () => {
       "await recoverInterruptedRestoreSwap(databasePath)",
     );
     const openIndex = source.indexOf(
-      "await openDatabaseWithPreMigrationBackup(",
+      "database = await openStartupDatabase()",
     );
     const cleanupIndex = source.indexOf(
       "await restoreRecovery.complete()",

@@ -1,8 +1,13 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { withTempDatabase } from "@openrecall/test-support";
 import { describe, expect, it } from "vitest";
 import { APPLICATION_ID, SCHEMA_VERSION } from "./constants.js";
 import { migrateDatabase } from "./migrate.js";
-import { openDatabase } from "./open-database.js";
+import {
+  openDatabase,
+  openExistingDatabaseWithPreMigrationBackup,
+} from "./open-database.js";
 
 describe("openDatabase", () => {
   it("enforces and verifies the durable connection policy", async () => {
@@ -158,6 +163,36 @@ describe("openDatabase", () => {
       } finally {
         db.close();
       }
+    });
+  });
+
+  it("never initializes an empty or missing file through the existing-database recovery path", async () => {
+    await withTempDatabase(async (databasePath) => {
+      await writeFile(databasePath, "");
+      const before = await readFile(databasePath);
+
+      await expect(
+        openExistingDatabaseWithPreMigrationBackup(databasePath, {
+          snapshotDirectory: join(
+            dirname(databasePath),
+            "snapshots",
+          ),
+        }),
+      ).rejects.toThrow("DATABASE_EXISTING_IDENTITY_REQUIRED");
+      expect(await readFile(databasePath)).toEqual(before);
+
+      const missing = `${databasePath}.missing`;
+      await expect(
+        openExistingDatabaseWithPreMigrationBackup(missing, {
+          snapshotDirectory: join(
+            dirname(databasePath),
+            "snapshots",
+          ),
+        }),
+      ).rejects.toThrow();
+      await expect(readFile(missing)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
     });
   });
 });

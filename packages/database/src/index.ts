@@ -16,6 +16,7 @@ export { coreMigration } from "./migrations/001-core.js";
 export {
   openDatabase,
   openDatabaseWithPreMigrationBackup,
+  openExistingDatabaseWithPreMigrationBackup,
   openValidatedRestoreCandidate,
   type PreMigrationOpenOptions,
 } from "./open-database.js";

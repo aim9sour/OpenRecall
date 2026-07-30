@@ -1,7 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openDatabaseWithPreMigrationBackup } from "@openrecall/database";
+import {
+  openDatabaseWithPreMigrationBackup,
+  openExistingDatabaseWithPreMigrationBackup,
+} from "@openrecall/database";
 import {
   buildServer,
   recoverInterruptedOptimizerRuns,
@@ -53,12 +56,34 @@ async function start(): Promise<void> {
     );
     const restoreRecovery =
       await recoverInterruptedRestoreSwap(databasePath);
-    const database = await openDatabaseWithPreMigrationBackup(
-      databasePath,
-      {
+    const databaseOptions = {
         snapshotDirectory: join(config.dataDirectory, "backups"),
-      },
-    );
+      };
+    const openStartupDatabase = () =>
+      restoreRecovery.requiresExistingDatabase
+        ? openExistingDatabaseWithPreMigrationBackup(
+            databasePath,
+            databaseOptions,
+          )
+        : openDatabaseWithPreMigrationBackup(
+            databasePath,
+            databaseOptions,
+          );
+    let database;
+    try {
+      database = await openStartupDatabase();
+    } catch (error) {
+      if (
+        !(await restoreRecovery.recoverAfterOpenFailure())
+      ) {
+        throw error;
+      }
+      database =
+        await openExistingDatabaseWithPreMigrationBackup(
+          databasePath,
+          databaseOptions,
+        );
+    }
     await restoreRecovery.complete();
     const staticClientRoot = productionStaticClientRoot(
       fileURLToPath(new URL("../../web/dist", import.meta.url)),

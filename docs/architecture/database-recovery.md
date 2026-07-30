@@ -65,13 +65,18 @@ database:
 Startup checks these exact paths before opening SQLite, so a missing live path
 cannot silently become a new empty database during interrupted-restore
 recovery. A rollback marker restores the prior database. A committed-old marker
-keeps a present, validated replacement, or restores the old database if the
-replacement itself is missing. An installed but uncommitted replacement and
-its exact `-wal`/`-shm` files are quarantined under
+keeps a present replacement only after a strict existing-file open verifies its
+OpenRecall identity and integrity. That strict path neither creates nor
+initializes a database. If validation fails, the invalid replacement and its
+sidecars are quarantined and the committed-old database is restored and
+strictly validated before cleanup. The same fallback applies when the
+replacement itself is missing. An installed but uncommitted replacement and its
+exact `-wal`/`-shm` files are quarantined under
 `openrecall.sqlite3.restore-interrupted-candidate` until the restored original
 database opens successfully. Conflicting markers fail closed with a stable
-startup failure; OpenRecall never enumerates the directory or guesses which
-database is current.
+startup failure. OpenRecall snapshots the existence state of every exact live,
+marker, quarantine, WAL, and SHM path before renaming anything; it never
+enumerates the directory or guesses which database is current.
 
 ## Restore through the application
 

@@ -6,7 +6,10 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { openDatabase } from "@openrecall/database";
+import {
+  openDatabase,
+  openExistingDatabaseWithPreMigrationBackup,
+} from "@openrecall/database";
 import { withTempDatabase } from "@openrecall/test-support";
 import { describe, expect, it } from "vitest";
 import {
@@ -49,6 +52,17 @@ function sectionIds(path: string): readonly string[] {
   try {
     return database.prepare(
       "SELECT id FROM sections ORDER BY id",
+    ).pluck().all() as string[];
+  } finally {
+    database.close();
+  }
+}
+
+function sectionNames(path: string): readonly string[] {
+  const database = openDatabase(path);
+  try {
+    return database.prepare(
+      "SELECT name FROM sections ORDER BY id",
     ).pluck().all() as string[];
   } finally {
     database.close();
@@ -219,6 +233,79 @@ describe("interrupted restore swap recovery", () => {
     });
   });
 
+  it("fails closed before any rename when rollback is mixed with an interrupted sidecar", async () => {
+    await withTempDatabase(async (livePath) => {
+      seed(livePath, "replacement");
+      const paths = restoreSwapPaths(livePath);
+      seed(paths.rollback, "original");
+      await writeFile(
+        `${paths.interruptedCandidate}-wal`,
+        "conflicting wal",
+      );
+
+      await expect(
+        recoverInterruptedRestoreSwap(livePath),
+      ).rejects.toThrow("RESTORE_SWAP_STATE_CONFLICT");
+      expect(sectionIds(livePath)).toEqual(["replacement"]);
+      expect(sectionIds(paths.rollback)).toEqual(["original"]);
+      expect(
+        await exists(`${paths.interruptedCandidate}-wal`),
+      ).toBe(true);
+    });
+  });
+
+  it("fails closed when a committed-old marker is mixed with interrupted artifacts", async () => {
+    await withTempDatabase(async (livePath) => {
+      seed(livePath, "replacement");
+      const paths = restoreSwapPaths(livePath);
+      seed(paths.committedOld, "original");
+      seed(paths.interruptedCandidate, "conflict");
+
+      await expect(
+        recoverInterruptedRestoreSwap(livePath),
+      ).rejects.toThrow("RESTORE_SWAP_STATE_CONFLICT");
+      expect(sectionIds(livePath)).toEqual(["replacement"]);
+      expect(sectionIds(paths.committedOld)).toEqual(["original"]);
+      expect(sectionIds(paths.interruptedCandidate)).toEqual([
+        "conflict",
+      ]);
+    });
+  });
+
+  it("falls back to committed-old when strict recovery open rejects an empty live file", async () => {
+    await withTempDatabase(async (livePath) => {
+      const paths = restoreSwapPaths(livePath);
+      await writeFile(livePath, "");
+      seed(paths.committedOld, "original");
+
+      const recovery =
+        await recoverInterruptedRestoreSwap(livePath);
+      expect(recovery.requiresExistingDatabase).toBe(true);
+      await expect(
+        openExistingDatabaseWithPreMigrationBackup(livePath, {
+          snapshotDirectory: `${livePath}.snapshots`,
+        }),
+      ).rejects.toThrow("DATABASE_EXISTING_IDENTITY_REQUIRED");
+
+      expect(await recovery.recoverAfterOpenFailure()).toBe(true);
+      const database =
+        await openExistingDatabaseWithPreMigrationBackup(livePath, {
+          snapshotDirectory: `${livePath}.snapshots`,
+        });
+      try {
+        expect(
+          database.prepare(
+            "SELECT name FROM sections WHERE id = 'original'",
+          ).pluck().get(),
+        ).toBe("original");
+      } finally {
+        database.close();
+      }
+      await recovery.complete();
+      expect(await exists(paths.interruptedCandidate)).toBe(false);
+    });
+  });
+
   it("never creates an empty live database when only an interrupted candidate remains", async () => {
     await withTempDatabase(async (livePath) => {
       const paths = restoreSwapPaths(livePath);
@@ -235,12 +322,16 @@ describe("interrupted restore swap recovery", () => {
   });
 
   it.each([
-    ["original-renamed", "original"],
-    ["replacement-installed", "original"],
-    ["committed", "replacement"],
+    ["original-renamed", "original", "original"],
+    ["replacement-installed", "original", "original"],
+    [
+      "committed",
+      "replacement",
+      "replacement-open-during-hard-kill",
+    ],
   ] as const)(
     "reopens the correct database after a hard process termination at %s",
-    async (phase, expectedId) => {
+    async (phase, expectedId, expectedName) => {
       await withTempDatabase(async (livePath) => {
         seed(livePath, "original");
         const candidatePath = `${livePath}.candidate`;
@@ -251,6 +342,7 @@ describe("interrupted restore swap recovery", () => {
         const recovery =
           await recoverInterruptedRestoreSwap(livePath);
         expect(sectionIds(livePath)).toEqual([expectedId]);
+        expect(sectionNames(livePath)).toEqual([expectedName]);
         await recovery.complete();
       });
     },

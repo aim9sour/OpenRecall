@@ -23,10 +23,28 @@ function verifyPragma(
   }
 }
 
-function openConfiguredConnection(path: string): Database.Database {
-  const db = new Database(path);
+function openConfiguredConnection(
+  path: string,
+  requireExistingIdentity = false,
+): Database.Database {
+  const db = new Database(
+    path,
+    requireExistingIdentity
+      ? { fileMustExist: true }
+      : undefined,
+  );
 
   try {
+    if (
+      requireExistingIdentity &&
+      (
+        readIntegerPragma(db, "application_id") !==
+          APPLICATION_ID ||
+        readIntegerPragma(db, "user_version") < 1
+      )
+    ) {
+      throw new Error("DATABASE_EXISTING_IDENTITY_REQUIRED");
+    }
     db.pragma(`busy_timeout = ${BUSY_TIMEOUT_MS}`);
     db.pragma("foreign_keys = ON");
     db.pragma("journal_mode = WAL");
@@ -38,8 +56,15 @@ function openConfiguredConnection(path: string): Database.Database {
     verifyPragma(db, "journal_mode", "wal");
     verifyPragma(db, "synchronous", 2);
     verifyPragma(db, "trusted_schema", 0);
-  } catch {
+  } catch (error) {
     db.close();
+    if (
+      error instanceof Error &&
+      error.message ===
+        "DATABASE_EXISTING_IDENTITY_REQUIRED"
+    ) {
+      throw error;
+    }
     throw new Error(STARTUP_POLICY_ERROR);
   }
 
@@ -99,7 +124,18 @@ export async function openDatabaseWithPreMigrationBackup(
   path: string,
   options: PreMigrationOpenOptions,
 ): Promise<Database.Database> {
-  const db = openConfiguredConnection(path);
+  return openWithPreMigrationBackup(path, options, false);
+}
+
+async function openWithPreMigrationBackup(
+  path: string,
+  options: PreMigrationOpenOptions,
+  requireExistingIdentity: boolean,
+): Promise<Database.Database> {
+  const db = openConfiguredConnection(
+    path,
+    requireExistingIdentity,
+  );
   try {
     if (needsPreMigrationBackup(db)) {
       const backup = (options.backupFactory ?? createBackupService)({
@@ -119,6 +155,13 @@ export async function openDatabaseWithPreMigrationBackup(
     db.close();
     throw error;
   }
+}
+
+export async function openExistingDatabaseWithPreMigrationBackup(
+  path: string,
+  options: PreMigrationOpenOptions,
+): Promise<Database.Database> {
+  return openWithPreMigrationBackup(path, options, true);
 }
 
 export function openValidatedRestoreCandidate(

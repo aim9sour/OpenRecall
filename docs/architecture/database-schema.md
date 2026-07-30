@@ -74,8 +74,12 @@ point has a rollback path to the prior live database. Deterministic rollback
 and committed-old filenames form a restartable state machine: startup resolves
 them before opening the canonical database path, and deletes an old or
 quarantined file only after the selected live database validates and opens.
-Conflicting states fail closed instead of creating an empty replacement. A
-passive WAL checkpoint and normal connection close complete graceful shutdown.
+Recovery uses a strict existing-database open that requires OpenRecall identity
+before any connection setting or migration can initialize a file. An invalid
+committed replacement is quarantined and the old database is restored.
+Conflicting marker/sidecar tuples fail closed instead of creating an empty
+replacement. A passive WAL checkpoint and normal connection close complete
+graceful shutdown.
 
 ## Stored-version compatibility
 
