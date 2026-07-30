@@ -12,7 +12,7 @@ connections and mutations.
 | `contracts` | Versioned TypeBox request, response, and shared data shapes. |
 | `i18n` | Typed English, Arabic, and development pseudo-locale messages. |
 | `scheduler` | The only runtime package allowed to import `ts-fsrs`; exposes the FSRS-6 adapter and manifest. |
-| `optimizer` | Converts immutable review evidence for the native optimizer worker and validates its output. |
+| `optimizer` | Converts append-only review evidence for the native optimizer worker and validates its output. |
 | `domain` | Pure import, rotation, time, review, settings, replay, and statistics rules. |
 | `database` | SQLite schema, migrations, repositories, atomic ratings, replay, backup, and validation. |
 | `server` | Loopback Fastify API, security, SSE, maintenance, restore lifecycle, static production serving, and startup. |
@@ -71,4 +71,3 @@ FSRS packages and [the database schema](database-schema.md) before changing
 persistence. FSRS-7 is unsupported until a stable upstream implementation,
 new adapter, explicit migrations, replay fixtures, optimizer evaluation, and
 the complete release audit all pass.
-

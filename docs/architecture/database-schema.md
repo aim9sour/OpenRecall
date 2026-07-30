@@ -31,9 +31,11 @@ queues.
   steps, revision, and the exact parameter source per learning item.
 - `review_sessions` and `session_queue_entries` persist the continuous session,
   including waiting and paused states.
-- `review_logs` is immutable review evidence: content snapshots, timing,
-  rating, prior/result state, scheduler versions, settings, timezone,
-  retrievability, and resulting due time.
+- `review_logs` is append-only through the normal review API and records
+  evidence: content snapshots, timing, rating, prior/result state, scheduler
+  versions, settings, timezone, retrievability, and resulting due time. SQLite
+  does not enforce general immutability with triggers; permanent card deletion
+  removes the associated history.
 - `rating_requests` makes retries idempotent.
 
 ### Settings, training, and audit
@@ -78,4 +80,3 @@ profile, settings, timezone, and study-day boundary. Historical replay selects
 the matching adapter and rejects unknown versions. FSRS-7 is unsupported; a
 future adapter requires explicit state/profile mappings and new migration and
 golden-replay evidence.
-

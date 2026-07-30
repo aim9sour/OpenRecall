@@ -22,7 +22,7 @@ publishes another channel.
 - State-changing requests require the expected Origin and a per-process CSRF
   token.
 - Browser and server security headers restrict scripts, connections, framing,
-  MIME sniffing, referrers, and permissions.
+  MIME sniffing, and referrers.
 - Normal runtime has no outbound DNS, telemetry, CDN, font, analytics, or cloud
   dependency.
 - Cards are plain text. HTML-like markup and executable/rich media content are
