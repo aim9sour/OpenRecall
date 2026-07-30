@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  isExistingDatabaseValidationError,
   openDatabaseWithPreMigrationBackup,
   openExistingDatabaseWithPreMigrationBackup,
 } from "@openrecall/database";
@@ -19,6 +20,7 @@ import {
   preflightSingleInstance,
   StartupDiagnosticError,
 } from "./startup/single-instance.js";
+import { openStartupDatabase } from "./startup/open-startup-database.js";
 
 async function start(): Promise<void> {
   const config = loadConfig();
@@ -57,33 +59,23 @@ async function start(): Promise<void> {
     const restoreRecovery =
       await recoverInterruptedRestoreSwap(databasePath);
     const databaseOptions = {
-        snapshotDirectory: join(config.dataDirectory, "backups"),
-      };
-    const openStartupDatabase = () =>
-      restoreRecovery.requiresExistingDatabase
-        ? openExistingDatabaseWithPreMigrationBackup(
-            databasePath,
-            databaseOptions,
-          )
-        : openDatabaseWithPreMigrationBackup(
-            databasePath,
-            databaseOptions,
-          );
-    let database;
-    try {
-      database = await openStartupDatabase();
-    } catch (error) {
-      if (
-        !(await restoreRecovery.recoverAfterOpenFailure())
-      ) {
-        throw error;
-      }
-      database =
-        await openExistingDatabaseWithPreMigrationBackup(
+      snapshotDirectory: join(config.dataDirectory, "backups"),
+    };
+    const database = await openStartupDatabase({
+      recovery: restoreRecovery,
+      isValidationFailure:
+        isExistingDatabaseValidationError,
+      openExisting: () =>
+        openExistingDatabaseWithPreMigrationBackup(
           databasePath,
           databaseOptions,
-        );
-    }
+        ),
+      openFresh: () =>
+        openDatabaseWithPreMigrationBackup(
+          databasePath,
+          databaseOptions,
+        ),
+    });
     await restoreRecovery.complete();
     const staticClientRoot = productionStaticClientRoot(
       fileURLToPath(new URL("../../web/dist", import.meta.url)),

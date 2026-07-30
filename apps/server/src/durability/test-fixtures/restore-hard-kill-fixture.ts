@@ -10,7 +10,10 @@ if (
   (
     phase !== "original-renamed" &&
     phase !== "replacement-installed" &&
-    phase !== "committed"
+    phase !== "committed" &&
+    phase !== "fallback-live-quarantined" &&
+    phase !== "fallback-sidecars-quarantined" &&
+    phase !== "fallback-old-restored"
   ) ||
   livePath === undefined ||
   candidatePath === undefined ||
@@ -20,10 +23,30 @@ if (
 }
 
 const paths = restoreSwapPaths(livePath);
-await rename(livePath, paths.rollback);
+if (phase.startsWith("fallback-")) {
+  await rename(livePath, paths.interruptedCandidate);
+  if (phase !== "fallback-live-quarantined") {
+    await rename(
+      `${livePath}-wal`,
+      `${paths.interruptedCandidate}-wal`,
+    );
+    await rename(
+      `${livePath}-shm`,
+      `${paths.interruptedCandidate}-shm`,
+    );
+  }
+  if (phase === "fallback-old-restored") {
+    await rename(paths.committedOld, livePath);
+  }
+} else {
+  await rename(livePath, paths.rollback);
+}
 
 let replacement: Database.Database | undefined;
-if (phase !== "original-renamed") {
+if (
+  phase === "replacement-installed" ||
+  phase === "committed"
+) {
   await rename(candidatePath, livePath);
   replacement = new Database(livePath);
   replacement.pragma("journal_mode = WAL");

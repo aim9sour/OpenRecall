@@ -157,6 +157,13 @@ export async function recoverInterruptedRestoreSwap(
       throw new Error("RESTORE_SWAP_STATE_CONFLICT");
     }
     if (
+      !liveExists &&
+      !interruptedExists &&
+      (liveWalExists || liveShmExists)
+    ) {
+      throw new Error("RESTORE_SWAP_STATE_CONFLICT");
+    }
+    if (
       liveWalExists && interruptedWalExists ||
       liveShmExists && interruptedShmExists
     ) {

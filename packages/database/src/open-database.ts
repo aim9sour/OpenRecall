@@ -13,6 +13,17 @@ import { migrateDatabase } from "./migrate.js";
 
 const STARTUP_POLICY_ERROR = "DATABASE_STARTUP_POLICY_FAILED";
 
+export class ExistingDatabaseValidationError extends Error {
+  override readonly name =
+    "ExistingDatabaseValidationError";
+}
+
+export function isExistingDatabaseValidationError(
+  error: unknown,
+): error is ExistingDatabaseValidationError {
+  return error instanceof ExistingDatabaseValidationError;
+}
+
 function verifyPragma(
   db: Database.Database,
   pragma: string,
@@ -35,15 +46,8 @@ function openConfiguredConnection(
   );
 
   try {
-    if (
-      requireExistingIdentity &&
-      (
-        readIntegerPragma(db, "application_id") !==
-          APPLICATION_ID ||
-        readIntegerPragma(db, "user_version") < 1
-      )
-    ) {
-      throw new Error("DATABASE_EXISTING_IDENTITY_REQUIRED");
+    if (requireExistingIdentity) {
+      verifyExistingDatabase(db);
     }
     db.pragma(`busy_timeout = ${BUSY_TIMEOUT_MS}`);
     db.pragma("foreign_keys = ON");
@@ -58,17 +62,79 @@ function openConfiguredConnection(
     verifyPragma(db, "trusted_schema", 0);
   } catch (error) {
     db.close();
-    if (
-      error instanceof Error &&
-      error.message ===
-        "DATABASE_EXISTING_IDENTITY_REQUIRED"
-    ) {
+    if (isExistingDatabaseValidationError(error)) {
       throw error;
     }
     throw new Error(STARTUP_POLICY_ERROR);
   }
 
   return db;
+}
+
+function verifyExistingDatabase(
+  db: Database.Database,
+): void {
+  try {
+    const applicationId = readIntegerPragma(
+      db,
+      "application_id",
+    );
+    const userVersion = readIntegerPragma(
+      db,
+      "user_version",
+    );
+    if (
+      applicationId !== APPLICATION_ID ||
+      userVersion < 1
+    ) {
+      throw new ExistingDatabaseValidationError(
+        "DATABASE_EXISTING_IDENTITY_REQUIRED",
+      );
+    }
+    if (userVersion > SCHEMA_VERSION) {
+      throw new ExistingDatabaseValidationError(
+        "DATABASE_EXISTING_SCHEMA_UNSUPPORTED",
+      );
+    }
+    if (db.pragma("quick_check", { simple: true }) !== "ok") {
+      throw new ExistingDatabaseValidationError(
+        "DATABASE_EXISTING_INTEGRITY_FAILED",
+      );
+    }
+    const foreignKeyViolations: unknown = db.pragma(
+      "foreign_key_check",
+    );
+    if (
+      !Array.isArray(foreignKeyViolations) ||
+      foreignKeyViolations.length !== 0
+    ) {
+      throw new ExistingDatabaseValidationError(
+        "DATABASE_EXISTING_INTEGRITY_FAILED",
+      );
+    }
+  } catch (error) {
+    if (isExistingDatabaseValidationError(error)) {
+      throw error;
+    }
+    if (
+      error instanceof Error &&
+      (
+        error.message === "DATABASE_PRAGMA_INVALID" ||
+        (
+          "code" in error &&
+          (
+            error.code === "SQLITE_CORRUPT" ||
+            error.code === "SQLITE_NOTADB"
+          )
+        )
+      )
+    ) {
+      throw new ExistingDatabaseValidationError(
+        "DATABASE_EXISTING_INTEGRITY_FAILED",
+      );
+    }
+    throw error;
+  }
 }
 
 function readIntegerPragma(

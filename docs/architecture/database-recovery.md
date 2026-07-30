@@ -73,10 +73,14 @@ strictly validated before cleanup. The same fallback applies when the
 replacement itself is missing. An installed but uncommitted replacement and its
 exact `-wal`/`-shm` files are quarantined under
 `openrecall.sqlite3.restore-interrupted-candidate` until the restored original
-database opens successfully. Conflicting markers fail closed with a stable
-startup failure. OpenRecall snapshots the existence state of every exact live,
-marker, quarantine, WAL, and SHM path before renaming anything; it never
-enumerates the directory or guesses which database is current.
+database opens successfully. Only a classified identity, schema-support, or
+integrity validation error may activate committed-old fallback. Operational
+errors such as snapshot, permission, locking, or disk failures stop startup and
+preserve both the committed replacement and old safety copy for retry.
+Conflicting markers or orphan sidecars fail closed with a stable startup
+failure. OpenRecall snapshots the existence state of every exact live, marker,
+quarantine, WAL, and SHM path before renaming anything; it never enumerates the
+directory or guesses which database is current.
 
 ## Restore through the application
 

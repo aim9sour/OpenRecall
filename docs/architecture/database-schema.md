@@ -77,9 +77,11 @@ quarantined file only after the selected live database validates and opens.
 Recovery uses a strict existing-database open that requires OpenRecall identity
 before any connection setting or migration can initialize a file. An invalid
 committed replacement is quarantined and the old database is restored.
-Conflicting marker/sidecar tuples fail closed instead of creating an empty
-replacement. A passive WAL checkpoint and normal connection close complete
-graceful shutdown.
+Fallback is restricted to classified content-validation failures; operational
+open, backup, locking, permission, and disk failures leave the committed
+replacement and safety copy intact. Conflicting marker/sidecar tuples fail
+closed instead of creating an empty replacement. A passive WAL checkpoint and
+normal connection close complete graceful shutdown.
 
 ## Stored-version compatibility
 

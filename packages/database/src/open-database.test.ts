@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { APPLICATION_ID, SCHEMA_VERSION } from "./constants.js";
 import { migrateDatabase } from "./migrate.js";
 import {
+  isExistingDatabaseValidationError,
   openDatabase,
   openExistingDatabaseWithPreMigrationBackup,
 } from "./open-database.js";
@@ -171,14 +172,26 @@ describe("openDatabase", () => {
       await writeFile(databasePath, "");
       const before = await readFile(databasePath);
 
-      await expect(
+      const invalidOpen =
         openExistingDatabaseWithPreMigrationBackup(databasePath, {
           snapshotDirectory: join(
             dirname(databasePath),
             "snapshots",
           ),
-        }),
-      ).rejects.toThrow("DATABASE_EXISTING_IDENTITY_REQUIRED");
+        });
+      await expect(invalidOpen).rejects.toThrow(
+        "DATABASE_EXISTING_IDENTITY_REQUIRED",
+      );
+      await invalidOpen.catch((error: unknown) => {
+        expect(isExistingDatabaseValidationError(error)).toBe(
+          true,
+        );
+      });
+      expect(
+        isExistingDatabaseValidationError(
+          new Error("TRANSIENT_BACKUP_FAILURE"),
+        ),
+      ).toBe(false);
       expect(await readFile(databasePath)).toEqual(before);
 
       const missing = `${databasePath}.missing`;

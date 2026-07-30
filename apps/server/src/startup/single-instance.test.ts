@@ -314,7 +314,7 @@ describe("single-instance coordination", () => {
       "await recoverInterruptedRestoreSwap(databasePath)",
     );
     const openIndex = source.indexOf(
-      "database = await openStartupDatabase()",
+      "database = await openStartupDatabase(",
     );
     const cleanupIndex = source.indexOf(
       "await restoreRecovery.complete()",

@@ -8,8 +8,10 @@ import { APPLICATION_ID, SCHEMA_VERSION } from "./constants.js";
 import { migrateDatabase } from "./migrate.js";
 import { coreMigration } from "./migrations/001-core.js";
 import {
+  isExistingDatabaseValidationError,
   openDatabase,
   openDatabaseWithPreMigrationBackup,
+  openExistingDatabaseWithPreMigrationBackup,
 } from "./open-database.js";
 
 function createVersionOneDatabase(path: string): void {
@@ -136,6 +138,46 @@ describe("pre-migration backup", () => {
         expect(backupFactory).not.toHaveBeenCalled();
       } finally {
         db.close();
+      }
+    });
+  });
+
+  it("keeps an operational pre-migration backup failure distinct from database validation failure", async () => {
+    await withTempDatabase(async (databasePath) => {
+      createVersionOneDatabase(databasePath);
+      const transient = new Error("TRANSIENT_BACKUP_FAILURE");
+      const failingBackup: BackupService = {
+        createSnapshot: vi.fn(async () => {
+          throw transient;
+        }),
+        validateSnapshot: vi.fn(),
+      };
+
+      const opening =
+        openExistingDatabaseWithPreMigrationBackup(databasePath, {
+          snapshotDirectory: join(
+            dirname(databasePath),
+            "snapshots",
+          ),
+          backupFactory: () => failingBackup,
+        });
+      await expect(opening).rejects.toBe(transient);
+      await opening.catch((error: unknown) => {
+        expect(isExistingDatabaseValidationError(error)).toBe(
+          false,
+        );
+      });
+
+      const unchanged = new Database(databasePath, {
+        readonly: true,
+        fileMustExist: true,
+      });
+      try {
+        expect(
+          unchanged.pragma("user_version", { simple: true }),
+        ).toBe(1);
+      } finally {
+        unchanged.close();
       }
     });
   });

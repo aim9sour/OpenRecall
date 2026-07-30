@@ -73,7 +73,10 @@ async function hardKillAt(
   phase:
     | "original-renamed"
     | "replacement-installed"
-    | "committed",
+    | "committed"
+    | "fallback-live-quarantined"
+    | "fallback-sidecars-quarantined"
+    | "fallback-old-restored",
   livePath: string,
   candidatePath: string,
 ): Promise<void> {
@@ -254,6 +257,24 @@ describe("interrupted restore swap recovery", () => {
     });
   });
 
+  it("fails closed for rollback plus orphan live sidecars without a live or quarantined database", async () => {
+    await withTempDatabase(async (livePath) => {
+      const paths = restoreSwapPaths(livePath);
+      seed(paths.rollback, "original");
+      await writeFile(`${livePath}-wal`, "orphan wal");
+
+      await expect(
+        recoverInterruptedRestoreSwap(livePath),
+      ).rejects.toThrow("RESTORE_SWAP_STATE_CONFLICT");
+      expect(await exists(livePath)).toBe(false);
+      expect(sectionIds(paths.rollback)).toEqual(["original"]);
+      expect(await exists(`${livePath}-wal`)).toBe(true);
+      expect(
+        await exists(`${paths.interruptedCandidate}-wal`),
+      ).toBe(false);
+    });
+  });
+
   it("fails closed when a committed-old marker is mixed with interrupted artifacts", async () => {
     await withTempDatabase(async (livePath) => {
       seed(livePath, "replacement");
@@ -344,6 +365,52 @@ describe("interrupted restore swap recovery", () => {
         expect(sectionIds(livePath)).toEqual([expectedId]);
         expect(sectionNames(livePath)).toEqual([expectedName]);
         await recovery.complete();
+      });
+    },
+  );
+
+  it.each([
+    "fallback-live-quarantined",
+    "fallback-sidecars-quarantined",
+    "fallback-old-restored",
+  ] as const)(
+    "reopens committed-old after a hard process termination at %s",
+    async (phase) => {
+      await withTempDatabase(async (livePath) => {
+        seed(livePath, "replacement");
+        const paths = restoreSwapPaths(livePath);
+        seed(paths.committedOld, "original");
+        await writeFile(`${livePath}-wal`, "replacement wal");
+        await writeFile(`${livePath}-shm`, "replacement shm");
+
+        await hardKillAt(phase, livePath, `${livePath}.unused`);
+
+        const recovery =
+          await recoverInterruptedRestoreSwap(livePath);
+        const database =
+          await openExistingDatabaseWithPreMigrationBackup(
+            livePath,
+            { snapshotDirectory: `${livePath}.snapshots` },
+          );
+        try {
+          expect(
+            database.prepare(
+              "SELECT name FROM sections WHERE id = 'original'",
+            ).pluck().get(),
+          ).toBe("original");
+        } finally {
+          database.close();
+        }
+        await recovery.complete();
+        expect(
+          await exists(paths.interruptedCandidate),
+        ).toBe(false);
+        expect(
+          await exists(`${paths.interruptedCandidate}-wal`),
+        ).toBe(false);
+        expect(
+          await exists(`${paths.interruptedCandidate}-shm`),
+        ).toBe(false);
       });
     },
   );

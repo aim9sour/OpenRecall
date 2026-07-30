@@ -14,6 +14,8 @@ export {
 export { migrateDatabase, type Migration } from "./migrate.js";
 export { coreMigration } from "./migrations/001-core.js";
 export {
+  ExistingDatabaseValidationError,
+  isExistingDatabaseValidationError,
   openDatabase,
   openDatabaseWithPreMigrationBackup,
   openExistingDatabaseWithPreMigrationBackup,

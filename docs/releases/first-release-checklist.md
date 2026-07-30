@@ -30,7 +30,7 @@ release is authorized.
 - [x] A detached clean worktree at `9dfa9b0` completed frozen install,
   type checks, 358 tests, build, 11 Playwright tests, and production smoke.
 - [x] After the restore-recovery change, the implementation worktree completed
-  all type checks and 375 tests.
+  all type checks and 382 tests.
 - [x] The current implementation completed production build and
   `OPENRECALL_SMOKE_OK`.
 - [ ] Repeat the full frozen clean-worktree sequence at the final audit commit.
@@ -39,7 +39,7 @@ release is authorized.
 
 ## SQLite recovery matrix
 
-The matrix is green on Windows: 61 distinct schema, migration, online-backup,
+The matrix is green on Windows: 68 distinct schema, migration, online-backup,
 restore, route, shutdown, strict-open, sidecar-conflict, and hard-kill tests
 passed.
 
@@ -63,9 +63,12 @@ passed.
 | Hard termination after commit point | Pass — startup keeps replacement and cleans committed-old only after validation |
 | Missing replacement after commit marker | Pass — startup conservatively restores old database |
 | Empty/invalid replacement after commit marker | Pass — strict open cannot initialize it; startup quarantines it and restores old |
+| Operational open/backup failure after commit marker | Pass — no fallback; replacement and committed-old remain intact for retry |
 | Conflicting recovery markers | Pass — stable fail-closed result; no guessed database |
 | Marker mixed with impossible WAL/SHM quarantine tuple | Pass — full exact-path state is checked before any rename |
+| Rollback plus orphan live WAL/SHM without a live/quarantined database | Pass — rejected before any rename or cleanup |
 | Interrupted candidate without live/marker | Pass — fails closed; never creates an empty live database |
+| Hard termination during each committed-old fallback rename phase | Pass — exact state resumes to the original and cleans quarantine only after strict open |
 | Graceful shutdown | Pass — requests drain, WAL checkpoint is passive, SQLite closes |
 
 Primary evidence:
@@ -130,7 +133,7 @@ Automated security evidence: 13/13 targeted production/security tests,
 | 5 | Pass | Contract, import validation/property, edit, and E2E fixtures cover required front/back with optional notes and any number of variants. |
 | 6 | Pass | Statistics unit/property, API, accessible table, card disclosure, management, session-summary, and global E2E evidence pass. |
 | 7 | Pass | Effective-config and settings tests prove section → global user → official default precedence. |
-| 8 | Pass | Optimizer replay/apply/rollback tests, migration rollback, online backup, 61-test recovery matrix, and real hard-process termination fixtures pass. |
+| 8 | Pass | Optimizer replay/apply/rollback tests, migration rollback, online backup, 68-test recovery matrix, and real hard-process termination fixtures pass. |
 | 9 | Pass | Catalog static analysis, formatter/plural tests, Arabic/English parity, pseudo-locale, RTL/LTR, and route-wide browser checks pass. |
 | 10 | Pending | The Windows automated suite passes, but Linux execution and signed stable Chrome/NVDA manual audit remain absent. |
 
