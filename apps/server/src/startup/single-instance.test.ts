@@ -304,6 +304,27 @@ describe("single-instance coordination", () => {
     );
   });
 
+  it("recovers an interrupted restore before SQLite can create a new live database", async () => {
+    const source = await readFile(
+      new URL("../index.ts", import.meta.url),
+      "utf8",
+    );
+
+    const recoveryIndex = source.indexOf(
+      "await recoverInterruptedRestoreSwap(databasePath)",
+    );
+    const openIndex = source.indexOf(
+      "await openDatabaseWithPreMigrationBackup(",
+    );
+    const cleanupIndex = source.indexOf(
+      "await restoreRecovery.complete()",
+    );
+
+    expect(recoveryIndex).toBeGreaterThan(-1);
+    expect(recoveryIndex).toBeLessThan(openIndex);
+    expect(cleanupIndex).toBeGreaterThan(openIndex);
+  });
+
   it("propagates optimizer recovery failure after listen and before announcing ready", async () => {
     await withTempDatabase(async (databasePath) => {
       const database = openDatabase(databasePath);

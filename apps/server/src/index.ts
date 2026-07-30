@@ -7,6 +7,7 @@ import {
   recoverInterruptedOptimizerRuns,
 } from "./app.js";
 import { loadConfig } from "./config.js";
+import { recoverInterruptedRestoreSwap } from "./durability/restore-swap-recovery.js";
 import { createJsonLinesLogSink } from "./logging.js";
 import { productionStaticClientRoot } from "./production/static-client.js";
 import {
@@ -46,12 +47,19 @@ async function start(): Promise<void> {
     await mkdir(config.dataDirectory, { recursive: true });
     const logDirectory = join(config.dataDirectory, "logs");
     await mkdir(logDirectory, { recursive: true });
+    const databasePath = join(
+      config.dataDirectory,
+      "openrecall.sqlite3",
+    );
+    const restoreRecovery =
+      await recoverInterruptedRestoreSwap(databasePath);
     const database = await openDatabaseWithPreMigrationBackup(
-      join(config.dataDirectory, "openrecall.sqlite3"),
+      databasePath,
       {
         snapshotDirectory: join(config.dataDirectory, "backups"),
       },
     );
+    await restoreRecovery.complete();
     const staticClientRoot = productionStaticClientRoot(
       fileURLToPath(new URL("../../web/dist", import.meta.url)),
       process.env,

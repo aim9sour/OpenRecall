@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   copyFile,
   mkdir,
@@ -22,6 +23,7 @@ import {
   RestoreService,
   type RestoreLifecycle,
 } from "./restore-service.js";
+import { restoreSwapPaths } from "./restore-swap-recovery.js";
 
 function seedCurrent(path: string, id: string, name: string): void {
   const db = openDatabase(path);
@@ -231,6 +233,33 @@ describe("RestoreService", () => {
     });
   });
 
+  it("records an explicit atomic commit point before deleting the old database", async () => {
+    await withTempDatabase(async (livePath) => {
+      seedCurrent(livePath, "current", "Current data");
+      const upload = join(dirname(livePath), "replacement.sqlite3");
+      seedCurrent(upload, "replacement", "Replacement");
+      const rename = vi.fn(renameFile);
+      const h = harness(livePath, { rename });
+
+      try {
+        await h.service.restoreFromUpload(upload, 1);
+
+        const paths = restoreSwapPaths(livePath);
+        expect(rename).toHaveBeenCalledWith(
+          paths.rollback,
+          paths.committedOld,
+        );
+        expect(
+          h.current().prepare(
+            "SELECT name FROM sections WHERE id = 'replacement'",
+          ).pluck().get(),
+        ).toBe("Replacement");
+      } finally {
+        if (h.current().open) h.current().close();
+      }
+    });
+  });
+
   it("restores the rollback file and reopens old data after a Windows rename failure", async () => {
     await withTempDatabase(async (livePath) => {
       seedCurrent(livePath, "current", "Current data");
@@ -289,5 +318,40 @@ describe("RestoreService", () => {
       }
     });
   });
+
+  it("rolls back old data when the atomic commit rename fails", async () => {
+    await withTempDatabase(async (livePath) => {
+      seedCurrent(livePath, "current", "Current data");
+      const upload = join(dirname(livePath), "replacement.sqlite3");
+      seedCurrent(upload, "replacement", "Replacement");
+      let renameCount = 0;
+      const rename = vi.fn(async (from: string, to: string) => {
+        renameCount += 1;
+        if (renameCount === 3) {
+          throw new Error("EPERM");
+        }
+        await renameFile(from, to);
+      });
+      const h = harness(livePath, { rename });
+
+      try {
+        await expect(
+          h.service.restoreFromUpload(upload, 1),
+        ).rejects.toThrow("RESTORE_SWAP_FAILED");
+        expect(h.lifecycle.open).toHaveBeenCalledTimes(2);
+        expect(
+          h.current().prepare(
+            "SELECT name FROM sections WHERE id = 'current'",
+          ).pluck().get(),
+        ).toBe("Current data");
+        expect(
+          h.current().prepare(
+            "SELECT count(*) FROM sections WHERE id = 'replacement'",
+          ).pluck().get(),
+        ).toBe(0);
+      } finally {
+        if (h.current().open) h.current().close();
+      }
+    });
+  });
 });
-import { createHash } from "node:crypto";

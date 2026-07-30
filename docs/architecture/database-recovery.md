@@ -51,6 +51,28 @@ maintenance mode. It then stops timers, SSE clients, and optimizer work; closes
 SQLite; swaps the complete database; reopens repositories; and rearms the
 nearest-due timer. A failed swap restores and reopens the prior database.
 
+The file swap has an explicit, restartable commit protocol beside the live
+database:
+
+1. `openrecall.sqlite3.restore-rollback` contains the prior database while a
+   replacement is not yet committed.
+2. The validated candidate is installed as `openrecall.sqlite3` and reopened.
+3. Renaming the rollback file to
+   `openrecall.sqlite3.restore-committed-old` is the atomic commit point.
+4. The committed-old file is deleted only after the replacement has reopened
+   successfully.
+
+Startup checks these exact paths before opening SQLite, so a missing live path
+cannot silently become a new empty database during interrupted-restore
+recovery. A rollback marker restores the prior database. A committed-old marker
+keeps a present, validated replacement, or restores the old database if the
+replacement itself is missing. An installed but uncommitted replacement and
+its exact `-wal`/`-shm` files are quarantined under
+`openrecall.sqlite3.restore-interrupted-candidate` until the restored original
+database opens successfully. Conflicting markers fail closed with a stable
+startup failure; OpenRecall never enumerates the directory or guesses which
+database is current.
+
 ## Restore through the application
 
 1. Download a fresh backup of the current database if the application still

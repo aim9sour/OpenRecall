@@ -6,13 +6,14 @@ import {
   rename,
   unlink,
 } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   SCHEMA_VERSION,
   openValidatedRestoreCandidate,
   type BackupService,
 } from "@openrecall/database";
 import type { MaintenanceMode } from "./maintenance-mode.js";
+import { restoreSwapPaths } from "./restore-swap-recovery.js";
 
 export interface RestoreLifecycle {
   stop(): Promise<void>;
@@ -161,13 +162,18 @@ export class RestoreService {
       let stopped = false;
       let rollbackCreated = false;
       let replacementInstalled = false;
-      const rollbackPath = resolve(
-        join(
-          dirname(this.#livePath),
-          `.${basename(this.#livePath)}.rollback-${randomUUID()}`,
-        ),
-      );
+      let replacementOpened = false;
+      const swapPaths = restoreSwapPaths(this.#livePath);
       try {
+        await removeFile(swapPaths.committedOld);
+        if (
+          await exists(swapPaths.rollback) ||
+          await exists(swapPaths.interruptedCandidate) ||
+          await exists(`${swapPaths.interruptedCandidate}-wal`) ||
+          await exists(`${swapPaths.interruptedCandidate}-shm`)
+        ) {
+          throw new Error("RESTORE_RECOVERY_REQUIRED");
+        }
         const backup = await this.#backups.createSnapshot(
           "automatic",
           "pre-restore",
@@ -183,18 +189,24 @@ export class RestoreService {
         ) {
           throw new Error("RESTORE_LIVE_SIDECARS_REMAIN");
         }
-        await this.#rename(this.#livePath, rollbackPath);
+        await this.#rename(this.#livePath, swapPaths.rollback);
         rollbackCreated = true;
         await this.#rename(candidatePath, this.#livePath);
         replacementInstalled = true;
         await this.#lifecycle.open(this.#livePath);
+        replacementOpened = true;
+        await this.#rename(
+          swapPaths.rollback,
+          swapPaths.committedOld,
+        );
+        rollbackCreated = false;
         lease.completeRestore();
         try {
-          await removeFile(rollbackPath);
-          rollbackCreated = false;
+          await removeFile(swapPaths.committedOld);
         } catch {
-          // The restored database is already open and the rollback is a
-          // recoverable safety copy; cleanup must not make success ambiguous.
+          // The replacement crossed the explicit commit point and is already
+          // open. Startup recognizes this exact old-database path and retries
+          // cleanup only after validating the live database.
         }
         return {
           databaseRevision: this.#maintenance.revision,
@@ -204,12 +216,19 @@ export class RestoreService {
       } catch {
         if (stopped) {
           try {
+            if (replacementOpened) {
+              await this.#lifecycle.stop();
+              replacementOpened = false;
+            }
             if (replacementInstalled && await exists(this.#livePath)) {
               await this.#rename(this.#livePath, candidatePath);
               replacementInstalled = false;
             }
             if (rollbackCreated) {
-              await this.#rename(rollbackPath, this.#livePath);
+              await this.#rename(
+                swapPaths.rollback,
+                this.#livePath,
+              );
               rollbackCreated = false;
             }
             await this.#lifecycle.open(this.#livePath);

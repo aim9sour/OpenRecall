@@ -70,8 +70,12 @@ Restore stages an upload under an owned random path, validates it before and
 after copying, acquires maintenance mode, creates a pre-restore backup, drains
 services, and performs an explicit file swap. It then reopens all repositories,
 recovers interrupted optimizer runs, and rearms the due timer. Every failure
-point has a rollback path to the prior live database. A passive WAL checkpoint
-and normal connection close complete graceful shutdown.
+point has a rollback path to the prior live database. Deterministic rollback
+and committed-old filenames form a restartable state machine: startup resolves
+them before opening the canonical database path, and deletes an old or
+quarantined file only after the selected live database validates and opens.
+Conflicting states fail closed instead of creating an empty replacement. A
+passive WAL checkpoint and normal connection close complete graceful shutdown.
 
 ## Stored-version compatibility
 
