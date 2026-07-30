@@ -1,0 +1,145 @@
+import dns from "node:dns";
+import {
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+} from "node:fs/promises";
+import http from "node:http";
+import net from "node:net";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import tls from "node:tls";
+import { afterEach, describe, expect, it } from "vitest";
+import { buildServer } from "../../apps/server/src/app.js";
+import { openDatabase } from "../../packages/database/src/index.js";
+import { networkFenceState } from "./network-fence.js";
+
+const TEST_HOST = "127.0.0.1";
+const TEST_PORT = 3_210;
+const TEST_AUTHORITY = `${TEST_HOST}:${TEST_PORT}`;
+const openServers: Awaited<ReturnType<typeof buildServer>>[] = [];
+const temporaryDirectories: string[] = [];
+
+async function applicationFiles(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const path = resolve(root, entry.name);
+      if (entry.isDirectory()) return applicationFiles(path);
+      return /\.(?:html|css|js)$/u.test(entry.name) ? [path] : [];
+    }),
+  );
+  return nested.flat();
+}
+
+async function getHealth(): Promise<{
+  readonly body: string;
+  readonly status: number;
+}> {
+  return new Promise((resolveResponse, reject) => {
+    const request = http.get(
+      {
+        headers: { host: TEST_AUTHORITY },
+        host: TEST_HOST,
+        path: "/api/v1/health",
+        port: TEST_PORT,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => {
+          resolveResponse({
+            body: Buffer.concat(chunks).toString("utf8"),
+            status: response.statusCode ?? 0,
+          });
+        });
+      },
+    );
+    request.on("error", reject);
+  });
+}
+
+afterEach(async () => {
+  await Promise.all(openServers.splice(0).map((server) => server.close()));
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) =>
+      rm(directory, { force: true, recursive: true }),
+    ),
+  );
+});
+
+describe("local-only production boundary", () => {
+  it("runs the full production server behind a loopback-only DNS and socket fence", async () => {
+    const connectionsBefore =
+      networkFenceState.allowedSocketConnections;
+    const directory = await mkdtemp(
+      join(tmpdir(), "openrecall-network-fence-"),
+    );
+    temporaryDirectories.push(directory);
+    const database = openDatabase(
+      join(directory, "openrecall.sqlite3"),
+    );
+    const server = await buildServer({
+      config: {
+        authority: TEST_AUTHORITY,
+        dataDirectory: directory,
+        host: TEST_HOST,
+        locale: "en",
+        port: TEST_PORT,
+        publicOrigin: `http://${TEST_AUTHORITY}`,
+      },
+      database,
+      staticClientRoot: resolve(
+        import.meta.dirname,
+        "../../apps/web/dist",
+      ),
+    });
+    openServers.push(server);
+    await server.listen({ host: TEST_HOST, port: TEST_PORT });
+
+    const response = await getHealth();
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      app: "OpenRecall",
+      apiVersion: 1,
+      database: "open",
+      schema: "supported",
+    });
+    expect(networkFenceState.allowedSocketConnections).toBeGreaterThan(
+      connectionsBefore,
+    );
+    expect(() =>
+      dns.lookup("example.com", () => undefined),
+    ).toThrowError("OUTBOUND_DNS_FORBIDDEN");
+    expect(() =>
+      net.connect({ host: "example.com", port: 443 }),
+    ).toThrowError("OUTBOUND_DESTINATION_FORBIDDEN");
+    expect(() =>
+      tls.connect({ host: "example.com", port: 443 }),
+    ).toThrowError("OUTBOUND_DESTINATION_FORBIDDEN");
+  });
+
+  it("contains no remote application dependency in the built client", async () => {
+    const root = resolve(import.meta.dirname, "../../apps/web/dist");
+    const files = await applicationFiles(root);
+    expect(files.length).toBeGreaterThan(0);
+
+    for (const file of files) {
+      const source = await readFile(file, "utf8");
+      const networkDependencies = [
+        ...source.matchAll(
+          /(?:src|href)=["']https?:\/\/(?!127\.0\.0\.1(?::3210)?)/giu,
+        ),
+        ...source.matchAll(
+          /url\(\s*["']?https?:\/\/(?!127\.0\.0\.1(?::3210)?)/giu,
+        ),
+        ...source.matchAll(
+          /(?:fetch|EventSource|WebSocket)\(\s*["']https?:\/\/(?!127\.0\.0\.1(?::3210)?)/gu,
+        ),
+      ];
+      expect(networkDependencies, file).toEqual([]);
+    }
+  });
+});

@@ -19,13 +19,18 @@ import {
 } from "@openrecall/database";
 import type { StudyDayConfig } from "@openrecall/domain";
 import Fastify, {
-  type FastifyError,
   type FastifyInstance,
   LogController,
 } from "fastify";
 import { loadConfig, type ServerConfig } from "./config.js";
 import { MaintenanceMode } from "./durability/maintenance-mode.js";
 import { RestoreService } from "./durability/restore-service.js";
+import { registerHealthRoute } from "./health.js";
+import {
+  registerContentFreeErrorHandler,
+  registerContentFreeLogging,
+  type ContentFreeLogSink,
+} from "./logging.js";
 import { DueWakeService } from "./review/due-wake-service.js";
 import { ReviewEvents } from "./review/review-events.js";
 import {
@@ -40,7 +45,6 @@ import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerBackupRoutes } from "./routes/backup.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
-import { registerHealthRoute } from "./routes/health.js";
 import { registerImportRoutes } from "./routes/import.js";
 import { registerOptimizerRoutes } from "./routes/optimizer.js";
 import { registerReviewRoutes } from "./routes/review.js";
@@ -51,6 +55,11 @@ import {
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
+import { registerSecurityHeaders } from "./production/security-headers.js";
+import {
+  registerProductionNotFoundHandler,
+  registerStaticClient,
+} from "./production/static-client.js";
 import { registerSecurity } from "./security.js";
 
 const PROCESS_CSRF_TOKEN = randomBytes(32).toString("base64url");
@@ -71,53 +80,8 @@ export interface BuildServerOptions {
   readonly reviewEvents?: ReviewEvents;
   readonly sseHeartbeatIntervalMs?: number;
   readonly studyDay?: StudyDayConfig;
-}
-
-function validationPath(error: {
-  readonly instancePath?: string;
-  readonly params?: Record<string, unknown>;
-}): string {
-  if (error.instancePath !== undefined && error.instancePath !== "") {
-    return error.instancePath;
-  }
-
-  const missingProperty = error.params?.["missingProperty"];
-  return typeof missingProperty === "string" ? `/${missingProperty}` : "/";
-}
-
-function registerErrorHandler(server: FastifyInstance): void {
-  server.setNotFoundHandler((_request, reply) =>
-    reply.code(404).send({
-      code: "NOT_FOUND",
-      messageKey: "error.notFound",
-    }),
-  );
-
-  server.setErrorHandler((error: FastifyError, _request, reply) => {
-    if (Array.isArray(error.validation)) {
-      return reply.code(400).send({
-        code: "VALIDATION_ERROR",
-        messageKey: "error.validation",
-        fieldErrors: error.validation.map((validationError) => ({
-          path: validationPath(validationError),
-          messageKey: "error.field.invalid",
-        })),
-      });
-    }
-
-    const statusCode =
-      error.statusCode !== undefined &&
-      error.statusCode >= 400 &&
-      error.statusCode < 500
-        ? error.statusCode
-        : 500;
-
-    return reply.code(statusCode).send({
-      code: statusCode === 404 ? "NOT_FOUND" : "INTERNAL_ERROR",
-      messageKey:
-        statusCode === 404 ? "error.notFound" : "error.internal",
-    });
-  });
+  readonly staticClientRoot?: string;
+  readonly logSink?: ContentFreeLogSink;
 }
 
 function dynamicService<T extends object>(
@@ -149,10 +113,22 @@ export async function buildServer(
   }).withTypeProvider<TypeBoxTypeProvider>();
   const reviewEvents = options.reviewEvents ?? new ReviewEvents();
   const maintenance = options.maintenanceMode ?? new MaintenanceMode();
+  let healthDatabase = options.database;
 
-  await server.register(multipart);
+  await registerSecurityHeaders(server);
+  registerContentFreeLogging(server, {
+    sink: options.logSink ?? (() => undefined),
+    ...(options.nowMs === undefined
+      ? {}
+      : { nowMs: options.nowMs }),
+  });
   registerSecurity(server, config, PROCESS_CSRF_TOKEN, maintenance);
-  registerErrorHandler(server);
+  await server.register(multipart);
+  if (options.staticClientRoot !== undefined) {
+    await registerStaticClient(server, options.staticClientRoot);
+  }
+  registerProductionNotFoundHandler(server, options.staticClientRoot);
+  registerContentFreeErrorHandler(server);
   registerEventRoutes(server, {
     events: reviewEvents,
     heartbeatIntervalMs: options.sseHeartbeatIntervalMs,
@@ -163,7 +139,7 @@ export async function buildServer(
     databaseRevision: () => maintenance.revision,
     locale: config.locale,
   });
-  registerHealthRoute(server, maintenance);
+  registerHealthRoute(server, maintenance, () => healthDatabase);
   if (options.database !== undefined) {
     type ApplicationDatabase = ConstructorParameters<
       typeof SectionRepository
@@ -296,6 +272,7 @@ export async function buildServer(
           async open(databasePath) {
             const reopened = openDatabase(databasePath);
             database = reopened;
+            healthDatabase = reopened;
             try {
               rebuildServices();
               dueWake.start();

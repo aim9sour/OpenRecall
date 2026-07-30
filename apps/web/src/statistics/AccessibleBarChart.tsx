@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export interface BarChartRow {
   readonly key: string;
@@ -32,13 +32,11 @@ export function AccessibleBarChart({
         {rows.map((row) => (
           <div className="bar-chart-row" key={row.key}>
             <span className="bar-chart-label">{row.label}</span>
-            <span
+            <progress
+              aria-hidden="true"
               className="bar-chart-bar"
-              style={
-                {
-                  "--bar-percentage": `${(row.value / maximum) * 100}%`,
-                } as CSSProperties
-              }
+              max={maximum}
+              value={row.value}
             />
             <span>{row.formattedValue ?? row.value}</span>
           </div>

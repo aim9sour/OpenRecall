@@ -12,7 +12,9 @@ export default defineConfig({
           include: [
             "packages/**/*.test.ts",
             "apps/server/**/*.test.ts",
+            "tests/security/**/*.test.ts",
           ],
+          setupFiles: ["tests/security/network-fence.ts"],
         },
       },
       {

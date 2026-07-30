@@ -96,9 +96,13 @@ describe("server boundary security", () => {
       });
       expect(health.statusCode).toBe(200);
       expect(health.json()).toEqual({
+        app: "OpenRecall",
+        apiVersion: 1,
         status: "ok",
+        database: "not-configured",
+        schema: "not-checked",
+        schemaVersion: 5,
         maintenance: true,
-        databaseRevision: 1,
       });
     } finally {
       lease.release();

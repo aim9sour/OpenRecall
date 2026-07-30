@@ -381,7 +381,7 @@ dialog.dialog-panel::backdrop {
 
 .bar-chart-bar {
   display: block;
-  inline-size: var(--bar-percentage);
+  inline-size: 100%;
   min-inline-size: 0.2rem;
   block-size: 1.5rem;
   border: var(--border-width) solid currentColor;
