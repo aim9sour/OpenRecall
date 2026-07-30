@@ -12,6 +12,7 @@ import { SchedulerSettingsForm } from "../settings/SchedulerSettingsForm.js";
 import { BackupPanel } from "../settings/BackupPanel.js";
 import { OptimizerPanel } from "../settings/OptimizerPanel.js";
 import { ProfilePreview } from "../settings/ProfilePreview.js";
+import { RestorePanel } from "../settings/RestorePanel.js";
 
 export interface SettingsPageData {
   readonly sections: readonly SectionSummary[];
@@ -104,6 +105,7 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
         </section>
       )}
       <BackupPanel api={api} />
+      <RestorePanel api={api} />
     </>
   );
 }

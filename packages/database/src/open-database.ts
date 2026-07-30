@@ -120,3 +120,15 @@ export async function openDatabaseWithPreMigrationBackup(
     throw error;
   }
 }
+
+export function openValidatedRestoreCandidate(
+  path: string,
+): Database.Database {
+  const db = openConfiguredConnection(path);
+  try {
+    return migrateAndVerify(db);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}

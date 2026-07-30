@@ -10,6 +10,7 @@ import type {
   ReplaySchedulerState,
 } from "@openrecall/domain";
 import { describe, expect, it, vi } from "vitest";
+import { MaintenanceMode } from "../durability/maintenance-mode.js";
 import {
   ProfileApplicationService,
   type ProfileApplicationRepositoryApi,
@@ -312,5 +313,32 @@ describe("ProfileApplicationService", () => {
     );
     expect(deps.repository.apply).toHaveBeenCalledOnce();
     expect(deps.backup.createSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it("shares the application maintenance lease with database restore", async () => {
+    const deps = dependencies();
+    const maintenance = new MaintenanceMode();
+    const service = new ProfileApplicationService({
+      ...deps,
+      maintenance,
+      nowMs: () => 10,
+    });
+    const preview = service.preview(target.id);
+    const restoreLease = maintenance.acquire(maintenance.revision);
+
+    try {
+      await expect(
+        service.apply(target.id, preview.revisionToken),
+      ).rejects.toThrow("PROFILE_APPLICATION_BUSY");
+      expect(deps.backup.createSnapshot).not.toHaveBeenCalled();
+    } finally {
+      restoreLease.release();
+    }
+
+    await expect(
+      service.apply(target.id, preview.revisionToken),
+    ).resolves.toEqual(deps.application);
+    expect(maintenance.active).toBe(false);
+    expect(maintenance.revision).toBe(1);
   });
 });

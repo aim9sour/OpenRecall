@@ -132,4 +132,46 @@ describe("API client", () => {
     );
     expect(await result?.blob.text()).toBe("SQLite format 3\u0000");
   });
+
+  it("uploads a restore as multipart without setting a boundary and invalidates cached revision data", async () => {
+    let bootstrapCount = 0;
+    const api = createApiClient(async (input, init) => {
+      if (input === "/api/v1/bootstrap") {
+        bootstrapCount += 1;
+        return jsonResponse({
+          apiVersion: 1,
+          csrfToken: `restore-token-${bootstrapCount}`,
+          databaseRevision: bootstrapCount,
+          locale: "en",
+        });
+      }
+      expect(input).toBe("/api/v1/restore");
+      const headers = new Headers(init?.headers);
+      expect(headers.get("content-type")).toBeNull();
+      expect(headers.get("x-openrecall-csrf")).toBe(
+        "restore-token-1",
+      );
+      const body = init?.body;
+      expect(body).toBeInstanceOf(FormData);
+      expect((body as FormData).get("expectedCurrentRevision")).toBe(
+        "1",
+      );
+      expect((body as FormData).get("database")).toBeInstanceOf(
+        File,
+      );
+      return jsonResponse({
+        databaseRevision: 2,
+        restoredUserVersion: 5,
+        preRestoreBackupFilename: "safe.sqlite3",
+      });
+    });
+
+    const restored = await api.restore?.(
+      new File(["SQLite format 3\u0000"], "private-name.sqlite3"),
+      1,
+    );
+    expect(restored?.databaseRevision).toBe(2);
+    await api.bootstrap();
+    expect(bootstrapCount).toBe(2);
+  });
 });

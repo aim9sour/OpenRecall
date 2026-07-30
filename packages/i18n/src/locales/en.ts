@@ -161,6 +161,34 @@ export const englishLocale = {
     "backup.preparing": "Preparing backup…",
     "backup.downloaded": "SQLite backup downloaded.",
     "backup.downloadError": "The backup could not be downloaded.",
+    "restore.title": "Restore SQLite backup",
+    "restore.description":
+      "Choose one OpenRecall SQLite backup. The server validates and migrates a separate copy before replacing the current database.",
+    "restore.file": "SQLite backup file",
+    "restore.summary": "Selected backup",
+    "restore.selected": "File: {{name}}",
+    "restore.size": "Size: {{size}}",
+    "restore.warning":
+      "Restoring replaces all current OpenRecall data. A validated safety backup of the current database is created first.",
+    "restore.confirm":
+      "I understand that the current database will be replaced.",
+    "restore.action": "Restore this backup",
+    "restore.replacing": "Restoring database…",
+    "restore.successTitle": "Database restored",
+    "restore.success":
+      "The backup was restored successfully. OpenRecall is using the replacement database.",
+    "restore.failureTitle": "Database not restored",
+    "restore.failure":
+      "The current database was not changed. Check the selected backup and try again.",
+    "restore.invalidFile":
+      "Choose a non-empty file whose name ends in .sqlite3.",
+    "restore.invalid":
+      "This is not a valid OpenRecall SQLite backup.",
+    "restore.tooLarge": "The SQLite backup is larger than 2 GiB.",
+    "restore.revisionConflict":
+      "The database changed after this page loaded. Review the current state before trying again.",
+    "error.maintenance":
+      "OpenRecall is briefly unavailable while the database is being replaced.",
     "home.title": "Learning sections",
     "home.createHeading": "Create a section",
     "home.sectionsHeading": "Your sections",

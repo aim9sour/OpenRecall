@@ -12,9 +12,11 @@ export {
   type SnapshotValidation,
 } from "./backup-service.js";
 export { migrateDatabase, type Migration } from "./migrate.js";
+export { coreMigration } from "./migrations/001-core.js";
 export {
   openDatabase,
   openDatabaseWithPreMigrationBackup,
+  openValidatedRestoreCandidate,
   type PreMigrationOpenOptions,
 } from "./open-database.js";
 export {

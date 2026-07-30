@@ -19,6 +19,7 @@ import {
   type ReplayProfile,
   type ReplaySchedulerState,
 } from "@openrecall/domain";
+import { MaintenanceMode } from "../durability/maintenance-mode.js";
 
 const DAY_MS = 86_400_000;
 const FORECAST_DAYS = 30;
@@ -59,6 +60,7 @@ interface ProfileApplicationServiceOptions {
   readonly nowMs?: () => number;
   readonly replay?: ProfileReplayer;
   readonly rearmDue?: () => void;
+  readonly maintenance?: MaintenanceMode;
 }
 
 function publicProfile(profile: StoredParameterProfile): OptimizerProfile {
@@ -133,7 +135,7 @@ export class ProfileApplicationService
   readonly #nowMs: () => number;
   readonly #replay: ProfileReplayer;
   readonly #rearmDue: () => void;
-  #maintenance = false;
+  readonly #maintenance: MaintenanceMode;
 
   constructor(options: ProfileApplicationServiceOptions) {
     this.#repository = options.repository;
@@ -144,6 +146,7 @@ export class ProfileApplicationService
       ((history, profile) =>
         replayHistory(history, profile, currentReplayAdapter));
     this.#rearmDue = options.rearmDue ?? (() => undefined);
+    this.#maintenance = options.maintenance ?? new MaintenanceMode();
   }
 
   listProfiles(): OptimizerProfile[] {
@@ -205,10 +208,12 @@ export class ProfileApplicationService
     profileId: string,
     expectedRevisionToken: string,
   ): Promise<OptimizerProfileApplication> {
-    if (this.#maintenance) {
+    let lease;
+    try {
+      lease = this.#maintenance.acquire();
+    } catch {
       throw new Error("PROFILE_APPLICATION_BUSY");
     }
-    this.#maintenance = true;
     const controller = new AbortController();
     try {
       const capture = this.#repository.capture(profileId);
@@ -240,7 +245,7 @@ export class ProfileApplicationService
       return toApplication(result);
     } finally {
       controller.abort();
-      this.#maintenance = false;
+      lease.release();
     }
   }
 

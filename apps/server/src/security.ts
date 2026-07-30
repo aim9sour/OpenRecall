@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { ServerConfig } from "./config.js";
+import type { MaintenanceMode } from "./durability/maintenance-mode.js";
 
 const NON_MUTATING_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -21,6 +22,7 @@ export function registerSecurity(
   server: FastifyInstance,
   config: ServerConfig,
   csrfToken: string,
+  maintenance?: MaintenanceMode,
 ): void {
   server.addHook("onRequest", async (request, reply) => {
     if (request.headers.host !== config.authority) {
@@ -51,6 +53,14 @@ export function registerSecurity(
       await reply.code(403).send({
         code: "CSRF_TOKEN_INVALID",
         messageKey: "error.csrfTokenInvalid",
+      });
+      return reply;
+    }
+
+    if (maintenance?.active === true) {
+      await reply.code(503).send({
+        code: "MAINTENANCE_MODE",
+        messageKey: "error.maintenance",
       });
       return reply;
     }

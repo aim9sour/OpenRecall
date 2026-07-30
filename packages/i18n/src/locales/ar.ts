@@ -160,6 +160,33 @@ export const arabicLocale = {
     "backup.preparing": "جارٍ إعداد النسخة…",
     "backup.downloaded": "تم تنزيل نسخة SQLite الاحتياطية.",
     "backup.downloadError": "تعذر تنزيل النسخة الاحتياطية.",
+    "restore.title": "استعادة نسخة SQLite الاحتياطية",
+    "restore.description":
+      "اختر نسخة SQLite احتياطية واحدة من OpenRecall. يتحقق الخادم من نسخة منفصلة ويرقّيها قبل استبدال قاعدة البيانات الحالية.",
+    "restore.file": "ملف نسخة SQLite الاحتياطية",
+    "restore.summary": "النسخة الاحتياطية المختارة",
+    "restore.selected": "الملف: {{name}}",
+    "restore.size": "الحجم: {{size}}",
+    "restore.warning":
+      "تستبدل الاستعادة جميع بيانات OpenRecall الحالية. تُنشأ أولًا نسخة أمان صالحة من قاعدة البيانات الحالية.",
+    "restore.confirm":
+      "أفهم أن قاعدة البيانات الحالية ستُستبدل.",
+    "restore.action": "استعادة هذه النسخة",
+    "restore.replacing": "جارٍ استعادة قاعدة البيانات…",
+    "restore.successTitle": "تمت استعادة قاعدة البيانات",
+    "restore.success":
+      "تمت استعادة النسخة الاحتياطية بنجاح، ويستخدم OpenRecall الآن قاعدة البيانات البديلة.",
+    "restore.failureTitle": "لم تُستعد قاعدة البيانات",
+    "restore.failure":
+      "لم تتغير قاعدة البيانات الحالية. تحقق من النسخة المختارة وحاول مرة أخرى.",
+    "restore.invalidFile":
+      "اختر ملفًا غير فارغ ينتهي اسمه بالامتداد .sqlite3.",
+    "restore.invalid": "هذه ليست نسخة SQLite احتياطية صالحة من OpenRecall.",
+    "restore.tooLarge": "نسخة SQLite الاحتياطية أكبر من 2 جيبي بايت.",
+    "restore.revisionConflict":
+      "تغيرت قاعدة البيانات بعد تحميل هذه الصفحة. راجع الحالة الحالية قبل المحاولة مرة أخرى.",
+    "error.maintenance":
+      "OpenRecall غير متاح للحظات أثناء استبدال قاعدة البيانات.",
     "home.title": "الأقسام التعليمية",
     "home.createHeading": "إنشاء قسم",
     "home.sectionsHeading": "أقسامك",

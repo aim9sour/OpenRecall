@@ -1,9 +1,13 @@
-import type { ApiError } from "@openrecall/contracts";
+import type {
+  ApiError,
+  RestoreResult,
+} from "@openrecall/contracts";
 import type { LocaleTag } from "@openrecall/i18n";
 
 export interface BootstrapResponse {
   readonly apiVersion: 1;
   readonly csrfToken: string;
+  readonly databaseRevision?: number;
   readonly locale: LocaleTag;
 }
 
@@ -17,6 +21,10 @@ export interface ApiClient {
     readonly blob: Blob;
     readonly filename: string;
   }>;
+  readonly restore?: (
+    file: File,
+    expectedCurrentRevision: number,
+  ) => Promise<RestoreResult>;
 }
 
 export class ApiClientError extends Error {
@@ -157,6 +165,43 @@ export function createApiClient(
     };
   }
 
+  async function restore(
+    file: File,
+    expectedCurrentRevision: number,
+    didRetry = false,
+  ): Promise<RestoreResult> {
+    await bootstrap();
+    const body = new FormData();
+    body.append(
+      "expectedCurrentRevision",
+      String(expectedCurrentRevision),
+    );
+    body.append("database", file);
+    const response = await fetchImplementation("/api/v1/restore", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "x-openrecall-csrf": csrfToken ?? "",
+      },
+      body,
+    });
+    if (response.status === 403 && !didRetry) {
+      bootstrapPromise = undefined;
+      csrfToken = undefined;
+      await bootstrap();
+      return restore(file, expectedCurrentRevision, true);
+    }
+    if (!response.ok) {
+      throw new ApiClientError(
+        response.status,
+        await readError(response),
+      );
+    }
+    const result = (await response.json()) as RestoreResult;
+    bootstrapPromise = undefined;
+    return result;
+  }
+
   return {
     bootstrap,
     get: <T>(path: string) => request<T>("GET", path, undefined, false),
@@ -167,5 +212,7 @@ export function createApiClient(
     delete: <T>(path: string, body: unknown) =>
       request<T>("DELETE", path, body, false),
     download: (path: string) => download(path),
+    restore: (file, expectedCurrentRevision) =>
+      restore(file, expectedCurrentRevision),
   };
 }

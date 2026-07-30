@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildServer } from "./app.js";
 import { loadConfig } from "./config.js";
+import { MaintenanceMode } from "./durability/maintenance-mode.js";
 
 const openServers: FastifyInstance[] = [];
 
@@ -42,8 +43,66 @@ describe("server boundary security", () => {
     expect(response.json()).toEqual({
       apiVersion: 1,
       csrfToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      databaseRevision: 1,
       locale: "ar",
     });
+  });
+
+  it("rejects mutations during maintenance while keeping bootstrap readable", async () => {
+    const maintenance = new MaintenanceMode();
+    const server = await buildServer({
+      config: {
+        authority: TEST_AUTHORITY,
+        dataDirectory: "unused-in-injection-tests",
+        host: "127.0.0.1",
+        locale: "ar",
+        port: 3_210,
+        publicOrigin: TEST_ORIGIN,
+      },
+      maintenanceMode: maintenance,
+    });
+    openServers.push(server);
+    const bootstrap = await server.inject({
+      method: "GET",
+      url: "/api/v1/bootstrap",
+      headers: testRequestHeaders(),
+    });
+    const csrfToken = bootstrap.json<{ csrfToken: string }>().csrfToken;
+    const lease = maintenance.acquire(1);
+    try {
+      const mutation = await server.inject({
+        method: "POST",
+        url: "/api/v1/not-a-real-route",
+        headers: testRequestHeaders({
+          csrfToken,
+          origin: TEST_ORIGIN,
+        }),
+      });
+      expect(mutation.statusCode).toBe(503);
+      expect(mutation.json()).toEqual({
+        code: "MAINTENANCE_MODE",
+        messageKey: "error.maintenance",
+      });
+      const readable = await server.inject({
+        method: "GET",
+        url: "/api/v1/bootstrap",
+        headers: testRequestHeaders(),
+      });
+      expect(readable.statusCode).toBe(200);
+      const health = await server.inject({
+        method: "GET",
+        url: "/api/v1/health",
+        headers: testRequestHeaders(),
+      });
+      expect(health.statusCode).toBe(200);
+      expect(health.json()).toEqual({
+        status: "ok",
+        maintenance: true,
+        databaseRevision: 1,
+      });
+    } finally {
+      lease.release();
+    }
   });
 
   it("rejects a request sent to any other Host authority", async () => {

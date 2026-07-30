@@ -207,10 +207,12 @@ class SqliteBackupService implements BackupService {
       const userVersion = copy.pragma("user_version", { simple: true });
       if (
         !Number.isSafeInteger(userVersion) ||
-        (userVersion as number) < 1 ||
-        (userVersion as number) > SCHEMA_VERSION
+        (userVersion as number) < 1
       ) {
         throw new Error("BACKUP_SCHEMA_VERSION_UNSUPPORTED");
+      }
+      if ((userVersion as number) > SCHEMA_VERSION) {
+        throw new Error("BACKUP_SCHEMA_VERSION_FUTURE");
       }
       if (copy.pragma("quick_check", { simple: true }) !== "ok") {
         throw new Error("BACKUP_QUICK_CHECK_FAILED");

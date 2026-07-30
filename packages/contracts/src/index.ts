@@ -75,6 +75,10 @@ export {
   type SectionSummary,
 } from "./sections.js";
 export {
+  RestoreResultSchema,
+  type RestoreResult,
+} from "./restore.js";
+export {
   AnswerViewSchema,
   OpenSessionConflictSchema,
   OutcomePreviewSchema,

@@ -1,11 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import multipart from "@fastify/multipart";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
   CardImportRepository,
   CardRepository,
   CardStatisticsRepository,
   createBackupService,
+  openDatabase,
   type BackupService,
   ProfileApplicationRepository,
   RatingTransaction,
@@ -22,6 +24,8 @@ import Fastify, {
   LogController,
 } from "fastify";
 import { loadConfig, type ServerConfig } from "./config.js";
+import { MaintenanceMode } from "./durability/maintenance-mode.js";
+import { RestoreService } from "./durability/restore-service.js";
 import { DueWakeService } from "./review/due-wake-service.js";
 import { ReviewEvents } from "./review/review-events.js";
 import {
@@ -36,9 +40,14 @@ import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerBackupRoutes } from "./routes/backup.js";
 import { registerCardRoutes } from "./routes/cards.js";
 import { registerEventRoutes } from "./routes/events.js";
+import { registerHealthRoute } from "./routes/health.js";
 import { registerImportRoutes } from "./routes/import.js";
 import { registerOptimizerRoutes } from "./routes/optimizer.js";
 import { registerReviewRoutes } from "./routes/review.js";
+import {
+  registerRestoreRoutes,
+  type RestoreServiceApi,
+} from "./routes/restore.js";
 import { registerSectionRoutes } from "./routes/sections.js";
 import { registerStatisticsRoutes } from "./routes/statistics.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
@@ -53,6 +62,9 @@ export interface BuildServerOptions {
   readonly optimizerService?: OptimizerRunServiceApi;
   readonly backupService?: BackupService;
   readonly profileApplicationService?: ProfileApplicationServiceApi;
+  readonly restoreService?: RestoreServiceApi;
+  readonly restoreMaxUploadBytes?: number;
+  readonly maintenanceMode?: MaintenanceMode;
   readonly onDueWakeReady?: (
     wake: Pick<DueWakeService, "rearm">,
   ) => void;
@@ -108,6 +120,24 @@ function registerErrorHandler(server: FastifyInstance): void {
   });
 }
 
+function dynamicService<T extends object>(
+  current: () => T,
+): T {
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const implementation = current();
+      const value = Reflect.get(
+        implementation,
+        property,
+        implementation,
+      ) as unknown;
+      return typeof value === "function"
+        ? value.bind(implementation)
+        : value;
+    },
+  });
+}
+
 export async function buildServer(
   options: BuildServerOptions = {},
 ): Promise<FastifyInstance> {
@@ -118,8 +148,10 @@ export async function buildServer(
     logger: false,
   }).withTypeProvider<TypeBoxTypeProvider>();
   const reviewEvents = options.reviewEvents ?? new ReviewEvents();
+  const maintenance = options.maintenanceMode ?? new MaintenanceMode();
 
-  registerSecurity(server, config, PROCESS_CSRF_TOKEN);
+  await server.register(multipart);
+  registerSecurity(server, config, PROCESS_CSRF_TOKEN, maintenance);
   registerErrorHandler(server);
   registerEventRoutes(server, {
     events: reviewEvents,
@@ -128,34 +160,107 @@ export async function buildServer(
   });
   registerBootstrapRoute(server, {
     csrfToken: PROCESS_CSRF_TOKEN,
+    databaseRevision: () => maintenance.revision,
     locale: config.locale,
   });
+  registerHealthRoute(server, maintenance);
   if (options.database !== undefined) {
-    const repository = new SectionRepository(options.database);
-    const settings = new SettingsRepository(options.database);
-    const optimizer =
-      options.optimizerService ??
-      new OptimizerRunService(options.database, {
-        nowMs: options.nowMs ?? Date.now,
-      });
-    const queue = new ReviewQueueRepository(options.database);
-    const sessions = new ReviewSessionRepository(options.database);
+    type ApplicationDatabase = ConstructorParameters<
+      typeof SectionRepository
+    >[0];
+    let database: ApplicationDatabase = options.database;
+    let repositoryImplementation!: SectionRepository;
+    let settingsImplementation!: SettingsRepository;
+    let optimizerImplementation!: OptimizerRunServiceApi;
+    let queueImplementation!: ReviewQueueRepository;
+    let sessionsImplementation!: ReviewSessionRepository;
+    let ratingsImplementation!: RatingTransaction;
+    let cardsImplementation!: CardRepository;
+    let cardImportImplementation!: CardImportRepository;
+    let statisticsImplementation!: StatisticsRepository;
+    let cardStatisticsImplementation!: CardStatisticsRepository;
+    let backupImplementation!: BackupService;
+    let profileImplementation!: ProfileApplicationServiceApi;
+    let dueWake!: DueWakeService;
+
+    const repository = dynamicService(
+      () => repositoryImplementation,
+    );
+    const settings = dynamicService(() => settingsImplementation);
+    const optimizer = dynamicService(
+      () => optimizerImplementation,
+    );
+    const queue = dynamicService(() => queueImplementation);
+    const sessions = dynamicService(() => sessionsImplementation);
+    const ratings = dynamicService(() => ratingsImplementation);
+    const cards = dynamicService(() => cardsImplementation);
+    const cardImport = dynamicService(
+      () => cardImportImplementation,
+    );
+    const statistics = dynamicService(
+      () => statisticsImplementation,
+    );
+    const cardStatistics = dynamicService(
+      () => cardStatisticsImplementation,
+    );
+    const backups = dynamicService(() => backupImplementation);
+    const profiles = dynamicService(
+      () => profileImplementation,
+    );
     const studyDay = (): StudyDayConfig =>
       options.studyDay ?? {
         timeZone:
           Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         boundaryMinutes: 240,
       };
-    const ratings = new RatingTransaction(options.database, {
-      resolveSettings(sectionId) {
-        const effective = settings.resolveEffective(sectionId);
-        return {
-          studyDay: studyDay(),
-          settings: effective.settings,
-        };
-      },
-    });
-    const dueWake = new DueWakeService(queue, reviewEvents, {
+
+    const rebuildServices = (): void => {
+      repositoryImplementation = new SectionRepository(database);
+      settingsImplementation = new SettingsRepository(database);
+      optimizerImplementation =
+        options.optimizerService ??
+        new OptimizerRunService(database, {
+          nowMs: options.nowMs ?? Date.now,
+        });
+      queueImplementation = new ReviewQueueRepository(database);
+      sessionsImplementation = new ReviewSessionRepository(database);
+      ratingsImplementation = new RatingTransaction(database, {
+        resolveSettings(sectionId) {
+          const effective = settings.resolveEffective(sectionId);
+          return {
+            studyDay: studyDay(),
+            settings: effective.settings,
+          };
+        },
+      });
+      cardsImplementation = new CardRepository(database);
+      cardImportImplementation = new CardImportRepository(database);
+      statisticsImplementation = new StatisticsRepository(database);
+      cardStatisticsImplementation =
+        new CardStatisticsRepository(database);
+      backupImplementation =
+        options.backupService ??
+        createBackupService({
+          db: database,
+          snapshotDirectory: join(
+            config.dataDirectory,
+            "backups",
+          ),
+          nowMs: options.nowMs ?? Date.now,
+        });
+      profileImplementation =
+        options.profileApplicationService ??
+        new ProfileApplicationService({
+          repository: new ProfileApplicationRepository(database),
+          backup: backups,
+          nowMs: options.nowMs ?? Date.now,
+          rearmDue: () => dueWake.rearm(),
+          maintenance,
+        });
+    };
+
+    rebuildServices();
+    dueWake = new DueWakeService(queue, reviewEvents, {
       now: options.nowMs ?? Date.now,
       setTimer(callback, delayMs) {
         return setTimeout(callback, delayMs);
@@ -164,35 +269,63 @@ export async function buildServer(
         clearTimeout(timer as ReturnType<typeof setTimeout>);
       },
     });
-    const backups =
-      options.backupService ??
-      createBackupService({
-        db: options.database,
-        snapshotDirectory: join(config.dataDirectory, "backups"),
-        nowMs: options.nowMs ?? Date.now,
-      });
-    const profiles =
-      options.profileApplicationService ??
-      new ProfileApplicationService({
-        repository: new ProfileApplicationRepository(options.database),
-        backup: backups,
-        nowMs: options.nowMs ?? Date.now,
-        rearmDue: () => dueWake.rearm(),
-      });
     options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
       repository,
       nowMs: options.nowMs ?? Date.now,
     });
     registerBackupRoutes(server, { backups });
+    const restore =
+      options.restoreService ??
+      new RestoreService({
+        liveDatabasePath: database.name,
+        workingDirectory: join(
+          config.dataDirectory,
+          "restore-work",
+        ),
+        maintenance,
+        backups,
+        lifecycle: {
+          async stop() {
+            dueWake.stop();
+            reviewEvents.closeAll();
+            optimizerImplementation.dispose();
+            await optimizerImplementation.whenIdle();
+            if (database.open) database.close();
+          },
+          async open(databasePath) {
+            const reopened = openDatabase(databasePath);
+            database = reopened;
+            try {
+              rebuildServices();
+              dueWake.start();
+            } catch (error) {
+              if (reopened.open) reopened.close();
+              throw error;
+            }
+          },
+        },
+      });
+    registerRestoreRoutes(server, {
+      restore,
+      uploadDirectory: join(
+        config.dataDirectory,
+        "restore-uploads",
+      ),
+      ...(options.restoreMaxUploadBytes === undefined
+        ? {}
+        : {
+            maxUploadBytes: options.restoreMaxUploadBytes,
+          }),
+    });
     registerCardRoutes(server, {
-      cards: new CardRepository(options.database),
+      cards,
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
     registerStatisticsRoutes(server, {
-      statistics: new StatisticsRepository(options.database),
-      cards: new CardStatisticsRepository(options.database),
+      statistics,
+      cards: cardStatistics,
       nowMs: options.nowMs ?? Date.now,
       studyDay,
     });
@@ -208,7 +341,7 @@ export async function buildServer(
       nowMs: options.nowMs ?? Date.now,
     });
     registerImportRoutes(server, {
-      cards: new CardImportRepository(options.database),
+      cards: cardImport,
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });
@@ -226,12 +359,12 @@ export async function buildServer(
     server.addHook("preClose", async () => {
       dueWake.stop();
       reviewEvents.closeAll();
-      optimizer.dispose();
-      await optimizer.whenIdle();
+      optimizerImplementation.dispose();
+      await optimizerImplementation.whenIdle();
     });
     server.addHook("onClose", async () => {
-      if (options.database?.open === true) {
-        options.database.close();
+      if (database.open) {
+        database.close();
       }
     });
   } else {
