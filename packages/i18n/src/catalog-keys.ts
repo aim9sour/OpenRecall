@@ -1,4 +1,4 @@
-import type { LocaleTag } from "./types.js";
+import type { ProductionLocaleTag } from "./types.js";
 
 export const COMMON_MESSAGE_KEYS = [
   "app.name",
@@ -152,7 +152,6 @@ export const COMMON_MESSAGE_KEYS = [
   "section.create",
   "section.name",
   "section.startReview",
-  "section.reviewUnavailable",
   "section.statistics",
   "section.backHome",
   "stats.total",
@@ -236,9 +235,7 @@ export const COMMON_MESSAGE_KEYS = [
   "review.progressLabel",
   "review.progress",
   "review.waiting",
-  "review.waitingDescription",
   "review.completed",
-  "review.completedEvents",
   "review.error",
   "review.openSessionExists",
   "review.starting",
@@ -283,8 +280,6 @@ export const COMMON_MESSAGE_KEYS = [
   "card.nextPage",
   "card.loadError",
   "card.actionError",
-  "card.presentationCount",
-  "card.updated",
   "card.stats.show",
   "card.stats.hide",
   "card.stats.loading",
@@ -330,7 +325,29 @@ export const COMMON_MESSAGE_KEYS = [
   "error.internal",
 ] as const;
 
+export const PLURAL_MESSAGE_KEYS = ["review.joined"] as const;
+
+export const CATALOG_KEYS = [
+  ...COMMON_MESSAGE_KEYS,
+  ...PLURAL_MESSAGE_KEYS,
+] as const;
+
 export const requiredPluralSuffixes = {
   en: ["one", "other"],
   ar: ["zero", "one", "two", "few", "many", "other"],
-} as const satisfies Readonly<Record<LocaleTag, readonly string[]>>;
+} as const satisfies Readonly<
+  Record<ProductionLocaleTag, readonly string[]>
+>;
+
+export function catalogResourceKeys(
+  locale: ProductionLocaleTag,
+): readonly string[] {
+  return [
+    ...COMMON_MESSAGE_KEYS,
+    ...PLURAL_MESSAGE_KEYS.flatMap((key) =>
+      requiredPluralSuffixes[locale].map(
+        (suffix) => `${key}_${suffix}`,
+      ),
+    ),
+  ];
+}

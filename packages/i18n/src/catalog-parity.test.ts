@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COMMON_MESSAGE_KEYS,
+  PLURAL_MESSAGE_KEYS,
   createI18n,
   localeDefinitions,
   requiredPluralSuffixes,
@@ -22,8 +23,10 @@ describe("locale catalog", () => {
       const resources: Readonly<Record<string, string>> =
         localeDefinitions[tag].resources;
 
-      for (const suffix of suffixes) {
-        expect(resources[`section.cardsCount_${suffix}`]?.trim()).not.toBe("");
+      for (const key of PLURAL_MESSAGE_KEYS) {
+        for (const suffix of suffixes) {
+          expect(resources[`${key}_${suffix}`]?.trim()).not.toBe("");
+        }
       }
     }
   });
@@ -34,9 +37,17 @@ describe("locale catalog", () => {
 
     expect(english.dir()).toBe("ltr");
     expect(arabic.dir()).toBe("rtl");
-    expect(english.t("section.cardsCount", { count: 1 })).toBe("1 card");
-    expect(english.t("section.cardsCount", { count: 2 })).toBe("2 cards");
-    expect(arabic.t("section.cardsCount", { count: 0 })).toBe("لا توجد بطاقات");
-    expect(arabic.t("section.cardsCount", { count: 2 })).toBe("بطاقتان");
+    expect(english.t("review.joined", { count: 1 })).toBe(
+      "1 card joined this session.",
+    );
+    expect(english.t("review.joined", { count: 2 })).toBe(
+      "2 cards joined this session.",
+    );
+    expect(arabic.t("review.joined", { count: 0 })).toBe(
+      "لم تنضم بطاقات جديدة.",
+    );
+    expect(arabic.t("review.joined", { count: 2 })).toBe(
+      "انضمت بطاقتان إلى هذه الجلسة.",
+    );
   });
 });

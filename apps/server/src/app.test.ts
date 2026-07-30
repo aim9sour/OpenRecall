@@ -191,4 +191,27 @@ describe("server configuration", () => {
       loadConfig({ OPENRECALL_PUBLIC_ORIGIN: "https://example.com" }),
     ).toThrowError("SERVER_ORIGIN_NOT_ALLOWED");
   });
+
+  it("allows the pseudo-locale only behind the development test flag", () => {
+    expect(
+      loadConfig({
+        NODE_ENV: "development",
+        OPENRECALL_ENABLE_PSEUDO_LOCALE: "1",
+        OPENRECALL_LOCALE: "en-XA",
+      }).locale,
+    ).toBe("en-XA");
+    expect(() =>
+      loadConfig({
+        NODE_ENV: "development",
+        OPENRECALL_LOCALE: "en-XA",
+      }),
+    ).toThrowError("SERVER_LOCALE_NOT_SUPPORTED");
+    expect(() =>
+      loadConfig({
+        NODE_ENV: "production",
+        OPENRECALL_ENABLE_PSEUDO_LOCALE: "1",
+        OPENRECALL_LOCALE: "en-XA",
+      }),
+    ).toThrowError("SERVER_LOCALE_NOT_SUPPORTED");
+  });
 });

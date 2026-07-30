@@ -4,6 +4,7 @@ export const englishLocale = {
   tag: "en",
   displayName: "English",
   direction: "ltr",
+  formatLocale: "en-US",
   resources: {
     "app.name": "OpenRecall",
     "skip.main": "Skip to main content",
@@ -196,8 +197,6 @@ export const englishLocale = {
     "section.create": "Create section",
     "section.name": "Section name",
     "section.startReview": "Start review",
-    "section.reviewUnavailable":
-      "Review becomes available after the review engine is installed.",
     "section.statistics": "Section statistics",
     "section.backHome": "Back to learning sections",
     "stats.total": "Total",
@@ -274,8 +273,6 @@ export const englishLocale = {
     "import.unknownField": "This field is not recognized and will be ignored.",
     "import.duplicate": "This card already exists.",
     "import.markupNotAllowed": "HTML markup is not allowed.",
-    "section.cardsCount_one": "{{count}} card",
-    "section.cardsCount_other": "{{count}} cards",
     "import.preview": "Preview import",
     "import.commit": "Import cards",
     "review.showAnswer": "Show answer",
@@ -290,10 +287,7 @@ export const englishLocale = {
     "review.progress":
       "{{completed}} completed; {{remaining}} remaining; {{newCount}} new; {{repeated}} repeated.",
     "review.waiting": "No cards are due now",
-    "review.waitingDescription":
-      "This session will update when another card becomes due.",
     "review.completed": "Review complete",
-    "review.completedEvents": "{{count}} review events completed.",
     "review.error": "The review could not be updated. Try again.",
     "review.openSessionExists": "Your existing review session was opened.",
     "review.starting": "Starting…",
@@ -339,8 +333,6 @@ export const englishLocale = {
     "card.nextPage": "Next page",
     "card.loadError": "Cards could not be loaded.",
     "card.actionError": "The card could not be updated.",
-    "card.presentationCount": "Presentations",
-    "card.updated": "Last updated",
     "card.stats.show": "Show card statistics",
     "card.stats.hide": "Hide card statistics",
     "card.stats.loading": "Loading card statistics…",

@@ -1,5 +1,9 @@
 import { API_VERSION } from "@openrecall/contracts";
-import type { LocaleTag } from "@openrecall/i18n";
+import {
+  DEVELOPMENT_LOCALES,
+  SUPPORTED_LOCALES,
+  type LocaleTag,
+} from "@openrecall/i18n";
 import type { FastifyInstance } from "fastify";
 import { Type } from "typebox";
 
@@ -8,7 +12,11 @@ const BootstrapResponseSchema = Type.Object(
     apiVersion: Type.Literal(API_VERSION),
     csrfToken: Type.String({ minLength: 1 }),
     databaseRevision: Type.Integer({ minimum: 1 }),
-    locale: Type.Union([Type.Literal("ar"), Type.Literal("en")]),
+    locale: Type.Union(
+      [...SUPPORTED_LOCALES, ...DEVELOPMENT_LOCALES].map((tag) =>
+        Type.Literal(tag),
+      ),
+    ),
   },
   { additionalProperties: false },
 );

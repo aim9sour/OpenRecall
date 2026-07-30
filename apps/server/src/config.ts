@@ -1,5 +1,9 @@
 import envPaths from "env-paths";
-import type { LocaleTag } from "@openrecall/i18n";
+import {
+  isDevelopmentLocale,
+  isProductionLocale,
+  type LocaleTag,
+} from "@openrecall/i18n";
 
 const LOOPBACK_HOST = "127.0.0.1" as const;
 const SERVER_PORT = 3_210 as const;
@@ -44,10 +48,20 @@ export function loadConfig(env: Environment = process.env): ServerConfig {
     throw new Error("SERVER_ORIGIN_NOT_ALLOWED");
   }
 
-  const locale = env["OPENRECALL_LOCALE"] ?? "ar";
-  if (locale !== "ar" && locale !== "en") {
+  const localeCandidate = env["OPENRECALL_LOCALE"] ?? "ar";
+  const pseudoLocaleEnabled =
+    isDevelopment &&
+    env["OPENRECALL_ENABLE_PSEUDO_LOCALE"] === "1";
+  if (
+    !isProductionLocale(localeCandidate) &&
+    !(
+      isDevelopmentLocale(localeCandidate) &&
+      pseudoLocaleEnabled
+    )
+  ) {
     throw new Error("SERVER_LOCALE_NOT_SUPPORTED");
   }
+  const locale: LocaleTag = localeCandidate;
 
   return {
     authority: `${LOOPBACK_HOST}:${SERVER_PORT}`,
