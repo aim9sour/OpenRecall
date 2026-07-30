@@ -1,0 +1,27 @@
+# Changelog
+
+All notable changes to OpenRecall will be recorded here. The project has not
+made a public release and currently has no public-use license.
+
+## Unreleased
+
+### Added
+
+- Local-only Fastify/React application with Arabic and English interfaces.
+- Accessible Chrome/NVDA review flow, continuous due queue, smart presentation
+  rotation, dashboard, card and global statistics.
+- FSRS-6 scheduling through `ts-fsrs@5.4.1`, versioned replay, scheduler
+  controls, per-section fallback, and optimizer training workflow.
+- Durable SQLite migrations, idempotent ratings, backups, validated restore,
+  production PWA shell, and Windows launch scripts.
+- Content-free logs, fixed loopback security boundary, dependency fences, and
+  automated unit/property/integration/E2E/accessibility coverage.
+
+### Known limitations
+
+- FSRS-7 is unsupported.
+- No accounts, cloud sync, collaboration, rich media, Anki packages, or native
+  wrapper.
+- Stable Chrome/NVDA release audit and repository license selection remain
+  release blockers.
+

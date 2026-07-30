@@ -1,0 +1,23 @@
+[
+  {
+    "front": "What is spaced repetition?",
+    "back": "Reviewing material around the time it is likely to be forgotten.",
+    "notes": "This note is optional.",
+    "variants": [
+      {
+        "front": "Describe spaced repetition in one sentence.",
+        "back": "It schedules reviews according to changing memory strength."
+      },
+      {
+        "front": "Why are reviews spaced?",
+        "back": "To strengthen recall without repeating everything constantly.",
+        "notes": null
+      }
+    ]
+  },
+  {
+    "front": "ما عاصمة مصر؟",
+    "back": "القاهرة"
+  }
+]
+

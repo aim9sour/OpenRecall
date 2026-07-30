@@ -1,0 +1,16 @@
+[
+  {
+    "front": "This card has no answer"
+  },
+  {
+    "front": "Primary question",
+    "back": "Primary answer",
+    "variants": [
+      {
+        "front": "Variant question",
+        "back": 42
+      }
+    ],
+    "extra": "Unknown fields are warnings and are not persisted"
+  }
+]
