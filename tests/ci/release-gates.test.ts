@@ -220,6 +220,45 @@ describe("lockfile and install-script gate", () => {
       "BUILD_PERMISSION_NOT_APPROVED:unexpected-native-package",
     );
   });
+
+  it("accepts CRLF package and snapshot section boundaries", async () => {
+    const root = await temporaryRoot();
+    await write(
+      root,
+      "package.json",
+      JSON.stringify({ packageManager: "pnpm@11.17.0" }),
+    );
+    await write(
+      root,
+      "pnpm-workspace.yaml",
+      [
+        "packages: []",
+        "allowBuilds:",
+        "  better-sqlite3: true",
+        "  esbuild: true",
+        "  sharp: true",
+      ].join("\r\n"),
+    );
+    await write(
+      root,
+      "pnpm-lock.yaml",
+      [
+        "lockfileVersion: '9.0'",
+        "importers:",
+        "  .:",
+        "packages:",
+        "  better-sqlite3@13.0.1:",
+        "  esbuild@0.28.1:",
+        "  sharp@0.33.5:",
+        "  sharp@0.35.3:",
+        "snapshots:",
+      ].join("\r\n"),
+    );
+
+    await expect(
+      checkLockfileVersions(root),
+    ).resolves.toBeUndefined();
+  });
 });
 
 describe("repository release automation", () => {

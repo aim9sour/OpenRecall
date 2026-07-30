@@ -187,8 +187,12 @@ function assertBuildPermissions(workspace) {
 }
 
 function assertRequiredLockEntries(lockfile) {
-  const packagesStart = lockfile.indexOf("\npackages:\n");
-  const snapshotsStart = lockfile.indexOf("\nsnapshots:\n");
+  const normalizedLockfile = lockfile.replace(/\r\n?/gu, "\n");
+  const packagesStart = normalizedLockfile.indexOf("\npackages:\n");
+  const snapshotsStart = normalizedLockfile.indexOf(
+    "\nsnapshots:",
+    packagesStart,
+  );
   if (
     packagesStart === -1 ||
     snapshotsStart === -1 ||
@@ -196,7 +200,7 @@ function assertRequiredLockEntries(lockfile) {
   ) {
     throw new Error("LOCKFILE_PACKAGE_SECTION_MISSING");
   }
-  const lines = lockfile
+  const lines = normalizedLockfile
     .slice(packagesStart + 1, snapshotsStart)
     .split(/\r?\n/u);
   for (const [name, versions] of REQUIRED_LOCKED_VERSIONS) {

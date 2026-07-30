@@ -11,7 +11,16 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import tls from "node:tls";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { build } from "vite";
 import { buildServer } from "../../apps/server/src/app.js";
 import { DueWakeService } from "../../apps/server/src/review/due-wake-service.js";
 import { ReviewEvents } from "../../apps/server/src/review/review-events.js";
@@ -23,6 +32,7 @@ const TEST_PORT = 3_210;
 const TEST_AUTHORITY = `${TEST_HOST}:${TEST_PORT}`;
 const openServers: Awaited<ReturnType<typeof buildServer>>[] = [];
 const temporaryDirectories: string[] = [];
+let builtClientRoot = "";
 
 async function applicationFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });
@@ -63,6 +73,26 @@ async function getHealth(): Promise<{
   });
 }
 
+beforeAll(async () => {
+  builtClientRoot = await mkdtemp(
+    join(tmpdir(), "openrecall-network-build-"),
+  );
+  await build({
+    root: resolve("apps/web"),
+    configFile: resolve("apps/web/vite.config.ts"),
+    build: {
+      emptyOutDir: true,
+      outDir: builtClientRoot,
+    },
+  });
+}, 30_000);
+
+afterAll(async () => {
+  if (builtClientRoot !== "") {
+    await rm(builtClientRoot, { force: true, recursive: true });
+  }
+});
+
 afterEach(async () => {
   await Promise.all(openServers.splice(0).map((server) => server.close()));
   await Promise.all(
@@ -93,10 +123,7 @@ describe("local-only production boundary", () => {
         publicOrigin: `http://${TEST_AUTHORITY}`,
       },
       database,
-      staticClientRoot: resolve(
-        import.meta.dirname,
-        "../../apps/web/dist",
-      ),
+      staticClientRoot: builtClientRoot,
     });
     openServers.push(server);
     await server.listen({ host: TEST_HOST, port: TEST_PORT });
@@ -125,8 +152,7 @@ describe("local-only production boundary", () => {
   });
 
   it("contains no remote application dependency in the built client", async () => {
-    const root = resolve(import.meta.dirname, "../../apps/web/dist");
-    const files = await applicationFiles(root);
+    const files = await applicationFiles(builtClientRoot);
     expect(files.length).toBeGreaterThan(0);
 
     for (const file of files) {
