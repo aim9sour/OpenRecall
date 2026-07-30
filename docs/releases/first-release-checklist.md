@@ -2,7 +2,7 @@
 
 Audit date: 2026-07-30  
 Status: **not a release candidate**  
-Implementation baseline reviewed: `45420b5733e6afca1e000741f05e3f53c048627f`
+Implementation baseline reviewed: `27dfded5cb6cd46d23b153903f51ba608f242822`
 
 The automated Windows evidence is green. The stable Chrome headless audit is
 green. The human stable Chrome/NVDA speech audit, a fresh Linux execution, and
@@ -33,7 +33,10 @@ release is authorized.
   all type checks and 382 tests.
 - [x] The current implementation completed production build and
   `OPENRECALL_SMOKE_OK`.
-- [ ] Repeat the full frozen clean-worktree sequence at the final audit commit.
+- [x] A detached clean worktree at
+  `27dfded5cb6cd46d23b153903f51ba608f242822` completed frozen install, type
+  checks, 382 tests, production build, 11 stable-Chrome Playwright tests,
+  production smoke, adapter-boundary validation, and lockfile validation.
 - [ ] Execute the same required gate on Linux rather than relying only on the
   configured Linux CI workflow.
 
