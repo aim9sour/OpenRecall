@@ -1,4 +1,4 @@
-import { mkdir, readdir, symlink } from "node:fs/promises";
+import { mkdir, readdir, realpath, symlink } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import {
   CardImportRepository,
@@ -62,7 +62,8 @@ describe("BackupService", () => {
           /^openrecall-automatic-1785232800000-[0-9a-f-]{36}\.sqlite3$/,
         );
         expect(snapshot.filename).not.toMatch(/PRIVATE|reason/i);
-        expect(relative(snapshotDirectory, snapshot.path)).not.toMatch(
+        const canonicalSnapshotDirectory = await realpath(snapshotDirectory);
+        expect(relative(canonicalSnapshotDirectory, snapshot.path)).not.toMatch(
           /^\.\.(?:[\\/]|$)/,
         );
         expect(await service.validateSnapshot(snapshot.path)).toEqual({
