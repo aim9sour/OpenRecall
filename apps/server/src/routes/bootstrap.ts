@@ -17,6 +17,7 @@ const BootstrapResponseSchema = Type.Object(
         Type.Literal(tag),
       ),
     ),
+    localeUpdatedAtMs: Type.Integer({ minimum: 0 }),
   },
   { additionalProperties: false },
 );
@@ -25,7 +26,10 @@ export function registerBootstrapRoute(
   server: FastifyInstance,
   options: {
     readonly csrfToken: string;
-    readonly locale: LocaleTag;
+    readonly localePreference: () => {
+      readonly locale: LocaleTag;
+      readonly updatedAtMs: number;
+    };
     readonly databaseRevision: () => number;
   },
 ): void {
@@ -38,12 +42,16 @@ export function registerBootstrapRoute(
         },
       },
     },
-    async () => ({
-      apiVersion: API_VERSION,
-      csrfToken: options.csrfToken,
-      databaseRevision: options.databaseRevision(),
-      locale: options.locale,
-      internalMarker: "must-not-cross-the-response-schema",
-    }),
+    async () => {
+      const localePreference = options.localePreference();
+      return {
+        apiVersion: API_VERSION,
+        csrfToken: options.csrfToken,
+        databaseRevision: options.databaseRevision(),
+        locale: localePreference.locale,
+        localeUpdatedAtMs: localePreference.updatedAtMs,
+        internalMarker: "must-not-cross-the-response-schema",
+      };
+    },
   );
 }

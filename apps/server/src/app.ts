@@ -3,6 +3,7 @@ import { join } from "node:path";
 import multipart from "@fastify/multipart";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import {
+  ApplicationPreferenceRepository,
   CardImportRepository,
   CardRepository,
   CardStatisticsRepository,
@@ -18,6 +19,11 @@ import {
   StatisticsRepository,
 } from "@openrecall/database";
 import type { StudyDayConfig } from "@openrecall/domain";
+import {
+  isDevelopmentLocale,
+  SUPPORTED_LOCALES,
+  type LocaleTag,
+} from "@openrecall/i18n";
 import Fastify, {
   type FastifyInstance,
   LogController,
@@ -41,6 +47,7 @@ import {
   ProfileApplicationService,
   type ProfileApplicationServiceApi,
 } from "./optimizer/profile-application-service.js";
+import { registerApplicationPreferenceRoutes } from "./routes/application-preferences.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerBackupRoutes } from "./routes/backup.js";
 import { registerCardRoutes } from "./routes/cards.js";
@@ -125,6 +132,9 @@ export async function buildServer(
   const reviewEvents = options.reviewEvents ?? new ReviewEvents();
   const maintenance = options.maintenanceMode ?? new MaintenanceMode();
   let healthDatabase = options.database;
+  let readStoredLocalePreference:
+    | (() => { readonly locale: LocaleTag; readonly updatedAtMs: number })
+    | undefined;
 
   await registerSecurityHeaders(server);
   registerContentFreeLogging(server, {
@@ -148,7 +158,11 @@ export async function buildServer(
   registerBootstrapRoute(server, {
     csrfToken: PROCESS_CSRF_TOKEN,
     databaseRevision: () => maintenance.revision,
-    locale: config.locale,
+    localePreference: () =>
+      readStoredLocalePreference?.() ?? {
+        locale: config.locale,
+        updatedAtMs: 0,
+      },
   });
   registerHealthRoute(server, maintenance, () => healthDatabase);
   if (options.database !== undefined) {
@@ -156,6 +170,8 @@ export async function buildServer(
       typeof SectionRepository
     >[0];
     let database: ApplicationDatabase = options.database;
+    let applicationPreferencesImplementation!:
+      ApplicationPreferenceRepository;
     let repositoryImplementation!: SectionRepository;
     let settingsImplementation!: SettingsRepository;
     let optimizerImplementation!: OptimizerRunServiceApi;
@@ -172,6 +188,9 @@ export async function buildServer(
 
     const repository = dynamicService(
       () => repositoryImplementation,
+    );
+    const applicationPreferences = dynamicService(
+      () => applicationPreferencesImplementation,
     );
     const settings = dynamicService(() => settingsImplementation);
     const optimizer = dynamicService(
@@ -202,6 +221,19 @@ export async function buildServer(
       };
 
     const rebuildServices = (): void => {
+      const allowedLocales: LocaleTag[] = [...SUPPORTED_LOCALES];
+      if (isDevelopmentLocale(config.locale)) {
+        allowedLocales.push(config.locale);
+      }
+      applicationPreferencesImplementation =
+        new ApplicationPreferenceRepository(database, {
+          allowedLocales,
+          initialLocale: config.locale,
+          nowMs: options.nowMs ?? Date.now,
+        });
+      applicationPreferencesImplementation.initializeLocale();
+      readStoredLocalePreference = () =>
+        applicationPreferencesImplementation.getLocale();
       repositoryImplementation = new SectionRepository(database);
       settingsImplementation = new SettingsRepository(database);
       optimizerImplementation =
@@ -262,6 +294,10 @@ export async function buildServer(
     options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
       repository,
+      nowMs: options.nowMs ?? Date.now,
+    });
+    registerApplicationPreferenceRoutes(server, {
+      preferences: applicationPreferences,
       nowMs: options.nowMs ?? Date.now,
     });
     registerBackupRoutes(server, { backups });

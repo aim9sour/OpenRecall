@@ -46,6 +46,7 @@ describe("server boundary security", () => {
       csrfToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       databaseRevision: 1,
       locale: "ar",
+      localeUpdatedAtMs: 0,
     });
   });
 

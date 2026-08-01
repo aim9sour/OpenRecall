@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  ApplicationPreferenceRepository,
   openDatabase,
   SectionRepository,
 } from "@openrecall/database";
@@ -77,6 +78,11 @@ describe("restore route", () => {
         name: "Restored section",
         nowMs: 1_000,
       });
+      new ApplicationPreferenceRepository(source, {
+        allowedLocales: ["ar", "en"],
+        initialLocale: "ar",
+        nowMs: () => 1_100,
+      }).initializeLocale();
       source
         .prepare(
           `
@@ -183,10 +189,11 @@ describe("restore route", () => {
           url: "/api/v1/bootstrap",
           headers: testRequestHeaders(),
         });
-        expect(
-          bootstrap.json<{ databaseRevision: number }>()
-            .databaseRevision,
-        ).toBe(2);
+        expect(bootstrap.json()).toMatchObject({
+          databaseRevision: 2,
+          locale: "ar",
+          localeUpdatedAtMs: 1_100,
+        });
       } finally {
         await server.close();
       }
