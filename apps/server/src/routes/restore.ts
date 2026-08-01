@@ -39,13 +39,14 @@ function stableRestoreError(reply: FastifyReply, error: unknown) {
     code === "RESTORE_REVISION_CONFLICT" ||
     code === "MAINTENANCE_MODE"
   ) {
-    return reply.code(code === "MAINTENANCE_MODE" ? 503 : 409).send({
+    reply.code(code === "MAINTENANCE_MODE" ? 503 : 409);
+    return {
       code,
       messageKey:
         code === "MAINTENANCE_MODE"
           ? "error.maintenance"
           : "restore.revisionConflict",
-    });
+    };
   }
   if (
     code === "RESTORE_FILE_INVALID" ||
@@ -53,10 +54,11 @@ function stableRestoreError(reply: FastifyReply, error: unknown) {
     code === "RESTORE_SCHEMA_FUTURE" ||
     code === "RESTORE_FOREIGN_KEYS_INVALID"
   ) {
-    return reply.code(400).send({
+    reply.code(400);
+    return {
       code,
       messageKey: "restore.invalid",
-    });
+    };
   }
   throw error;
 }
@@ -153,7 +155,8 @@ export function registerRestoreRoutes(
             stagedPath,
             expectedRevision,
           );
-          return reply.code(200).send(result);
+          reply.code(200);
+          return result;
         } catch (error) {
           return stableRestoreError(reply, error);
         }
@@ -164,7 +167,8 @@ export function registerRestoreRoutes(
             ("statusCode" in error && error.statusCode === 413))
             ? 413
             : 400;
-        return reply.code(statusCode).send({
+        reply.code(statusCode);
+        return {
           code:
             statusCode === 413
               ? "RESTORE_UPLOAD_TOO_LARGE"
@@ -173,7 +177,7 @@ export function registerRestoreRoutes(
             statusCode === 413
               ? "restore.tooLarge"
               : "restore.invalid",
-        });
+        };
       } finally {
         await removeUpload(stagedPath);
       }
