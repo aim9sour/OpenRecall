@@ -2,49 +2,103 @@
 
 [العربية](README.ar.md)
 
-OpenRecall is a local-only, keyboard-first spaced-repetition web application
-designed for Chrome and NVDA. It keeps sections, cards, review history,
-statistics, scheduler settings, and backups on the same computer. The server
-binds only to `http://127.0.0.1:3210`; there is no account, cloud
-synchronization, telemetry, or remote runtime dependency.
+[![CI](https://github.com/aim9sour/OpenRecall/actions/workflows/ci.yml/badge.svg)](https://github.com/aim9sour/OpenRecall/actions/workflows/ci.yml)
+[![Windows](https://github.com/aim9sour/OpenRecall/actions/workflows/windows-smoke.yml/badge.svg)](https://github.com/aim9sour/OpenRecall/actions/workflows/windows-smoke.yml)
+[![Release](https://img.shields.io/github/v/release/aim9sour/OpenRecall)](https://github.com/aim9sour/OpenRecall/releases/latest)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> Release status: this repository currently has no open-source license. See
-> [the licensing decision](docs/decisions/licensing.md) before copying,
-> distributing, or publishing it.
+OpenRecall is a local-only, private-by-design, keyboard-first spaced-repetition app for
+Chrome and NVDA. Cards, history, settings, statistics, and SQLite backups stay
+on your computer. There is no account, cloud synchronization, telemetry, or
+remote runtime service.
 
-## What it includes
+[**Download OpenRecall for Windows**](https://github.com/aim9sour/OpenRecall/releases/latest)
 
-- Accessible Arabic and English interfaces selected in Settings and persisted
-  in SQLite, with immediate RTL/LTR switching, themes, forced colors, reduced
-  motion, and an installable PWA shell.
-- Sections that can be renamed or permanently deleted, dashboard and card
-  statistics, global statistics, card editing, trash/restore/delete, and
-  plain-text JSON import.
-- One scheduling state per learning item with any number of alternate
-  presentations. Smart rotation changes the wording without treating variants
-  as separate cards.
-- A continuous due queue: newly due items join the active session at their
-  exact stored due time. Server events are backed by a one-shot browser timer,
-  with no fixed polling steps.
-- Four ratings—Again, Hard, Good, and Easy—through a versioned FSRS adapter,
-  with localized minute, hour, day, or month interval previews.
-- Global scheduler settings, section overrides, optimizer training, profile
-  preview/application/rollback, and safe fallbacks.
-- SQLite-only backup and restore. JSON is an interchange format for cards, not
-  a backup format.
+## Run it in two clicks
 
-## Requirements
+1. Download `OpenRecall-v1.0.0-windows-x64.zip` from the latest release and
+   extract the whole ZIP to a writable folder.
+2. Double-click one launcher:
+   - `OpenRecall.cmd` keeps data in
+     `%LOCALAPPDATA%\OpenRecall-nodejs\Data` (recommended).
+   - `OpenRecall-Portable.cmd` keeps data in `Data` beside the launcher.
 
-- Node.js 24.18 or newer within the Node 24 line.
-- pnpm 11.17.0.
-- Chrome. NVDA is the primary screen-reader acceptance target on Windows.
+The release includes its own verified Node.js runtime. You do not need Node,
+pnpm, an installer, administrator privileges, or an internet connection. Keep
+the terminal window open while studying; close OpenRecall with `Ctrl+C` and
+wait for the window to finish so SQLite shuts down cleanly. Chrome opens when
+available, with the default browser as a fallback.
 
-For detailed Windows instructions, see
-[Run OpenRecall on Windows](docs/getting-started/windows-en.md).
+> Normal and portable modes are intentionally separate. Moving the extracted
+> folder moves portable data with it; normal data stays in Local App Data.
+> OpenRecall never migrates or merges those databases automatically.
 
-## Install and run
+![OpenRecall home dashboard in Arabic](docs/assets/openrecall-home.png)
 
-From the repository root:
+## What makes OpenRecall different
+
+- One scheduler state per learning item, with any number of alternate
+  question, answer, and note variants. Smart rotation tests recall instead of
+  memorization of one card shape.
+- A continuous due queue: a card whose stored due time arrives during a session
+  joins that session without fixed-step polling.
+- Four FSRS ratings—Again, Hard, Good, and Easy—with readable minute, hour,
+  day, or month interval previews.
+- Per-section statistics and scheduler overrides, global statistics, optimizer
+  training, profile preview/application/rollback, and safe fallbacks.
+- Exact-duplicate detection during JSON import, section rename and permanent
+  delete, card trash/restore/delete, themes, RTL/LTR, and an installable PWA.
+- SQLite-only backup and validated restore. JSON is card interchange, not a
+  backup format.
+
+![OpenRecall answer and rating view](docs/assets/openrecall-review.png)
+
+## Accessibility contract
+
+Every feature is keyboard usable. In review, focus moves to the plain question
+content when a card appears, to the plain answer content when revealed, and to
+the next question content after rating. “Question,” “Answer,” and optional
+“Notes” are navigable headings; the card content itself is ordinary text, so
+automatic speech does not prepend those labels. Live-region announcements are
+short and never repeat private card text.
+
+Stable Chrome with NVDA is the primary Windows acceptance target. Automated
+axe and Playwright checks complement—not replace—manual Chrome/NVDA acceptance
+in Arabic and English. OpenRecall never controls or configures NVDA.
+
+## Import cards
+
+Start with [`examples/cards.valid.json`](examples/cards.valid.json) and read the
+[complete format](docs/import/format.md). `front` and `back` are required plain
+strings; `notes` and `variants` are optional. Import first shows a preview with
+duplicates and exact error paths, then commits only selected valid rows.
+
+## Scheduler and optimizer boundary
+
+The v1 baseline is **FSRS-6** through `ts-fsrs@5.4.1`, with 21 parameters and a
+versioned adapter. Optimization uses
+`@open-spaced-repetition/binding@0.5.0`. FSRS-7 is unsupported: the architecture
+is ready for a future stable upstream adapter, but v1 neither claims nor
+emulates experimental FSRS-7 behavior. See the
+[scheduler upgrade protocol](docs/architecture/scheduler-upgrades.md).
+
+## Privacy and backup safety
+
+The production server binds only to `http://127.0.0.1:3210`. Security tests
+reject outbound DNS and sockets. API responses and card text are excluded from
+PWA runtime caches; logs use content-free diagnostic codes.
+
+Create a SQLite backup in Settings before risky changes. Never copy only a live
+database file while the server is running. Permanent section deletion removes
+its current cards, scheduler state, and history immediately, but older full
+SQLite backups may still contain it until you delete those backup files.
+
+Detailed Windows behavior and recovery steps are in
+[`docs/getting-started/windows-en.md`](docs/getting-started/windows-en.md).
+
+## Build from source
+
+Source development requires Node.js 24.18.x and pnpm 11.17.0:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -52,93 +106,29 @@ pnpm build
 pnpm start
 ```
 
-Wait for `OPENRECALL_READY`, then open
-`http://127.0.0.1:3210` in Chrome. On Windows you may instead use
-`scripts\start-openrecall.cmd`. Stop the server with `Ctrl+C` and wait for the
-prompt so active requests drain and SQLite closes cleanly.
+Wait for `OPENRECALL_READY`, then open `http://127.0.0.1:3210` in Chrome. Use
+`pnpm dev` for development and `pnpm verify:full` for the complete sequential
+type, license, unit, property, integration, security, build, production-smoke,
+accessibility, RTL/LTR, and Playwright gate. Do not run the heavyweight gates
+concurrently in one checkout; resource contention can create false timeouts.
 
-For development:
+## Project resources
 
-```bash
-pnpm dev
-```
-
-The development client is at `http://127.0.0.1:5173`; its API still targets the
-fixed loopback server.
-
-## Chrome and NVDA accessibility contract
-
-Every feature must be usable from the keyboard. The review view moves focus to
-the plain question content when a card appears, to the plain answer content
-when revealed, and directly to the next question content after a rating. The
-localized “Question,” “Answer,” and optional “Notes” labels are the navigable
-headings; card content itself is never a heading. Because focus targets the
-plain content, automatic speech does not prepend those heading labels. Queue
-and session status use short live-region updates without repeating private
-card text.
-
-Automated axe checks are necessary but not sufficient. Changes to critical
-flows require a manual stable Chrome/NVDA pass in both Arabic and English.
-
-## JSON card import
-
-Start with [the valid example](examples/cards.valid.json) and read the
-[complete import format](docs/import/format.md). `front` and `back` are
-required plain strings. `notes` and `variants` are optional; all variants share
-the parent learning item’s scheduler state. Import first produces a preview,
-including exact error paths, and commits only the selected valid rows.
-
-## Scheduler and optimizer
-
-The released baseline is **FSRS-6** through `ts-fsrs@5.4.1`, with 21
-parameters and a versioned adapter. The optimizer binding is
-`@open-spaced-repetition/binding@0.5.0`. FSRS-7 is unsupported: the repository
-is adapter-ready for a future stable upstream implementation but does not claim
-or emulate it. See the
-[scheduler upgrade protocol](docs/architecture/scheduler-upgrades.md).
-
-## Privacy, data, and backup
-
-Application traffic is same-origin loopback traffic only. Production security
-tests reject outbound DNS and sockets. API responses and card text are excluded
-from PWA runtime caches; logs contain stable codes and timings, not card
-content.
-
-The default Windows data location is
-`%LOCALAPPDATA%\OpenRecall-nodejs\Data`. The live file is
-`openrecall.sqlite3`; validated snapshots are under `backups`, and
-content-free diagnostics are under `logs`. Download a SQLite backup from
-settings before risky changes. Never copy only a live database file while the
-server is running. Permanently deleting a section removes its live cards,
-review state, and history immediately; older full-database SQLite backups are
-not rewritten and may still contain that section until those backup files are
-removed separately.
-
-## Verify a change
-
-```bash
-pnpm verify:full
-```
-
-The command deliberately runs every resource-heavy gate sequentially. Do not
-run `check`, Vitest, builds, smoke tests, or Playwright concurrently in the same
-checkout: resource contention can produce misleading timeout failures. Use
-`pnpm verify` when only the type/license/unit/build gates are needed. The full
-suite covers unit, property, integration, migration, backup/restore, security,
-PWA, accessibility, Arabic/LTR behavior, and production startup.
-
-## Architecture and project policies
-
-- [Architecture overview](docs/architecture/overview.md)
-- [Database schema and migrations](docs/architecture/database-schema.md)
+- [Architecture](docs/architecture/overview.md)
+- [Database and migrations](docs/architecture/database-schema.md)
 - [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
-- [License status](docs/decisions/licensing.md)
+- [Licensing decision](docs/decisions/licensing.md)
+
+OpenRecall is licensed under [Apache-2.0](LICENSE). Contributions follow
+[`CONTRIBUTING.md`](CONTRIBUTING.md); security reports follow
+[`SECURITY.md`](SECURITY.md).
 
 ## Known v1 limitations
 
-The first release has no accounts, remote hosting, cloud sync, collaboration,
-Anki package import/export, native mobile/desktop wrapper, or rich media.
-Images, audio, video, HTML, Markdown, LaTeX, and executable card content are
-intentionally unsupported. Experimental FSRS-7 scheduling is also outside v1.
+V1 has no accounts, remote hosting, cloud sync, collaboration, Anki package
+import/export, native mobile/desktop wrapper, or rich media. Images, audio,
+video, HTML, Markdown, LaTeX, and executable card content are intentionally
+unsupported. Experimental FSRS-7 scheduling is also outside v1.

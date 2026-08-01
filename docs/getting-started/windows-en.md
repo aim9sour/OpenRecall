@@ -1,88 +1,87 @@
 # Run OpenRecall on Windows
 
-OpenRecall is a personal local application. It listens only on `127.0.0.1`
-and requires no account or cloud service.
+OpenRecall is a personal local app. It listens only on `127.0.0.1` and needs
+no account or cloud service.
 
-## Prerequisites
+## Recommended: release ZIP
 
-- Windows 10 or 11.
-- Node.js 24, version 24.18 or newer.
-- pnpm 11; the recommended version is 11.17.0.
-- Google Chrome, plus NVDA when using a screen reader.
+1. Open the [latest release](https://github.com/aim9sour/OpenRecall/releases/latest).
+2. Download `OpenRecall-v1.0.0-windows-x64.zip` and extract the complete ZIP to
+   a writable folder. Do not run files from inside the compressed preview.
+3. Double-click one launcher:
+   - `OpenRecall.cmd` uses normal mode.
+   - `OpenRecall-Portable.cmd` uses portable mode.
 
-Check the versions in PowerShell:
+The ZIP includes a verified Node.js runtime, so release users do not install
+Node, pnpm, dependencies, or an application service. Neither launcher requests
+administrator privileges or downloads anything.
 
-```powershell
-node --version
-pnpm --version
-```
+Chrome opens at `http://127.0.0.1:3210` when detected; otherwise Windows opens
+the default browser. If another program owns port 3210, OpenRecall reports
+`OPENRECALL_PORT_OCCUPIED` instead of choosing an unexpected port.
 
-## Install and build
+## Choose a data mode
 
-Open PowerShell in the repository directory and run:
+Normal mode stores everything under:
+
+`%LOCALAPPDATA%\OpenRecall-nodejs\Data`
+
+Portable mode stores everything under `Data` beside
+`OpenRecall-Portable.cmd`. The extracted folder must remain writable. Moving or
+copying that folder also moves or copies the portable database and backups.
+
+The modes are isolated: OpenRecall never copies, merges, or migrates data
+between them. Always start the same launcher unless you intentionally want a
+separate library. Switching launchers can therefore look like an empty app,
+even though the other database is still intact.
+
+## Stop safely
+
+Keep the terminal window open while OpenRecall is running. Press `Ctrl+C` in
+that window and wait for it to close. This drains active requests, stops review
+events and timers, checkpoints the database, and closes SQLite safely. Start
+the same launcher later to continue.
+
+## Back up and move data
+
+Create and download a SQLite backup from Settings before risky changes. Do not
+copy only `openrecall.sqlite3` while the server is running. For portable mode,
+stop OpenRecall before moving or copying the extracted folder. For normal mode,
+use the in-app backup rather than moving Local App Data manually.
+
+Validated snapshots are under `Data\backups`; content-free diagnostic logs are
+under `Data\logs`. A full older backup may contain cards that were later
+permanently deleted.
+
+## Troubleshooting
+
+- `OPENRECALL_PORT_OCCUPIED`: close the program using port 3210, then retry.
+- `OPENRECALL_PORTABLE_DIRECTORY_NOT_WRITABLE`: extract or move the whole ZIP
+  to a folder where your account can create files.
+- `OPENRECALL_LAUNCHER_FILES_MISSING`: extract the entire ZIP again; do not move
+  only the CMD file.
+- Server-unavailable page: confirm the terminal is still open, restart the same
+  launcher, wait for `OPENRECALL_READY`, then activate Retry.
+
+Share only the displayed diagnostic code when asking for help. A card export,
+SQLite database, or other private content is not required.
+
+## Build from source instead
+
+Contributors need Node.js 24.18.x and pnpm 11.17.0:
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm build
-```
-
-OpenRecall launch scripts do not download Node.js or pnpm and do not request
-administrator privileges.
-
-## Start
-
-From the repository root, run:
-
-```powershell
 pnpm start
 ```
 
-Alternatively, double-click `scripts\start-openrecall.cmd`. The CMD file
-delegates to `start-openrecall.ps1`, which verifies Node.js 24 and pnpm 11
-and then runs the same start command from the repository root.
+Wait for `OPENRECALL_READY`, then open `http://127.0.0.1:3210`. The source
+launcher `scripts\start-openrecall.cmd` performs version checks; it is separate
+from the self-contained release launcher.
 
-After `OPENRECALL_READY` appears, open Chrome at:
+## Optional Chrome PWA
 
-`http://127.0.0.1:3210`
-
-If OpenRecall is already running, a second launch prints
-`OPENRECALL_ALREADY_RUNNING` and exits successfully. The application never
-chooses a surprise port. If another program owns the port, the stable code
-`OPENRECALL_PORT_OCCUPIED` is printed; close or reconfigure that program,
-then start OpenRecall again.
-
-## Install the PWA in Chrome
-
-Open Chrome's menu and choose to install OpenRecall, or use the install icon
-in the address bar. The PWA runs in its own window. Offline mode retains only
-the application shell; API responses and card text are not stored in browser
-caches. When an update is available, an explicit update action appears, and
-an active review session is never reloaded automatically.
-
-## Data and backups
-
-The default data directory is:
-
-`%LOCALAPPDATA%\OpenRecall-nodejs\Data`
-
-The live database is `openrecall.sqlite3`. SQLite backups are stored under
-`OpenRecall-nodejs\Data\backups`, and content-free diagnostics are stored
-under `OpenRecall-nodejs\Data\logs`. Use the in-application backup and restore
-features. Do not edit SQLite files while the server is running.
-
-## Stop and restart
-
-Return to the PowerShell window and press `Ctrl+C`. Wait for the prompt to
-return; the server will have stopped SSE sessions and timers, performed a
-safe checkpoint, and closed SQLite. Later, restart with `pnpm start` or
-`start-openrecall.cmd`.
-
-## Recover from the server-unavailable page
-
-1. Check that the server window is still open.
-2. Run `scripts\start-openrecall.cmd` from the repository.
-3. Wait for `OPENRECALL_READY`, then activate Retry on the page.
-4. If `OPENRECALL_PORT_OCCUPIED` appears, identify the program using port
-   3210. Do not delete the database or backup directory.
-5. If the problem persists, share only the displayed diagnostic code when
-   asking for help; card content and the SQLite file are not required.
+Chrome can install the open page as a PWA window. Offline caching contains the
+application shell only—never API responses or card text. Updates require an
+explicit action and do not reload an active review automatically.

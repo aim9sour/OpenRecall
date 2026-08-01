@@ -532,20 +532,20 @@ git commit -m "feat(release): add normal and portable Windows launchers"
 - README download target: `https://github.com/aim9sour/OpenRecall/releases/latest`.
 - Social preview dimensions: exactly 1280 by 640 pixels.
 
-- [ ] **Step 1: Add failing public README and image assertions**
+- [x] **Step 1: Add failing public README and image assertions**
 
 Assert both READMEs contain the release URL, `OpenRecall.cmd`,
 `OpenRecall-Portable.cmd`, Apache-2.0, the screenshot paths, normal/portable
 data boundaries, and developer commands. Use `sharp().metadata()` to assert
 image dimensions and PNG format.
 
-- [ ] **Step 2: Run documentation tests to verify failure**
+- [x] **Step 2: Run documentation tests to verify failure**
 
 ```bash
 pnpm exec vitest run tests/documentation/documentation.test.ts
 ```
 
-- [ ] **Step 3: Implement deterministic synthetic asset capture**
+- [x] **Step 3: Implement deterministic synthetic asset capture**
 
 The script creates a temp data directory, starts the app on its fixed local
 ports with synthetic English and Arabic content, captures light/dark desktop
@@ -553,7 +553,7 @@ views without browser chrome, and composes the social preview from the existing
 OpenRecall icon, product name, concise description, and a clipped synthetic UI
 panel. Strip metadata before writing PNGs.
 
-- [ ] **Step 4: Rewrite both README entry points**
+- [x] **Step 4: Rewrite both README entry points**
 
 Lead with download and two-click Windows use, then privacy/features,
 screenshots, accessibility contract, backup safety, developer setup, project
@@ -566,13 +566,13 @@ links, and honest v1 limitations. Use a restrained badge row:
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ```
 
-- [ ] **Step 5: Update both Windows guides**
+- [x] **Step 5: Update both Windows guides**
 
 Make release ZIP installation the default path. Keep source development in a
 separate section. Document the writable-folder rule, data locations, movement
 semantics, browser fallback, stop behavior, backup, and mode isolation.
 
-- [ ] **Step 6: Generate and inspect repository assets**
+- [x] **Step 6: Generate and inspect repository assets**
 
 ```bash
 node scripts/capture-repository-assets.mjs
@@ -581,7 +581,7 @@ pnpm exec vitest run tests/documentation/documentation.test.ts
 
 Open all three images and confirm no real data, usernames, paths, or browser UI.
 
-- [ ] **Step 7: Commit documentation and assets**
+- [x] **Step 7: Commit documentation and assets**
 
 ```bash
 git add README.md README.ar.md docs/assets docs/getting-started scripts/capture-repository-assets.mjs tests/documentation/documentation.test.ts

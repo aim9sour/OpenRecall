@@ -1,6 +1,8 @@
 import { access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import sharp from "sharp";
 import { validateImportJson } from "../../packages/domain/src/index.js";
 
 const root = new URL("../../", import.meta.url);
@@ -166,6 +168,35 @@ describe("repository documentation", () => {
     for (const issueForm of issueForms) {
       expect(issueForm).toMatch(/SQLite/iu);
       expect(issueForm).toMatch(/private|sensitive|خاص|حساس/iu);
+    }
+  });
+
+  it("publishes a release-first bilingual Windows experience with real imagery", async () => {
+    const [english, arabic] = await Promise.all([
+      text("README.md"),
+      text("README.ar.md"),
+    ]);
+    for (const readme of [english, arabic]) {
+      expect(readme).toContain(
+        "https://github.com/aim9sour/OpenRecall/releases/latest",
+      );
+      expect(readme).toContain("OpenRecall.cmd");
+      expect(readme).toContain("OpenRecall-Portable.cmd");
+      expect(readme).toContain("Apache-2.0");
+      expect(readme).toContain("docs/assets/openrecall-home.png");
+      expect(readme).toContain("docs/assets/openrecall-review.png");
+      expect(readme).toContain("%LOCALAPPDATA%\\OpenRecall-nodejs\\Data");
+      expect(readme).toMatch(/(?:portable|محمول)[\s\S]{0,180}(?:Data|البيانات)/iu);
+    }
+
+    const expectedImages = [
+      ["docs/assets/openrecall-home.png", 1440, 900],
+      ["docs/assets/openrecall-review.png", 1440, 900],
+      ["docs/assets/openrecall-social-preview.png", 1280, 640],
+    ] as const;
+    for (const [path, width, height] of expectedImages) {
+      const metadata = await sharp(fileURLToPath(new URL(path, root))).metadata();
+      expect(metadata, path).toMatchObject({ format: "png", height, width });
     }
   });
 });
