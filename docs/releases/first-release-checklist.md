@@ -1,8 +1,8 @@
 # First release audit checklist
 
-Audit date: 2026-07-30  
-Status: **not a release candidate**  
-Implementation baseline reviewed: `27dfded5cb6cd46d23b153903f51ba608f242822`
+Audit date: 2026-08-01
+Status: **not a release candidate**
+Implementation baseline reviewed: `69623690c59df70867f35f8101491ac9186d45fc`
 
 The automated Windows evidence is green. The stable Chrome headless audit is
 green. The human stable Chrome/NVDA speech audit, a fresh Linux execution, and
@@ -37,6 +37,11 @@ release is authorized.
   `27dfded5cb6cd46d23b153903f51ba608f242822` completed frozen install, type
   checks, 382 tests, production build, 11 stable-Chrome Playwright tests,
   production smoke, adapter-boundary validation, and lockfile validation.
+- [x] A detached clean worktree at
+  `69623690c59df70867f35f8101491ac9186d45fc` completed frozen install, type
+  checks, dependency-license validation, 393 tests, production build, 11
+  stable-Chrome Playwright tests on an isolated port range, production smoke,
+  adapter-boundary validation, and lockfile validation.
 - [ ] Execute the same required gate on Linux rather than relying only on the
   configured Linux CI workflow.
 
@@ -87,6 +92,9 @@ Primary evidence:
 
 - [x] Stable Chrome `150.0.7871.184`, launched headlessly by Playwright with an
   isolated test profile: 11/11 E2E tests passed.
+- [x] The same 11/11 suite passed with `OPENRECALL_E2E_PORT_OFFSET=1000` while
+  another checkout retained the default development ports; no existing process
+  was stopped or reused.
 - [x] Arabic and English critical flows passed.
 - [x] Arabic RTL, English LTR, and development-only `en-XA` passed route-wide
   visual accessibility coverage.
@@ -122,7 +130,8 @@ is not being misreported as NVDA evidence.
 
 Automated security evidence: 13/13 targeted production/security tests,
 `OPENRECALL_ADAPTER_BOUNDARIES_OK`,
-`OPENRECALL_LOCKFILE_VERSIONS_OK`, and
+`OPENRECALL_LOCKFILE_VERSIONS_OK`,
+`OPENRECALL_DEPENDENCY_LICENSES_OK`, and
 `OPENRECALL_SECURITY_PRODUCTION_AUDIT_OK`.
 
 ## Product acceptance criteria
@@ -145,6 +154,8 @@ Automated security evidence: 13/13 targeted production/security tests,
 - [ ] All ten product acceptance criteria pass.
 - [ ] Stable Chrome/NVDA manual results are signed with no critical-flow defect.
 - [ ] Final clean Windows and Linux runs pass at one commit.
+- [x] Dependency-license and repository-asset inventory is recorded and checked
+  on Windows/Linux CI; this does not select the project license.
 - [ ] The owner has selected a repository license and required notices.
 - [ ] A release-candidate commit is recorded.
 - [ ] A public tag or release is authorized.
