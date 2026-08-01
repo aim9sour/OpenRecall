@@ -66,7 +66,7 @@ jobs:
       - name: Build verified Windows ZIP
         run: pnpm package:windows
       - name: Smoke normal and portable launchers
-        run: pnpm smoke:package:windows -- --archive "$PWD\release-output\$env:ARCHIVE_NAME"
+        run: pnpm smoke:package:windows --archive "$PWD\release-output\$env:ARCHIVE_NAME"
       - name: Upload temporary workflow artifact
         uses: actions/upload-artifact@v6
         with:

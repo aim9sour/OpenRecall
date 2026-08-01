@@ -525,7 +525,8 @@ describe("repository release automation", () => {
     expect(workflow).toContain(
       "OpenRecall-v1.0.0-windows-x64.zip",
     );
-    expect(workflow).toContain("smoke:package:windows");
+    expect(workflow).toContain("pnpm smoke:package:windows --archive");
+    expect(workflow).not.toContain("smoke:package:windows -- --archive");
     expect(workflow).toContain("actions/upload-artifact@v6");
     expect(workflow).toContain("actions/attest@v4");
     expect(workflow).toContain("subject-path:");

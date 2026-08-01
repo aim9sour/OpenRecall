@@ -499,8 +499,8 @@ clean exit.
 - [x] **Step 7: Build and smoke the real artifact on Windows**
 
 ```powershell
-pnpm package:windows -- --output "$PWD\release-output"
-pnpm smoke:package:windows -- --archive "$PWD\release-output\OpenRecall-v1.0.0-windows-x64.zip"
+pnpm package:windows
+pnpm smoke:package:windows --archive "$PWD\release-output\OpenRecall-v1.0.0-windows-x64.zip"
 ```
 
 Expected: both data modes pass and no database appears in the source checkout.
@@ -690,8 +690,8 @@ pnpm test:e2e
 - [ ] **Step 3: Rebuild and smoke the final Windows ZIP**
 
 ```powershell
-pnpm package:windows -- --output "$PWD\release-output"
-pnpm smoke:package:windows -- --archive "$PWD\release-output\OpenRecall-v1.0.0-windows-x64.zip"
+pnpm package:windows
+pnpm smoke:package:windows --archive "$PWD\release-output\OpenRecall-v1.0.0-windows-x64.zip"
 ```
 
 Extract it once more to a clean temp directory and inspect the manifest and
