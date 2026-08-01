@@ -66,6 +66,23 @@ describe("repository documentation", () => {
     ).rejects.toThrow();
   });
 
+  it("records the reviewed dependency-license and asset boundary", async () => {
+    const [decision, review] = await Promise.all([
+      text("docs/decisions/licensing.md"),
+      text("docs/releases/dependency-license-review.md"),
+    ]);
+
+    expect(decision).toContain("dependency-license-review.md");
+    expect(review).toContain("pnpm release:licenses");
+    expect(review).toContain("Production dependency scope");
+    expect(review).toContain("Apache-2.0 AND LGPL-3.0-or-later");
+    expect(review).toContain("@img/sharp-libvips-linux-*");
+    expect(review).toContain("MPL-2.0");
+    expect(review).toContain("CC-BY-4.0");
+    expect(review).toContain("apps/web/assets/icon-source.svg");
+    expect(review).toMatch(/does not select|لا يختار/iu);
+  });
+
   it("documents contribution, disclosure, architecture, and translation gates", async () => {
     const [contributing, security, architecture, schema] =
       await Promise.all([

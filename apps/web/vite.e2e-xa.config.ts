@@ -1,16 +1,22 @@
 import { defineConfig, mergeConfig } from "vite";
 import baseConfig from "./vite.config.js";
+import {
+  loopbackOrigin,
+  resolveE2ePorts,
+} from "../../tests/e2e/ports.js";
+
+const e2ePorts = resolveE2ePorts();
 
 export default mergeConfig(
   baseConfig,
   defineConfig({
     server: {
       host: "127.0.0.1",
-      port: 5_175,
+      port: e2ePorts.web[2],
       strictPort: true,
       proxy: {
         "/api": {
-          target: "http://127.0.0.1:3212",
+          target: loopbackOrigin(e2ePorts.api[2]),
           changeOrigin: true,
         },
       },

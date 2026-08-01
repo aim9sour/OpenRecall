@@ -8,8 +8,9 @@ import {
 } from "../../packages/database/src/index.js";
 import { OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID } from "./seed-optimizer-fixture.js";
 import { e2eClockPath } from "./e2e-paths.js";
+import { resolveE2ePorts } from "./ports.js";
 
-const clockPath = e2eClockPath(3_214);
+const clockPath = e2eClockPath(resolveE2ePorts().api[4]);
 
 test.describe.serial("optimizer and SQLite durability", () => {
   test("cancels and completes a real optimizer worker, applies a preview, and rolls back", async ({

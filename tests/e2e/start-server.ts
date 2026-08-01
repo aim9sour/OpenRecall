@@ -12,10 +12,16 @@ import type { DueWakeService } from "../../apps/server/src/review/due-wake-servi
 import { openDatabase } from "../../packages/database/src/index.js";
 import { seedOptimizerFixture } from "./seed-optimizer-fixture.js";
 import { e2eClockPath } from "./e2e-paths.js";
+import { resolveE2ePorts } from "./ports.js";
 
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
-const serverPort = Number(process.env["OPENRECALL_E2E_API_PORT"] ?? "3210");
-const webPort = Number(process.env["OPENRECALL_E2E_WEB_PORT"] ?? "5173");
+const e2ePorts = resolveE2ePorts();
+const serverPort = Number(
+  process.env["OPENRECALL_E2E_API_PORT"] ?? e2ePorts.api[0],
+);
+const webPort = Number(
+  process.env["OPENRECALL_E2E_WEB_PORT"] ?? e2ePorts.web[0],
+);
 const localeCandidate = process.env["OPENRECALL_E2E_LOCALE"];
 const locale =
   localeCandidate === "en-XA"

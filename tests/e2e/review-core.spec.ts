@@ -1,8 +1,9 @@
 import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { e2eClockPath } from "./e2e-paths.js";
+import { resolveE2ePorts } from "./ports.js";
 
-const clockPath = e2eClockPath(3_210);
+const clockPath = e2eClockPath(resolveE2ePorts().api[0]);
 
 test("review core continuously rotates variants, resumes, and finishes with a summary", async ({
   page,

@@ -1,5 +1,8 @@
-process.env["OPENRECALL_E2E_API_PORT"] = "3211";
-process.env["OPENRECALL_E2E_WEB_PORT"] = "5174";
+import { resolveE2ePorts } from "./ports.js";
+
+const e2ePorts = resolveE2ePorts();
+process.env["OPENRECALL_E2E_API_PORT"] = String(e2ePorts.api[1]);
+process.env["OPENRECALL_E2E_WEB_PORT"] = String(e2ePorts.web[1]);
 process.env["OPENRECALL_E2E_LOCALE"] = "en";
 
 await import("./start-server.js");

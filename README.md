@@ -110,6 +110,7 @@ server is running.
 
 ```bash
 pnpm check
+pnpm release:licenses
 pnpm test
 pnpm build
 pnpm test:e2e
@@ -134,4 +135,3 @@ The first release has no accounts, remote hosting, cloud sync, collaboration,
 Anki package import/export, native mobile/desktop wrapper, or rich media.
 Images, audio, video, HTML, Markdown, LaTeX, and executable card content are
 intentionally unsupported. Experimental FSRS-7 scheduling is also outside v1.
-

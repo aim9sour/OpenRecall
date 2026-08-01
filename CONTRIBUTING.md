@@ -12,10 +12,24 @@ Use Node.js 24.18+ in the Node 24 line and pnpm 11.17.0:
 ```bash
 pnpm install --frozen-lockfile
 pnpm check
+pnpm release:licenses
 pnpm test
 pnpm build
 pnpm test:e2e
 ```
+
+Playwright normally reserves API ports `3210`–`3214` and web ports
+`5173`–`5177`. If another local checkout is already using that range, move the
+whole isolated test range without stopping the other application:
+
+```bash
+OPENRECALL_E2E_PORT_OFFSET=1000 pnpm test:e2e
+```
+
+In PowerShell, set the same value with
+`$env:OPENRECALL_E2E_PORT_OFFSET = "1000"` before the command. The offset must
+be a whole number from `0` through `60358`; it affects test infrastructure only,
+not OpenRecall's fixed production address.
 
 Develop on a topic branch. Keep commits focused and never include real card
 content, a user SQLite database, machine-specific paths, secrets, traces, or
@@ -72,4 +86,3 @@ Include:
 
 Report security problems through the private process in
 [SECURITY.md](SECURITY.md), not in a public issue.
-

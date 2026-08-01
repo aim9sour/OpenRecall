@@ -16,6 +16,10 @@ made a public release and currently has no public-use license.
   production PWA shell, and Windows launch scripts.
 - Content-free logs, fixed loopback security boundary, dependency fences, and
   automated unit/property/integration/E2E/accessibility coverage.
+- Reproducible dependency-license inventory with a stricter production
+  allowlist and Linux/Windows CI enforcement.
+- Configurable, validated E2E port-range isolation so a second local checkout
+  can run Playwright without stopping an existing OpenRecall development server.
 
 ### Known limitations
 

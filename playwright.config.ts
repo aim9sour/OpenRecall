@@ -1,4 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
+import {
+  loopbackOrigin,
+  resolveE2ePorts,
+} from "./tests/e2e/ports.js";
+
+const e2ePorts = resolveE2ePorts();
 
 const requestedBrowserChannel =
   process.env["OPENRECALL_BROWSER_CHANNEL"];
@@ -23,62 +29,63 @@ export default defineConfig({
   retries: process.env["CI"] ? 2 : 0,
   reporter: process.env["CI"] ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: loopbackOrigin(e2ePorts.web[0]),
     trace: "retain-on-failure",
   },
   webServer: [
     {
       command: "pnpm exec tsx tests/e2e/start-server.ts",
-      url: "http://127.0.0.1:3210/api/v1/bootstrap",
+      url: `${loopbackOrigin(e2ePorts.api[0])}/api/v1/bootstrap`,
       reuseExistingServer: false,
     },
     {
-      command: "pnpm --filter @openrecall/web dev",
-      url: "http://127.0.0.1:5173",
+      command:
+        "pnpm --filter @openrecall/web exec vite --config vite.e2e-ar.config.ts",
+      url: loopbackOrigin(e2ePorts.web[0]),
       reuseExistingServer: false,
     },
     {
       command: "pnpm exec tsx tests/e2e/start-english-server.ts",
-      url: "http://127.0.0.1:3211/api/v1/bootstrap",
+      url: `${loopbackOrigin(e2ePorts.api[1])}/api/v1/bootstrap`,
       reuseExistingServer: false,
     },
     {
       command:
         "pnpm --filter @openrecall/web exec vite --config vite.e2e-en.config.ts",
-      url: "http://127.0.0.1:5174",
+      url: loopbackOrigin(e2ePorts.web[1]),
       reuseExistingServer: false,
     },
     {
       command: "pnpm exec tsx tests/e2e/start-pseudo-server.ts",
-      url: "http://127.0.0.1:3212/api/v1/bootstrap",
+      url: `${loopbackOrigin(e2ePorts.api[2])}/api/v1/bootstrap`,
       reuseExistingServer: false,
     },
     {
       command:
         "pnpm --filter @openrecall/web exec vite --config vite.e2e-xa.config.ts",
-      url: "http://127.0.0.1:5175",
+      url: loopbackOrigin(e2ePorts.web[2]),
       reuseExistingServer: false,
     },
     {
       command: "pnpm exec tsx tests/e2e/start-pwa-server.ts",
-      url: "http://127.0.0.1:3213/api/v1/bootstrap",
+      url: `${loopbackOrigin(e2ePorts.api[3])}/api/v1/bootstrap`,
       reuseExistingServer: false,
     },
     {
       command:
         "pnpm --filter @openrecall/web build && pnpm --filter @openrecall/web exec vite preview --config vite.e2e-pwa.config.ts",
-      url: "http://127.0.0.1:5176",
+      url: loopbackOrigin(e2ePorts.web[3]),
       reuseExistingServer: false,
     },
     {
       command: "pnpm exec tsx tests/e2e/start-optimizer-server.ts",
-      url: "http://127.0.0.1:3214/api/v1/bootstrap",
+      url: `${loopbackOrigin(e2ePorts.api[4])}/api/v1/bootstrap`,
       reuseExistingServer: false,
     },
     {
       command:
         "pnpm --filter @openrecall/web exec vite --config vite.e2e-optimizer.config.ts",
-      url: "http://127.0.0.1:5177",
+      url: loopbackOrigin(e2ePorts.web[4]),
       reuseExistingServer: false,
     },
   ],
@@ -89,7 +96,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...brandedBrowser,
-        baseURL: "http://127.0.0.1:5173",
+        baseURL: loopbackOrigin(e2ePorts.web[0]),
       },
     },
     {
@@ -99,7 +106,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...brandedBrowser,
-        baseURL: "http://127.0.0.1:5174",
+        baseURL: loopbackOrigin(e2ePorts.web[1]),
       },
     },
     {
@@ -108,7 +115,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...brandedBrowser,
-        baseURL: "http://127.0.0.1:5175",
+        baseURL: loopbackOrigin(e2ePorts.web[2]),
       },
     },
     {
@@ -117,7 +124,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...brandedBrowser,
-        baseURL: "http://127.0.0.1:5176",
+        baseURL: loopbackOrigin(e2ePorts.web[3]),
       },
     },
     {
@@ -126,7 +133,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...brandedBrowser,
-        baseURL: "http://127.0.0.1:5177",
+        baseURL: loopbackOrigin(e2ePorts.web[4]),
       },
     },
   ],

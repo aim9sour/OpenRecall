@@ -1,6 +1,6 @@
 # Dependency baseline
 
-This is the dependency and runtime baseline verified on 2026-07-30. Exact
+This is the dependency and runtime baseline verified on 2026-08-01. Exact
 application dependencies remain pinned in package manifests and
 `pnpm-lock.yaml`; this page is an audit index, not a second source of version
 truth.
@@ -70,3 +70,9 @@ Dependency updates are accepted only through the pinned lockfile and the
 adapter, migration, clean-install, build, browser, recovery, and production
 smoke gates. A version appearing in the registry is not enough evidence for an
 upgrade.
+
+The installed production and development license expressions are checked by
+`pnpm release:licenses`. Counts, tool-only license categories, and the asset
+boundary are recorded in
+[`dependency-license-review.md`](dependency-license-review.md). This inventory
+does not choose the OpenRecall project license.

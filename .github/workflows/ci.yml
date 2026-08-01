@@ -46,6 +46,7 @@ jobs:
           node scripts/check-committed-whitespace.mjs
           node scripts/check-adapter-boundaries.mjs
           node scripts/check-lockfile-versions.mjs
+          pnpm release:licenses
       - name: Type-check every workspace
         run: pnpm check
       - name: Exercise migrations, backup, and restore fixtures

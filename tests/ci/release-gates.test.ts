@@ -15,6 +15,9 @@ import {
   checkLockfileVersions,
 } from "../../scripts/check-lockfile-versions.mjs";
 import {
+  validateDependencyLicenseReports,
+} from "../../scripts/check-dependency-licenses.mjs";
+import {
   committedWhitespaceArgs,
 } from "../../scripts/check-committed-whitespace.mjs";
 
@@ -261,6 +264,60 @@ describe("lockfile and install-script gate", () => {
   });
 });
 
+describe("dependency license review gate", () => {
+  const entry = (name: string) => ({
+    license: "fixture",
+    name,
+    paths: [`/fixture/${name}`],
+    versions: ["1.0.0"],
+  });
+
+  it("accepts reviewed tool licenses while keeping production permissive", () => {
+    expect(() =>
+      validateDependencyLicenseReports(
+        {
+          "Apache-2.0": [entry("runtime")],
+          MIT: [entry("runtime-helper")],
+        },
+        {
+          "Apache-2.0": [entry("runtime")],
+          "Apache-2.0 AND LGPL-3.0-or-later": [entry("build-binary")],
+          "CC-BY-4.0": [entry("browser-data")],
+          "LGPL-3.0-or-later": [entry("linux-build-library")],
+          MIT: [entry("runtime-helper")],
+          "MPL-2.0": [entry("test-tool")],
+        },
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects an unreviewed license and a tooling-only license in production", () => {
+    expect(() =>
+      validateDependencyLicenseReports(
+        { GPL: [entry("new-runtime")] },
+        { GPL: [entry("new-runtime")] },
+      ),
+    ).toThrow("DEPENDENCY_LICENSE_UNREVIEWED:GPL");
+
+    expect(() =>
+      validateDependencyLicenseReports(
+        {
+          "Apache-2.0 AND LGPL-3.0-or-later": [
+            entry("unexpected-runtime-binary"),
+          ],
+        },
+        {
+          "Apache-2.0 AND LGPL-3.0-or-later": [
+            entry("unexpected-runtime-binary"),
+          ],
+        },
+      ),
+    ).toThrow(
+      "PRODUCTION_DEPENDENCY_LICENSE_NOT_APPROVED:Apache-2.0 AND LGPL-3.0-or-later",
+    );
+  });
+});
+
 describe("repository release automation", () => {
   it("checks a pull request range or the complete pushed commit", () => {
     expect(committedWhitespaceArgs("abc1234")).toEqual([
@@ -297,6 +354,7 @@ describe("repository release automation", () => {
     expect(workflow).toContain(
       "node scripts/check-lockfile-versions.mjs",
     );
+    expect(workflow).toContain("pnpm release:licenses");
     expect(workflow).toContain("pnpm check");
     expect(workflow).toContain("pnpm test");
     expect(workflow).toContain("pnpm build");
@@ -333,6 +391,7 @@ describe("repository release automation", () => {
     expect(windows).toContain(
       "node scripts/check-committed-whitespace.mjs",
     );
+    expect(windows).toContain("pnpm release:licenses");
     expect(windows).toContain(
       "node scripts/smoke-production.mjs",
     );

@@ -24,11 +24,12 @@ copyleft, source-available, or proprietary policy.
 Before public publication, the owner must:
 
 1. choose the intended sharing and contribution model;
-2. review dependency and asset notices for compatibility;
+2. review the recorded dependency and asset inventory in
+   [`../releases/dependency-license-review.md`](../releases/dependency-license-review.md)
+   for compatibility with the intended distribution;
 3. select or obtain appropriate license text;
 4. add the exact `LICENSE` and any required notices deliberately;
 5. update both README files, contribution terms, and the release checklist.
 
 Until those steps are explicit, all release documentation must state “no
 license,” and automation must not tag or publish a public release.
-

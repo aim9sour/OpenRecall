@@ -105,6 +105,7 @@ pnpm dev
 
 ```bash
 pnpm check
+pnpm release:licenses
 pnpm test
 pnpm build
 pnpm test:e2e
@@ -129,4 +130,3 @@ node scripts/smoke-production.mjs
 Anki أو تطبيق أصلي للهاتف أو سطح المكتب. الصور والصوت والفيديو وHTML وMarkdown
 وLaTeX والمحتوى التنفيذي غير مدعومة عمدًا. جدولة FSRS-7 التجريبية خارج حدود
 الإصدار الأول أيضًا.
-

@@ -11,6 +11,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "check": "tsc -p tsconfig.tools.json && pnpm -r check",
+    "release:licenses": "node scripts/check-dependency-licenses.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "dev": "pnpm --parallel --filter @openrecall/server --filter @openrecall/web dev",
