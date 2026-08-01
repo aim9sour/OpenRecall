@@ -112,6 +112,7 @@ export interface OptimizerRunServiceApi {
   startRun(scope: OptimizerScope): OptimizerRun;
   getRun(runId: string): OptimizerRun | null;
   cancelRun(runId: string): boolean;
+  quiesceForSectionDeletion(sectionId: string): Promise<() => void>;
   whenIdle(): Promise<void>;
   dispose(): void;
 }
@@ -127,9 +128,11 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
   ) => OptimizerEligibilityCounts;
   readonly #train: OptimizerTrainer;
   readonly #settings: SettingsRepository;
+  readonly #sectionDeletionGateCounts = new Map<string, number>();
   #active:
     | {
         readonly id: string;
+        readonly scope: OptimizerScope;
         readonly controller: AbortController;
         readonly promise: Promise<void>;
       }
@@ -201,6 +204,14 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
   }
 
   startRun(scope: OptimizerScope): OptimizerRun {
+    if (
+      (scope.scopeType === "global" &&
+        this.#sectionDeletionGateCounts.size > 0) ||
+      (scope.scopeType === "section" &&
+        this.#sectionDeletionGateCounts.has(scope.sectionId))
+    ) {
+      throw new Error("OPTIMIZER_SECTION_DELETION_IN_PROGRESS");
+    }
     if (this.#active !== null) {
       throw new Error("OPTIMIZER_RUN_CONFLICT");
     }
@@ -270,7 +281,7 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
       .finally(() => {
         if (this.#active?.id === id) this.#active = null;
       });
-    this.#active = { id, controller, promise };
+    this.#active = { id, scope, controller, promise };
     const run = this.getRun(id);
     if (run === null) throw new Error("OPTIMIZER_RUN_INSERT_FAILED");
     return run;
@@ -423,6 +434,44 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
     if (this.#active?.id !== runId) return false;
     this.#active.controller.abort();
     return true;
+  }
+
+  async quiesceForSectionDeletion(
+    sectionId: string,
+  ): Promise<() => void> {
+    if (sectionId.trim().length === 0) {
+      throw new Error("OPTIMIZER_SECTION_ID_INVALID");
+    }
+    this.#sectionDeletionGateCounts.set(
+      sectionId,
+      (this.#sectionDeletionGateCounts.get(sectionId) ?? 0) + 1,
+    );
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      const count = this.#sectionDeletionGateCounts.get(sectionId);
+      if (count === undefined || count <= 1) {
+        this.#sectionDeletionGateCounts.delete(sectionId);
+      } else {
+        this.#sectionDeletionGateCounts.set(sectionId, count - 1);
+      }
+    };
+    const active = this.#active;
+    try {
+      if (
+        active !== null &&
+        (active.scope.scopeType === "global" ||
+          active.scope.sectionId === sectionId)
+      ) {
+        active.controller.abort();
+        await active.promise;
+      }
+    } catch (error) {
+      release();
+      throw error;
+    }
+    return release;
   }
 
   async whenIdle(): Promise<void> {

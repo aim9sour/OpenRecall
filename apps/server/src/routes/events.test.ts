@@ -82,6 +82,10 @@ describe("review event stream", () => {
       event: "review-invalidated",
       data: { sessionId: "session-1", revision: 7 },
     });
+    events.publish({
+      event: "section-deleted",
+      data: { sectionId: "section-1" },
+    } as never);
     await new Promise((resolve) => setTimeout(resolve, 25));
     events.closeAll();
 
@@ -91,6 +95,10 @@ describe("review event stream", () => {
     expect(response.body).toContain("event: review-invalidated");
     expect(response.body).toContain(
       'data: {"sessionId":"session-1","revision":7}',
+    );
+    expect(response.body).toContain("event: section-deleted");
+    expect(response.body).toContain(
+      'data: {"sectionId":"section-1"}',
     );
     expect(response.body).toContain(": heartbeat");
     expect(response.body).not.toMatch(/front|back|notes|question|answer/i);

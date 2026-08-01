@@ -293,8 +293,11 @@ export async function buildServer(
     });
     options.onDueWakeReady?.(dueWake);
     registerSectionRoutes(server, {
+      events: reviewEvents,
+      optimizer,
       repository,
       nowMs: options.nowMs ?? Date.now,
+      wake: dueWake,
     });
     registerApplicationPreferenceRoutes(server, {
       preferences: applicationPreferences,

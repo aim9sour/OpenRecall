@@ -86,6 +86,7 @@ describe("optimizer routes", () => {
           runId === run.id ? run : null,
         ),
         cancelRun: vi.fn((runId: string) => runId === run.id),
+        quiesceForSectionDeletion: async () => () => undefined,
         whenIdle: async () => undefined,
         dispose: () => undefined,
       };
@@ -217,6 +218,7 @@ describe("optimizer routes", () => {
         startRun: vi.fn(),
         getRun: vi.fn(() => null),
         cancelRun: vi.fn(() => false),
+        quiesceForSectionDeletion: async () => () => undefined,
         whenIdle: async () => undefined,
         dispose: () => undefined,
       };

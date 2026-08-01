@@ -6,30 +6,59 @@ export interface ReviewInvalidationEvent {
   };
 }
 
+export interface SectionDeletedEvent {
+  readonly event: "section-deleted";
+  readonly data: {
+    readonly sectionId: string;
+  };
+}
+
+export type ReviewEvent =
+  | ReviewInvalidationEvent
+  | SectionDeletedEvent;
+
 export interface ReviewEventSubscriber {
-  send(event: ReviewInvalidationEvent): Promise<void>;
+  send(event: ReviewEvent): Promise<void>;
   close(): void;
 }
 
 function canonicalEvent(
-  event: ReviewInvalidationEvent,
-): ReviewInvalidationEvent {
-  if (
-    event.event !== "review-invalidated" ||
-    event.data.sessionId.length === 0 ||
-    !Number.isSafeInteger(event.data.revision) ||
-    event.data.revision < 0
-  ) {
-    throw new Error("REVIEW_INVALIDATION_EVENT_INVALID");
+  event: ReviewEvent,
+): ReviewEvent {
+  if (event.event === "review-invalidated") {
+    if (
+      typeof event.data !== "object" ||
+      event.data === null ||
+      typeof event.data.sessionId !== "string" ||
+      event.data.sessionId.length === 0 ||
+      !Number.isSafeInteger(event.data.revision) ||
+      event.data.revision < 0
+    ) {
+      throw new Error("REVIEW_INVALIDATION_EVENT_INVALID");
+    }
+    return {
+      event: "review-invalidated",
+      data: {
+        sessionId: event.data.sessionId,
+        revision: event.data.revision,
+      },
+    };
   }
-
-  return {
-    event: "review-invalidated",
-    data: {
-      sessionId: event.data.sessionId,
-      revision: event.data.revision,
-    },
-  };
+  if (event.event === "section-deleted") {
+    if (
+      typeof event.data !== "object" ||
+      event.data === null ||
+      typeof event.data.sectionId !== "string" ||
+      event.data.sectionId.length === 0
+    ) {
+      throw new Error("SECTION_DELETED_EVENT_INVALID");
+    }
+    return {
+      event: "section-deleted",
+      data: { sectionId: event.data.sectionId },
+    };
+  }
+  throw new Error("REVIEW_EVENT_INVALID");
 }
 
 export class ReviewEvents {
@@ -52,17 +81,22 @@ export class ReviewEvents {
     };
   }
 
-  publish(event: ReviewInvalidationEvent): void {
+  publish(event: ReviewEvent): void {
     const safeEvent = canonicalEvent(event);
     for (const subscriber of this.#subscribers) {
-      void subscriber.send(safeEvent).catch(() => {
+      const detach = () => {
         this.#subscribers.delete(subscriber);
         try {
           subscriber.close();
         } catch {
           // The failed transport is already detached.
         }
-      });
+      };
+      try {
+        void subscriber.send(safeEvent).catch(detach);
+      } catch {
+        detach();
+      }
     }
   }
 

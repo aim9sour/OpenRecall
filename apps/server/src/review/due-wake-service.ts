@@ -1,7 +1,4 @@
-import type {
-  ReviewEvents,
-  ReviewInvalidationEvent,
-} from "./review-events.js";
+import type { ReviewInvalidationEvent } from "./review-events.js";
 
 export const MAX_TIMER_DELAY_MS = 2_147_000_000;
 
@@ -22,7 +19,9 @@ export interface DueWakeRepository {
   ): { readonly added: number; readonly revision: number };
 }
 
-export type ReviewEventPublisher = Pick<ReviewEvents, "publish">;
+export interface ReviewEventPublisher {
+  publish(event: ReviewInvalidationEvent): void;
+}
 
 export interface DueWakeClock {
   readonly now: () => number;

@@ -222,6 +222,7 @@ describe("local-only production boundary", () => {
         dispose,
         getEligibility: vi.fn(),
         getRun: vi.fn(() => null),
+        quiesceForSectionDeletion: async () => () => undefined,
         startRun: vi.fn(),
         whenIdle,
       },

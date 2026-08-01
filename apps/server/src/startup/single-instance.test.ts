@@ -346,6 +346,7 @@ describe("single-instance coordination", () => {
           dispose: vi.fn(),
           getEligibility: vi.fn(),
           getRun: vi.fn(() => null),
+          quiesceForSectionDeletion: async () => () => undefined,
           recoverInterruptedRuns: vi.fn(() => {
             throw recoveryError;
           }),

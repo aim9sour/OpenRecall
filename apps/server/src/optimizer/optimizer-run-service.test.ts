@@ -24,6 +24,10 @@ const sectionScope: OptimizerScope = {
   scopeType: "section",
   sectionId: "section-a",
 };
+const otherSectionScope: OptimizerScope = {
+  scopeType: "section",
+  sectionId: "section-b",
+};
 const trainedResult: OptimizerResult = {
   weights: Array.from({ length: 21 }, (_, index) => index + 0.5),
   logLoss: 0.2,
@@ -52,6 +56,12 @@ function seedSection(db: ReturnType<typeof openDatabase>): void {
     `
       INSERT INTO sections (id, name, created_at_ms, updated_at_ms)
       VALUES ('section-a', 'Biology', 0, 0)
+    `,
+  ).run();
+  db.prepare(
+    `
+      INSERT INTO sections (id, name, created_at_ms, updated_at_ms)
+      VALUES ('section-b', 'Chemistry', 0, 0)
     `,
   ).run();
 }
@@ -287,6 +297,165 @@ describe("OptimizerRunService", () => {
           error_code: "OPTIMIZER_PROCESS_INTERRUPTED",
           finished_at_ms: 1_000,
         });
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it.each([sectionScope, globalScope])(
+    "aborts affected active training and waits before granting a deletion gate",
+    async (activeScope) => {
+      await withTempDatabase(async (databasePath) => {
+        const db = openDatabase(databasePath);
+        try {
+          seedSection(db);
+          let observedSignal: AbortSignal | undefined;
+          let settleTraining: (() => void) | undefined;
+          let trainingCall = 0;
+          const service = new OptimizerRunService(db, {
+            loadTrainingSet: () => trainingSet(400),
+            nowMs: () => 1_000,
+            train: ({ signal }) => {
+              trainingCall += 1;
+              if (trainingCall > 1) return Promise.resolve(trainedResult);
+              return new Promise((_resolve, reject) => {
+                observedSignal = signal;
+                settleTraining = () =>
+                  reject(new Error("OPTIMIZER_CANCELLED"));
+              });
+            },
+          });
+          service.startRun(activeScope);
+          await Promise.resolve();
+
+          let quiesced = false;
+          const releasePromise = service.quiesceForSectionDeletion(
+            sectionScope.sectionId,
+          );
+          void releasePromise.then(() => {
+            quiesced = true;
+          });
+          expect(observedSignal?.aborted).toBe(true);
+          await Promise.resolve();
+          expect(quiesced).toBe(false);
+
+          settleTraining?.();
+          const release = await releasePromise;
+          expect(() => service.startRun(sectionScope)).toThrow(
+            "OPTIMIZER_SECTION_DELETION_IN_PROGRESS",
+          );
+          expect(() => service.startRun(globalScope)).toThrow(
+            "OPTIMIZER_SECTION_DELETION_IN_PROGRESS",
+          );
+
+          const unrelated = service.startRun(otherSectionScope);
+          await service.whenIdle();
+          expect(service.getRun(unrelated.id)?.status).toBe("succeeded");
+          release();
+          release();
+        } finally {
+          db.close();
+        }
+      });
+    },
+  );
+
+  it("keeps concurrent deletion gates isolated until every release", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        seedSection(db);
+        const service = new OptimizerRunService(db, {
+          loadTrainingSet: () => trainingSet(400),
+          nowMs: () => 1_000,
+          train: async () => trainedResult,
+        });
+        const first = await service.quiesceForSectionDeletion("section-a");
+        const second = await service.quiesceForSectionDeletion("section-a");
+
+        first();
+        expect(() => service.startRun(sectionScope)).toThrow(
+          "OPTIMIZER_SECTION_DELETION_IN_PROGRESS",
+        );
+        second();
+        const started = service.startRun(sectionScope);
+        await service.whenIdle();
+        expect(service.getRun(started.id)?.status).toBe("succeeded");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("does not cancel active training for an unrelated section", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        seedSection(db);
+        let signal: AbortSignal | undefined;
+        let finish: ((value: OptimizerResult) => void) | undefined;
+        const service = new OptimizerRunService(db, {
+          loadTrainingSet: () => trainingSet(400),
+          nowMs: () => 1_000,
+          train: (input) =>
+            new Promise((resolve) => {
+              signal = input.signal;
+              finish = resolve;
+            }),
+        });
+        service.startRun(otherSectionScope);
+        await Promise.resolve();
+
+        const release = await service.quiesceForSectionDeletion(
+          sectionScope.sectionId,
+        );
+        expect(signal?.aborted).toBe(false);
+        release();
+        finish?.(trainedResult);
+        await service.whenIdle();
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("releases the deletion gate when optimizer quiescence itself fails", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        seedSection(db);
+        let failCleanupClock = false;
+        let rejectTraining: (() => void) | undefined;
+        let trainingCall = 0;
+        const service = new OptimizerRunService(db, {
+          loadTrainingSet: () => trainingSet(400),
+          nowMs: () => {
+            if (failCleanupClock) {
+              throw new Error("EXPECTED_CLEANUP_FAILURE");
+            }
+            return 1_000;
+          },
+          train: () => {
+            trainingCall += 1;
+            if (trainingCall > 1) return Promise.resolve(trainedResult);
+            return new Promise((_resolve, reject) => {
+              rejectTraining = () => reject(new Error("OPTIMIZER_CANCELLED"));
+            });
+          },
+        });
+        service.startRun(sectionScope);
+        await Promise.resolve();
+
+        failCleanupClock = true;
+        const quiescence = service.quiesceForSectionDeletion("section-a");
+        rejectTraining?.();
+        await expect(quiescence).rejects.toThrow("EXPECTED_CLEANUP_FAILURE");
+
+        failCleanupClock = false;
+        const next = service.startRun(sectionScope);
+        await service.whenIdle();
+        expect(service.getRun(next.id)?.status).toBe("succeeded");
       } finally {
         db.close();
       }
