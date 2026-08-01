@@ -14,10 +14,12 @@ synchronization, telemetry, or remote runtime dependency.
 
 ## What it includes
 
-- Accessible Arabic and English interfaces, RTL/LTR layouts, themes, forced
-  colors, reduced motion, and an installable PWA shell.
-- Sections, dashboard and card statistics, global statistics, card editing,
-  trash/restore/delete, and plain-text JSON import.
+- Accessible Arabic and English interfaces selected in Settings and persisted
+  in SQLite, with immediate RTL/LTR switching, themes, forced colors, reduced
+  motion, and an installable PWA shell.
+- Sections that can be renamed or permanently deleted, dashboard and card
+  statistics, global statistics, card editing, trash/restore/delete, and
+  plain-text JSON import.
 - One scheduling state per learning item with any number of alternate
   presentations. Smart rotation changes the wording without treating variants
   as separate cards.
@@ -107,7 +109,10 @@ The default Windows data location is
 `openrecall.sqlite3`; validated snapshots are under `backups`, and
 content-free diagnostics are under `logs`. Download a SQLite backup from
 settings before risky changes. Never copy only a live database file while the
-server is running.
+server is running. Permanently deleting a section removes its live cards,
+review state, and history immediately; older full-database SQLite backups are
+not rewritten and may still contain that section until those backup files are
+removed separately.
 
 ## Verify a change
 
