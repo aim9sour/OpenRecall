@@ -151,6 +151,7 @@ describe("section deletion migration", () => {
              source_review_cutoff_ms, backup_filename, applied_at_ms)
           VALUES
             ('application-section-1', 'profile-section-1', '${OFFICIAL_PARAMETER_PROFILE_ID}', 'section', 'section-1', 100, 'section-backup.sqlite3', 100),
+            ('application-section-2', 'profile-section-2', '${OFFICIAL_PARAMETER_PROFILE_ID}', 'section', 'section-2', 100, 'section-2-backup.sqlite3', 100),
             ('application-global', 'profile-global', '${OFFICIAL_PARAMETER_PROFILE_ID}', 'global', NULL, 100, 'global-backup.sqlite3', 100);
         `);
 
@@ -218,6 +219,11 @@ describe("section deletion migration", () => {
           db
             .prepare("DELETE FROM profile_applications WHERE id = ?")
             .run("application-global"),
+        ).toThrow("PROFILE_APPLICATION_AUDIT_IMMUTABLE");
+        expect(() =>
+          db
+            .prepare("DELETE FROM profile_applications WHERE id = ?")
+            .run("application-section-2"),
         ).toThrow("PROFILE_APPLICATION_AUDIT_IMMUTABLE");
       } finally {
         db.close();

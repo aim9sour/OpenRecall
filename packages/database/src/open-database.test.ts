@@ -200,6 +200,43 @@ describe("openDatabase", () => {
     });
   });
 
+  it("rolls back a completed migration when foreign-key verification fails", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        expect(() =>
+          migrateDatabase(db, [
+            {
+              version: SCHEMA_VERSION + 1,
+              up(database) {
+                database.exec(`
+                  INSERT INTO learning_items
+                    (id, section_id, lifecycle, created_at_ms, updated_at_ms)
+                  VALUES
+                    ('orphan-item', 'missing-section', 'active', 1, 1);
+                `);
+              },
+            },
+          ]),
+        ).toThrow("DATABASE_FOREIGN_KEY_CHECK_FAILED");
+        expect(db.pragma("user_version", { simple: true })).toBe(
+          SCHEMA_VERSION,
+        );
+        expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+        expect(
+          db
+            .prepare(
+              "SELECT count(*) FROM learning_items WHERE id = 'orphan-item'",
+            )
+            .pluck()
+            .get(),
+        ).toBe(0);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   it("never initializes an empty or missing file through the existing-database recovery path", async () => {
     await withTempDatabase(async (databasePath) => {
       await writeFile(databasePath, "");
