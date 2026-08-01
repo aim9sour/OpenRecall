@@ -168,6 +168,16 @@ describe("lockfile and install-script gate", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("does not auto-install optional peers with vulnerable native trees", async () => {
+    const [workspace, lockfile] = await Promise.all([
+      readFile(join(repositoryRoot, "pnpm-workspace.yaml"), "utf8"),
+      readFile(join(repositoryRoot, "pnpm-lock.yaml"), "utf8"),
+    ]);
+
+    expect(workspace).toMatch(/^autoInstallPeers: false$/mu);
+    expect(lockfile).not.toContain("sharp@0.33.5:");
+  });
+
   it("rejects version ranges and any extra dependency build permission", async () => {
     const root = await temporaryRoot();
     await write(
@@ -242,7 +252,6 @@ describe("lockfile and install-script gate", () => {
         "packages:",
         "  better-sqlite3@13.0.1:",
         "  esbuild@0.28.1:",
-        "  sharp@0.33.5:",
         "  sharp@0.35.3:",
         "snapshots:",
       ].join("\n"),
@@ -281,7 +290,6 @@ describe("lockfile and install-script gate", () => {
         "packages:",
         "  better-sqlite3@13.0.1:",
         "  esbuild@0.28.1:",
-        "  sharp@0.33.5:",
         "  sharp@0.35.3:",
         "snapshots:",
       ].join("\r\n"),

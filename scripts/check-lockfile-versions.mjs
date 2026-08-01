@@ -16,7 +16,7 @@ const APPROVED_BUILD_PACKAGES = new Set([
 const REQUIRED_LOCKED_VERSIONS = new Map([
   ["better-sqlite3", new Set(["13.0.1"])],
   ["esbuild", new Set(["0.28.1"])],
-  ["sharp", new Set(["0.33.5", "0.35.3"])],
+  ["sharp", new Set(["0.35.3"])],
 ]);
 
 async function json(path) {
