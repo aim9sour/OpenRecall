@@ -6,6 +6,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  rm,
   writeFile,
 } from "node:fs/promises";
 import {
@@ -27,6 +28,7 @@ const requiredPaths = [
   "OpenRecall.cmd",
   "OpenRecall-Portable.cmd",
   "Start-OpenRecall.ps1",
+  "LauncherHost.mjs",
   "runtime/node.exe",
   "app/server/src/index.ts",
   "app/server/node_modules",
@@ -238,6 +240,24 @@ export async function collectDependencyLicenseFiles({
     pending.push(...await packageRoots(resolve(packageRoot, "node_modules")));
   }
   return [...identities].sort((left, right) => left.localeCompare(right, "en"));
+}
+
+export async function removeDependencySourceMaps(
+  nodeModules,
+  directory = nodeModules,
+) {
+  const removed = [];
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const absolute = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      removed.push(...await removeDependencySourceMaps(nodeModules, absolute));
+    } else if (entry.isFile() && entry.name.endsWith(".map")) {
+      await rm(absolute);
+      removed.push(portablePath(relative(nodeModules, absolute)));
+    }
+  }
+  return removed.sort((left, right) => left.localeCompare(right, "en"));
 }
 
 async function listFiles(root, directory = root) {

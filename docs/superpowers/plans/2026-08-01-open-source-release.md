@@ -443,10 +443,11 @@ git commit -m "build: create verified Windows distribution"
 **Interfaces:**
 - Normal CMD invokes `Start-OpenRecall.ps1 -Mode Normal`.
 - Portable CMD invokes `Start-OpenRecall.ps1 -Mode Portable`.
-- PowerShell launches `runtime\node.exe --import tsx app\server\src\index.ts`.
+- PowerShell launches bundled `runtime\node.exe` through `LauncherHost.mjs`,
+  which starts the TypeScript server and relays graceful shutdown over IPC.
 - Internal smoke-only environment: `OPENRECALL_LAUNCHER_NO_BROWSER=1`.
 
-- [ ] **Step 1: Add failing launcher contract tests**
+- [x] **Step 1: Add failing launcher contract tests**
 
 Assert both CMD files quote `%~dp0`, invoke the same PowerShell file, and pass
 distinct modes. Assert PowerShell normal mode removes any inherited
@@ -454,13 +455,13 @@ distinct modes. Assert PowerShell normal mode removes any inherited
 `Join-Path $PSScriptRoot "Data"`, and both use bundled `runtime\node.exe` rather
 than PATH.
 
-- [ ] **Step 2: Run launcher tests to verify they fail**
+- [x] **Step 2: Run launcher tests to verify they fail**
 
 ```bash
 pnpm exec vitest run tests/ci/windows-package.test.ts
 ```
 
-- [ ] **Step 3: Implement the two thin CMD files**
+- [x] **Step 3: Implement the two thin CMD files**
 
 Create `OpenRecall.cmd` with `-Mode Normal` and
 `OpenRecall-Portable.cmd` with `-Mode Portable`, using this exact structure:
@@ -472,7 +473,7 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Open
 exit /b %ERRORLEVEL%
 ```
 
-- [ ] **Step 4: Implement shared PowerShell startup**
+- [x] **Step 4: Implement shared PowerShell startup**
 
 Validate required files, test portable-directory writability using a random
 temporary file, start bundled Node with `NODE_ENV=production`, poll the fixed
@@ -480,7 +481,7 @@ health endpoint for at most 30 seconds, open stable Chrome paths or the default
 browser, then wait for the server process. Preserve server diagnostic codes and
 return its exit code. Never hide the server window.
 
-- [ ] **Step 5: Implement extracted artifact smoke tests**
+- [x] **Step 5: Implement extracted artifact smoke tests**
 
 `scripts/smoke-windows-package.mjs` extracts the ZIP to a fresh temp directory,
 sets `OPENRECALL_LAUNCHER_NO_BROWSER=1`, and runs each launcher sequentially.
@@ -489,13 +490,13 @@ appears only there. For portable mode, assert it appears only in extracted
 `Data`. Request `/api/v1/health`, then send a graceful termination and verify a
 clean exit.
 
-- [ ] **Step 6: Add smoke script**
+- [x] **Step 6: Add smoke script**
 
 ```json
 "smoke:package:windows": "node scripts/smoke-windows-package.mjs"
 ```
 
-- [ ] **Step 7: Build and smoke the real artifact on Windows**
+- [x] **Step 7: Build and smoke the real artifact on Windows**
 
 ```powershell
 pnpm package:windows -- --output "$PWD\release-output"
@@ -504,7 +505,7 @@ pnpm smoke:package:windows -- --archive "$PWD\release-output\OpenRecall-v1.0.0-w
 
 Expected: both data modes pass and no database appears in the source checkout.
 
-- [ ] **Step 8: Commit launchers and smoke coverage**
+- [x] **Step 8: Commit launchers and smoke coverage**
 
 ```bash
 git add distribution/windows scripts/package-windows.mjs scripts/smoke-windows-package.mjs tests/ci/windows-package.test.ts package.json

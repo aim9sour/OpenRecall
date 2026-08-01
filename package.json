@@ -14,6 +14,7 @@
     "check": "tsc -p tsconfig.tools.json && pnpm -r check",
     "package:windows": "node scripts/package-windows.mjs --version 1.0.0",
     "release:licenses": "node scripts/check-dependency-licenses.mjs",
+    "smoke:package:windows": "node scripts/smoke-windows-package.mjs",
     "test": "vitest run",
     "test:package": "vitest run tests/ci/windows-package.test.ts",
     "test:e2e": "playwright test",

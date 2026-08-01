@@ -20,6 +20,7 @@ import {
   inspectStagingDirectory,
   pnpmDeployArguments,
   releaseArtifactNames,
+  removeDependencySourceMaps,
   sha256File,
   verifySha256,
 } from "./release/windows-package-core.mjs";
@@ -187,6 +188,7 @@ async function assembleWindowsPackage({ output, version }) {
       ...process.env,
       CI: "true",
     });
+    await removeDependencySourceMaps(resolve(serverRoot, "node_modules"));
     await cp(
       resolve(repositoryRoot, "apps", "web", "dist"),
       resolve(staging, "app", "web", "dist"),
@@ -232,6 +234,10 @@ async function assembleWindowsPackage({ output, version }) {
       copyFile(
         resolve(repositoryRoot, "distribution", "windows", "Start-OpenRecall.ps1"),
         resolve(staging, "Start-OpenRecall.ps1"),
+      ),
+      copyFile(
+        resolve(repositoryRoot, "distribution", "windows", "LauncherHost.mjs"),
+        resolve(staging, "LauncherHost.mjs"),
       ),
       copyFile(
         resolve(repositoryRoot, "distribution", "windows", "README.txt"),

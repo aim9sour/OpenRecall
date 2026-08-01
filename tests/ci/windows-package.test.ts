@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, parse, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,10 +9,20 @@ import {
   inspectStagingDirectory,
   pnpmDeployArguments,
   releaseArtifactNames,
+  removeDependencySourceMaps,
   sha256File,
   verifySha256,
 } from "../../scripts/release/windows-package-core.mjs";
 import { parseWindowsPackageArguments } from "../../scripts/package-windows.mjs";
+import {
+  cmdLauncherArguments,
+  cmdLauncherSpawnOptions,
+  extractWindowsArchive,
+  launcherOutputIsReady,
+  parseWindowsSmokeArguments,
+  prepareLauncherControlDirectory,
+  windowsSmokeCleanupOptions,
+} from "../../scripts/smoke-windows-package.mjs";
 
 const temporaryRoots: string[] = [];
 const repositoryRoot = resolve(import.meta.dirname, "../..");
@@ -42,6 +53,7 @@ async function validStagingRoot(): Promise<string> {
       "OpenRecall.cmd",
       "OpenRecall-Portable.cmd",
       "Start-OpenRecall.ps1",
+      "LauncherHost.mjs",
       "runtime/node.exe",
       "app/server/src/index.ts",
       "app/server/node_modules/runtime-package/LICENSE",
@@ -85,6 +97,91 @@ describe("Windows release artifact contracts", () => {
       ).toThrow("OPENRECALL_PACKAGE_ARGUMENT_INVALID");
     }
   });
+
+  it("accepts only one absolute Windows package smoke target", () => {
+    const archive = join(repositoryRoot, "release-output", "OpenRecall-v1.0.0-windows-x64.zip");
+    expect(parseWindowsSmokeArguments(["--archive", archive])).toEqual({
+      archive: resolve(archive),
+    });
+    for (const args of [
+      [],
+      ["--archive", "relative.zip"],
+      ["--archive", archive, "--unknown"],
+    ]) {
+      expect(() => parseWindowsSmokeArguments(args)).toThrow(
+        "OPENRECALL_PACKAGE_SMOKE_ARGUMENT_INVALID",
+      );
+    }
+  });
+
+  it("waits for the launcher-level readiness marker before stopping", () => {
+    expect(
+      launcherOutputIsReady("OPENRECALL_READY http://127.0.0.1:3210\n"),
+    ).toBe(false);
+    expect(
+      launcherOutputIsReady(
+        "OPENRECALL_READY http://127.0.0.1:3210\nOPENRECALL_LAUNCHER_READY http://127.0.0.1:3210\n",
+      ),
+    ).toBe(true);
+  });
+
+  it("creates the launcher control directory before writing its stop signal", async () => {
+    const root = await temporaryRoot();
+    const localAppData = join(root, "portable-local-app-data");
+    await prepareLauncherControlDirectory(localAppData);
+    await expect(
+      writeFile(join(localAppData, "openrecall-portable-stop.signal"), "stop\n"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("retries transient Windows directory locks during smoke cleanup", () => {
+    expect(windowsSmokeCleanupOptions).toEqual({
+      force: true,
+      maxRetries: 20,
+      recursive: true,
+      retryDelay: 250,
+    });
+  });
+
+  it.runIf(process.platform === "win32")(
+    "launches a CMD file whose absolute path contains spaces",
+    async () => {
+      const root = await temporaryRoot();
+      const directory = join(root, "folder with spaces");
+      const launcher = join(directory, "fixture.cmd");
+      await mkdir(directory, { recursive: true });
+      await writeFile(launcher, "@echo off\r\nexit /b 0\r\n", "utf8");
+
+      const result = spawnSync(
+        process.env.ComSpec ?? "cmd.exe",
+        cmdLauncherArguments(launcher),
+        cmdLauncherSpawnOptions({ encoding: "utf8" }),
+      );
+      expect(result.status, result.stderr).toBe(0);
+    },
+  );
+
+  it.runIf(process.platform === "win32")(
+    "extracts a ZIP with Windows tar from paths containing spaces",
+    async () => {
+      const root = await temporaryRoot();
+      const source = join(root, "source with spaces");
+      const destination = join(root, "destination with spaces");
+      const archive = join(root, "fixture archive.zip");
+      await write(source, "nested/fixture.txt", "portable archive");
+      const created = spawnSync(
+        "tar.exe",
+        ["-a", "-cf", archive, "-C", source, "."],
+        { encoding: "utf8", windowsHide: true },
+      );
+      expect(created.status, created.stderr).toBe(0);
+
+      await extractWindowsArchive(archive, destination);
+      await expect(
+        readFile(join(destination, "nested/fixture.txt"), "utf8"),
+      ).resolves.toBe("portable archive");
+    },
+  );
 
   it("derives stable Windows x64 names from a strict semantic version", () => {
     expect(releaseArtifactNames("1.0.0")).toEqual({
@@ -160,6 +257,15 @@ describe("Windows release artifact contracts", () => {
     );
   });
 
+  it("requires the graceful launcher host in every staged artifact", async () => {
+    const root = await validStagingRoot();
+    await rm(join(root, "LauncherHost.mjs"));
+
+    await expect(inspectStagingDirectory(root)).rejects.toThrow(
+      "OPENRECALL_PACKAGE_REQUIRED_MISSING:LauncherHost.mjs",
+    );
+  });
+
   it.each([
     "Data/openrecall.sqlite3",
     "Data/openrecall.sqlite3-backup",
@@ -215,5 +321,45 @@ describe("Windows release artifact contracts", () => {
     ).rejects.toThrow(
       "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:missing@1.0.0",
     );
+  });
+
+  it("removes only dependency source maps before artifact inspection", async () => {
+    const root = await temporaryRoot();
+    await write(root, "node_modules/runtime/index.js", "runtime");
+    await write(root, "node_modules/runtime/index.js.map", "development map");
+    await write(root, "src/application.js.map", "must remain visible to the inspector");
+
+    await expect(
+      removeDependencySourceMaps(join(root, "node_modules")),
+    ).resolves.toEqual(["runtime/index.js.map"]);
+    await expect(
+      readFile(join(root, "node_modules/runtime/index.js"), "utf8"),
+    ).resolves.toBe("runtime");
+    await expect(access(join(root, "node_modules/runtime/index.js.map")))
+      .rejects.toThrow();
+    await expect(access(join(root, "src/application.js.map")))
+      .resolves.toBeUndefined();
+  });
+
+  it("keeps both CMD entry points thin and mode-specific", async () => {
+    const [normal, portable, powerShell] = await Promise.all([
+      readFile(join(repositoryRoot, "distribution/windows/OpenRecall.cmd"), "utf8"),
+      readFile(
+        join(repositoryRoot, "distribution/windows/OpenRecall-Portable.cmd"),
+        "utf8",
+      ),
+      readFile(
+        join(repositoryRoot, "distribution/windows/Start-OpenRecall.ps1"),
+        "utf8",
+      ),
+    ]);
+    expect(normal).toContain('"%~dp0Start-OpenRecall.ps1" -Mode Normal');
+    expect(portable).toContain(
+      '"%~dp0Start-OpenRecall.ps1" -Mode Portable',
+    );
+    expect(powerShell).toContain("Remove-Item Env:OPENRECALL_DATA_DIRECTORY");
+    expect(powerShell).toContain('Join-Path $PSScriptRoot "Data"');
+    expect(powerShell).toContain('Join-Path $PSScriptRoot "runtime\\node.exe"');
+    expect(powerShell).toContain("OPENRECALL_LAUNCHER_NO_BROWSER");
   });
 });
