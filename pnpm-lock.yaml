@@ -91,8 +91,8 @@ importers:
         specifier: 24.13.3
         version: 24.13.3
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -192,8 +192,8 @@ importers:
         specifier: workspace:*
         version: link:../scheduler
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
     devDependencies:
       '@openrecall/test-support':
         specifier: workspace:*
@@ -1978,8 +1978,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3@13.0.1:
-    resolution: {integrity: sha512-LYpmOXdkpQYf4wmlxkdzW01XGlOXNIbjLg45yNkh0FQ4814VbK9PdOFmhZpYbej+EZtR/i3FDdhEG98HqZdgnA==}
+  better-sqlite3@13.0.2:
+    resolution: {integrity: sha512-jW6oufeDhXZaiX9Lw5A+oerVClx4iFrI6uDj1zu7SqUAjak9vbJvA0NEcKLNxHiQHb6kYCoFzzXYV0YOauhV3g==}
     engines: {node: '>=22'}
 
   bidi-js@1.0.3:
@@ -2674,8 +2674,8 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  node-addon-api@8.9.0:
-    resolution: {integrity: sha512-ekZMeaaIzSQTSpr7X2X3iJM7lTzgnx8ahAG9pJfT/7+14mlEM8ZYQ9cgCDvSSRbReFK0oHli3WrZdCiRsgAT9Q==}
+  node-addon-api@8.9.1:
+    resolution: {integrity: sha512-4eUQWVPCUUUiBjLnHS3cXWeC6ryoPUc0U3rP7IuzapoGbzMqd/r6KKO0clr0b+snQhsrueFEhCZDdK+LK7hxKg==}
     engines: {node: ^18 || ^20 || >= 21}
 
   node-releases@2.0.51:
@@ -4914,9 +4914,9 @@ snapshots:
 
   baseline-browser-mapping@2.11.6: {}
 
-  better-sqlite3@13.0.1:
+  better-sqlite3@13.0.2:
     dependencies:
-      node-addon-api: 8.9.0
+      node-addon-api: 8.9.1
 
   bidi-js@1.0.3:
     dependencies:
@@ -5676,7 +5676,7 @@ snapshots:
 
   nanoid@3.3.16: {}
 
-  node-addon-api@8.9.0: {}
+  node-addon-api@8.9.1: {}
 
   node-releases@2.0.51: {}
 
