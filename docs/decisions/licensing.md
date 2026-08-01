@@ -2,34 +2,41 @@
 
 ## Status
 
-No license has been selected for OpenRecall, and no `LICENSE` file is present.
-Under default copyright rules, publishing source code does not grant other
-people permission to copy, modify, distribute, sublicense, or reuse it.
+OpenRecall is licensed under the **Apache License 2.0**. The complete,
+unmodified license text is in [`../../LICENSE`](../../LICENSE), the project
+attribution is in [`../../NOTICE`](../../NOTICE), and redistributed third-party
+material is described in
+[`../../THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md).
 
-This documentation must not be read as a license or implied permission. The
-repository may be reviewed privately by its owner and authorized collaborators,
-but a public release, package publication, or invitation for general reuse is
-blocked until the owner explicitly chooses a license.
+## Why Apache-2.0
 
-## Why the decision is separate
+The owner selected Apache-2.0 because it is a permissive open-source license
+that allows private and commercial use, modification, and redistribution while
+also providing an explicit patent grant from contributors. Its notice and
+changed-file obligations make the provenance of redistributed work clear
+without imposing a reciprocal source-code requirement.
 
-A license determines permissions, warranty terms, patent treatment,
-distribution duties, and compatibility with dependencies and contributions.
-Those are owner/legal policy choices, not implementation details. The build
-must therefore neither generate license text nor guess a permissive,
-copyleft, source-available, or proprietary policy.
+This decision is intentional; the build does not generate or substitute the
+project license. Contributions submitted for inclusion are licensed under the
+terms in section 5 of Apache-2.0 unless the contributor explicitly states
+otherwise. OpenRecall does not require a separate contributor license agreement.
+
+## Redistribution duties
+
+Source and binary redistributors must follow Apache-2.0, including retaining the
+license, relevant notices, and prominent change notices where required. The
+Windows archive also contains Node.js and production npm dependencies, whose
+own license terms remain applicable and are not replaced by Apache-2.0.
+
+The exact dependency and asset inventory is recorded in
+[`../releases/dependency-license-review.md`](../releases/dependency-license-review.md).
+The official Node.js 24.18.0 distribution license and every recognized deployed
+package license file are copied into the release archive. Packaging fails closed
+if required legal material is absent or an unaudited dependency boundary is
+encountered.
 
 ## Release gate
 
-Before public publication, the owner must:
-
-1. choose the intended sharing and contribution model;
-2. review the recorded dependency and asset inventory in
-   [`../releases/dependency-license-review.md`](../releases/dependency-license-review.md)
-   for compatibility with the intended distribution;
-3. select or obtain appropriate license text;
-4. add the exact `LICENSE` and any required notices deliberately;
-5. update both README files, contribution terms, and the release checklist.
-
-Until those steps are explicit, all release documentation must state “no
-license,” and automation must not tag or publish a public release.
+A public release must pass `pnpm release:licenses`, packaging-tree inspection,
+and artifact smoke tests. Those technical checks support license compliance but
+are not legal advice and do not waive any third-party obligation.

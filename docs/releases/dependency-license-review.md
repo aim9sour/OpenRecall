@@ -5,9 +5,9 @@ Audit date: 2026-08-01
 This review is generated from the exact installed dependency graph behind the
 committed pnpm lockfile. Counts below describe the audited Windows x64 install;
 pnpm selects different optional native packages on other operating systems.
-The CI gate reviews the declared expressions on each installed platform. This
-prepares the repository owner's later licensing decision; it does not select or
-imply a license for OpenRecall itself and is not legal advice.
+The CI gate reviews the declared expressions on each installed platform.
+OpenRecall itself is licensed under Apache-2.0; this inventory addresses the
+separate terms of dependencies and assets and is not legal advice.
 
 ## Reproducible gate
 
@@ -58,10 +58,8 @@ dependency tree or prebuilt tooling:
 The Linux-specific libvips packages are present in the cross-platform lockfile
 but are not installed in this Windows count. These packages are not reported by
 pnpm in the production scope on their applicable platform. Their own licenses
-still apply to anyone who installs or redistributes them. Before shipping
-`node_modules`, a packaged toolchain, or third-party binaries, review the exact
-upstream license texts and attribution/notice duties for that distribution
-format.
+still apply to anyone who installs or redistributes them. The Windows archive
+does not ship the development dependency tree or build toolchain.
 
 ## Repository assets
 
@@ -70,9 +68,10 @@ PNG icons are deterministically generated during the build from
 `apps/web/assets/icon-source.svg`, the project-owned source artwork. Card
 examples contain only synthetic plain text.
 
-## Owner decision still required
+## Selected project license and release boundary
 
-This audit completes the dependency-and-asset inventory step only. The owner
-must still choose the intended sharing model, select the project license, add
-the exact `LICENSE` and any required notices, and update publication language
-before a public release is authorized.
+The owner selected Apache-2.0 for OpenRecall. This review does not relicense any
+dependency or asset. The Windows packager must include the complete Node.js
+distribution license, preserve recognized license and notice files from every
+deployed production package, and fail when required material is missing. See
+`LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md` at the repository root.

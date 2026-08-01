@@ -134,7 +134,7 @@ git commit -m "fix(a11y): constrain statistics filters at narrow widths"
 - Consumes: existing dependency license allowlist and verified author identity.
 - Produces: SPDX `Apache-2.0`, version `1.0.0`, complete project license files, and an explicit redistribution boundary.
 
-- [ ] **Step 1: Replace the no-license documentation test with the public-license contract**
+- [x] **Step 1: Replace the no-license documentation test with the public-license contract**
 
 Change the licensing test to assert:
 
@@ -147,7 +147,7 @@ expect(await text("THIRD_PARTY_NOTICES.md")).toContain("Node.js");
 
 Also assert every workspace manifest has `version: "1.0.0"` and `license: "Apache-2.0"`.
 
-- [ ] **Step 2: Run the documentation test to verify it fails**
+- [x] **Step 2: Run the documentation test to verify it fails**
 
 ```bash
 pnpm exec vitest run tests/documentation/documentation.test.ts
@@ -155,7 +155,7 @@ pnpm exec vitest run tests/documentation/documentation.test.ts
 
 Expected: failure because `LICENSE`, `NOTICE`, and public metadata do not yet exist.
 
-- [ ] **Step 3: Add the exact Apache 2.0 text and project notice**
+- [x] **Step 3: Add the exact Apache 2.0 text and project notice**
 
 Download the unmodified official text from
 `https://www.apache.org/licenses/LICENSE-2.0.txt` into `LICENSE`.
@@ -171,14 +171,14 @@ other third parties listed in THIRD_PARTY_NOTICES.md and the licenses bundled
 with the Windows distribution.
 ```
 
-- [ ] **Step 4: Record the audited third-party boundary**
+- [x] **Step 4: Record the audited third-party boundary**
 
 Create `THIRD_PARTY_NOTICES.md` with sections for the bundled Node.js runtime,
 production npm dependencies, OpenRecall icon assets, and the rule that each
 dependency's distributed license file remains inside the packaged deployment.
 Link Node's full license and the generated package license directory.
 
-- [ ] **Step 5: Update every workspace manifest**
+- [x] **Step 5: Update every workspace manifest**
 
 Set exact fields:
 
@@ -197,13 +197,13 @@ TypeScript through Node's `--import tsx` loader. Add:
 "files": ["src", "package.json"]
 ```
 
-- [ ] **Step 6: Rewrite the licensing decision and review**
+- [x] **Step 6: Rewrite the licensing decision and review**
 
 Record Apache-2.0 as selected, the explicit patent grant rationale, the
 redistribution duties, the Node license boundary, and the packaging fail-closed
 policy. Remove every “no license” release blocker.
 
-- [ ] **Step 7: Refresh the lockfile and run legal gates**
+- [x] **Step 7: Refresh the lockfile and run legal gates**
 
 ```bash
 pnpm install --lockfile-only
@@ -213,7 +213,7 @@ pnpm release:licenses
 
 Expected: documentation and license gates pass, with no unreviewed production license.
 
-- [ ] **Step 8: Commit license and version identity**
+- [x] **Step 8: Commit license and version identity**
 
 ```bash
 git add LICENSE NOTICE THIRD_PARTY_NOTICES.md package.json pnpm-lock.yaml \
