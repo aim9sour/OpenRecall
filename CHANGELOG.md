@@ -6,6 +6,10 @@ licensed under Apache-2.0 and follows
 
 ## Unreleased
 
+No changes yet.
+
+## [1.0.0] - 2026-08-01
+
 ### Fixed
 
 - A waiting review now performs a one-shot claim at the exact server-relative

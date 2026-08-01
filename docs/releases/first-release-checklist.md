@@ -1,164 +1,122 @@
-# First release audit checklist
+# OpenRecall 1.0 release audit
 
 Audit date: 2026-08-01
-Status: **not a release candidate**
-Implementation baseline reviewed: `69623690c59df70867f35f8101491ac9186d45fc`
 
-The automated Windows evidence is green. The stable Chrome headless audit is
-green. The human stable Chrome/NVDA speech audit, a fresh Linux execution, and
-the owner's repository-license decision remain open, so no tag or public
-release is authorized.
+Status: **local release candidate verified; hosted checks pending**
 
-## Environment
+Verified source baseline: `928aadc45b7a9e02562fbd28e2589e89439daf75`
 
-| Boundary | Audit value |
+This document records fresh evidence for the public `v1.0.0` release. It does
+not substitute automated GitHub checks or the final downloaded-artifact check.
+
+## Exact toolchain
+
+| Boundary | Verified value |
 | --- | --- |
-| Operating system | Microsoft Windows 10 Pro, `10.0.19045`, build `19045`, 64-bit |
-| Node.js | `24.18.0` |
-| pnpm | `11.17.0` |
-| Stable Chrome | `150.0.7871.184`, isolated headless Playwright channel |
-| NVDA | Not queried or controlled; manual audit not executed |
-| Playwright | `1.62.0` |
+| Windows | Windows 10 Pro x64, build 19045 |
+| Linux | Ubuntu 26.04 on WSL2 kernel 6.18.33.2, ext4 working directory |
+| Node.js | `24.18.0` on Windows and Linux |
+| pnpm | `11.17.0` on Windows and Linux |
+| Playwright | `1.62.0`, Chromium project |
 | SQLite | `3.53.3` through `better-sqlite3@13.0.1` |
-| Schema | `5` |
 | Scheduler | FSRS-6 `6.0`, adapter `1`, `ts-fsrs@5.4.1` |
 | Optimizer | `@open-spaced-repetition/binding@0.5.0` |
-| Lockfile | pnpm format `9.0`; hash in `dependency-baseline.md` |
+| Project license | Apache-2.0 |
 
-## Clean installation and build
+The Windows checks used the official Node runtime bundled by the packaging
+pipeline, not the machine's older default Node. The Linux checks used
+`/home/abdo/.local/node-v24.18.0-linux-x64` in a fresh ext4 extraction of the
+exact Git commit.
 
-- [x] A detached clean worktree at `9dfa9b0` completed frozen install,
-  type checks, 358 tests, build, 11 Playwright tests, and production smoke.
-- [x] After the restore-recovery change, the implementation worktree completed
-  all type checks and 382 tests.
-- [x] The current implementation completed production build and
-  `OPENRECALL_SMOKE_OK`.
-- [x] A detached clean worktree at
-  `27dfded5cb6cd46d23b153903f51ba608f242822` completed frozen install, type
-  checks, 382 tests, production build, 11 stable-Chrome Playwright tests,
-  production smoke, adapter-boundary validation, and lockfile validation.
-- [x] A detached clean worktree at
-  `69623690c59df70867f35f8101491ac9186d45fc` completed frozen install, type
-  checks, dependency-license validation, 393 tests, production build, 11
-  stable-Chrome Playwright tests on an isolated port range, production smoke,
-  adapter-boundary validation, and lockfile validation.
-- [ ] Execute the same required gate on Linux rather than relying only on the
-  configured Linux CI workflow.
+## Source verification
 
-## SQLite recovery matrix
+### Windows
 
-The matrix is green on Windows: 68 distinct schema, migration, online-backup,
-restore, route, shutdown, strict-open, sidecar-conflict, and hard-kill tests
-passed.
+- `pnpm exec vitest run tests/ci tests/documentation`: 4 files, 57 tests passed.
+- `pnpm release:licenses`: 95 production entries and 524 total entries passed.
+- `pnpm verify`: all type checks and license policy passed; 98 files and
+  506/506 tests passed; all production workspaces built.
+- `node scripts/smoke-production.mjs --skip-build`: `OPENRECALL_SMOKE_OK`.
+- `OPENRECALL_E2E_PORT_OFFSET=1000 pnpm test:e2e`: 13/13 passed in 3.0 minutes.
 
-| Fixture or interruption | Result and evidence |
+### Linux
+
+The exact commit was archived to
+`/home/abdo/.cache/openrecall-release-928aadc` before execution.
+
+- `pnpm install --frozen-lockfile`: lockfile policy passed for 689 entries.
+- `pnpm verify`: type and license policy passed; 98 files, 504 tests passed and
+  2 Windows-only package-launch tests skipped; all workspaces built.
+- `pnpm exec playwright install --with-deps chromium`: browser and OS
+  dependencies verified.
+- `node scripts/smoke-production.mjs --skip-build`: `OPENRECALL_SMOKE_OK`.
+- `OPENRECALL_E2E_PORT_OFFSET=2000 pnpm test:e2e`: 13/13 passed in 2.8 minutes.
+
+The browser suites covered Arabic, English, pseudo-locale expansion, light and
+dark themes, reduced motion, PWA behavior, optimizer durability, backup and
+restore, continuous review, and every 320-pixel reflow assertion with zero
+horizontal overflow.
+
+## Windows artifact
+
+| Property | Evidence |
 | --- | --- |
-| New empty database | Pass — no pre-migration snapshot; schema created |
-| Current schema | Pass — connection policy and integrity verified |
-| Every old schema through v4 | Pass — ordered migrations and retained data |
-| Corrupt SQLite input | Pass — rejected before live database stops |
-| Foreign application ID | Pass — rejected unchanged |
-| Future schema | Pass — rejected unchanged |
-| Foreign-key-invalid input | Pass — rejected unchanged |
-| Interrupted migration | Pass — transaction rolls back every change |
-| Backup while rating commits | Pass — snapshot contains the complete rating transaction or none of it |
-| First live-to-rollback rename | Pass — original remains current |
-| Candidate-to-live rename failure | Pass — rollback reopens original |
-| Replacement reopen failure | Pass — rollback reopens original |
-| Atomic commit rename failure | Pass — opened replacement is closed, then original reopens |
-| Hard termination after original rename | Pass — startup restores original before SQLite open |
-| Hard termination after replacement install | Pass — startup quarantines replacement and restores original |
-| Hard termination after commit point | Pass — startup keeps replacement and cleans committed-old only after validation |
-| Missing replacement after commit marker | Pass — startup conservatively restores old database |
-| Empty/invalid replacement after commit marker | Pass — strict open cannot initialize it; startup quarantines it and restores old |
-| Operational open/backup failure after commit marker | Pass — no fallback; replacement and committed-old remain intact for retry |
-| Conflicting recovery markers | Pass — stable fail-closed result; no guessed database |
-| Marker mixed with impossible WAL/SHM quarantine tuple | Pass — full exact-path state is checked before any rename |
-| Rollback plus orphan live WAL/SHM without a live/quarantined database | Pass — rejected before any rename or cleanup |
-| Interrupted candidate without live/marker | Pass — fails closed; never creates an empty live database |
-| Hard termination during each committed-old fallback rename phase | Pass — exact state resumes to the original and cleans quarantine only after strict open |
-| Graceful shutdown | Pass — requests drain, WAL checkpoint is passive, SQLite closes |
+| File | `OpenRecall-v1.0.0-windows-x64.zip` |
+| Size | 66,569,685 bytes |
+| SHA-256 | `0b157ee680d268acf465f13dc007b15a0a699fbed999c21093c3053ed085a57d` |
+| Runtime | Official Node.js `v24.18.0` |
+| Legal inventory | Root Apache-2.0 files plus 110 dependency license/notice files |
+| User databases | 0 files in the archive |
 
-Primary evidence:
+`scripts/smoke-windows-package.mjs` extracted this exact ZIP and passed both
+launchers. Normal mode created its SQLite database only under an isolated
+`%LOCALAPPDATA%\OpenRecall-nodejs\Data`; portable mode created it only in
+`Data` beside the launcher. Both databases passed SQLite `quick_check`, both
+servers shut down cleanly, and the checksum file matched `Get-FileHash`.
 
-- `apps/server/src/durability/restore-swap-recovery.test.ts`
-- `apps/server/src/durability/restore-service.test.ts`
-- `packages/database/src/open-database.test.ts`
-- `packages/database/src/pre-migration-backup.test.ts`
-- `packages/database/src/backup-service.test.ts`
-- `apps/server/src/startup/single-instance.test.ts`
+## Accessibility acceptance
 
-## Stable Chrome and accessibility automation
+- Automated axe, keyboard, focus, accessible-name, RTL/LTR, forced-color,
+  reduced-motion, reflow, and zoom-equivalent checks passed on Windows and
+  Linux.
+- The owner completed the stable Chrome/NVDA critical-flow review in Arabic
+  and English and accepted the question, answer, notes, rating, navigation, and
+  announcement behavior before this audit.
+- OpenRecall did not query, configure, launch, or control the owner's NVDA.
+  The NVDA version is intentionally not claimed here.
 
-- [x] Stable Chrome `150.0.7871.184`, launched headlessly by Playwright with an
-  isolated test profile: 11/11 E2E tests passed.
-- [x] The same 11/11 suite passed with `OPENRECALL_E2E_PORT_OFFSET=1000` while
-  another checkout retained the default development ports; no existing process
-  was stopped or reused.
-- [x] Arabic and English critical flows passed.
-- [x] Arabic RTL, English LTR, and development-only `en-XA` passed route-wide
-  visual accessibility coverage.
-- [x] Light/dark/system themes, reduced motion, narrow reflow, and 400%-zoom
-  equivalent dimensions passed.
-- [x] PWA offline shell and prompt-only update behavior passed.
-- [x] Automated focus tests cover direct question, direct answer, and
-  rating-to-next-question focus.
-- [ ] Real NVDA speech output is not audited. Complete and sign
-  `nvda-results-template.md`; automation cannot satisfy this gate.
+The repeated React Router development warning about an absent
+`HydrateFallback` did not fail a flow, did not appear as a production error,
+and is not presented as screen-reader evidence.
 
-The repeated Vite development warning about an absent React Router
-`HydrateFallback` did not fail a flow and no hydration error was observed. It
-is not being misreported as NVDA evidence.
+## Durability, privacy, and security
 
-## Privacy and security review
-
-- [x] Production server and full built client passed the loopback-only DNS and
-  socket fence.
-- [x] Built HTML, CSS, and JavaScript contained no remote application
-  dependency.
-- [x] CSP restricts scripts and connections to self, with no inline scripts;
-  CORS is absent; Host, Origin, and CSRF boundaries are tested.
-- [x] API and HTML are `no-store`; hashed static assets alone are immutable.
-- [x] Service-worker tests prove API and SSE remain network-only and study data
-  is not served from cache.
-- [x] Content-free log tests reject card bodies, tokens, paths, and stacks.
-- [x] Tracked-file scans found no local machine path, private-key/token pattern,
-  SQLite database, logs, backups, reports, or generated runtime data.
-- [x] Backup download uses a validated SQLite file and synthetic audit data.
-  A real downloaded backup intentionally contains the user's study data and
-  must be stored as sensitive personal data.
-
-Automated security evidence: 13/13 targeted production/security tests,
-`OPENRECALL_ADAPTER_BOUNDARIES_OK`,
-`OPENRECALL_LOCKFILE_VERSIONS_OK`,
-`OPENRECALL_DEPENDENCY_LICENSES_OK`, and
-`OPENRECALL_SECURITY_PRODUCTION_AUDIT_OK`.
-
-## Product acceptance criteria
-
-| # | Status | Evidence |
-| --- | --- | --- |
-| 1 | Pending manual completion | Foundation/import and review E2E pass; review keyboard shortcuts and focus tests pass. A single human keyboard/NVDA run from section creation through summary is still required. |
-| 2 | Pass | Rotation unit/property tests and review E2E prove alternate presentations share one learning item and FSRS state. |
-| 3 | Pass | Queue repository, due-wake service, continuous-session integration, and review E2E cover exact/fractional due arrival without speculative fixed steps. |
-| 4 | Pending NVDA | DOM focus and accessible-name automation pass; exact real speech on reveal/rating has not been heard and signed. |
-| 5 | Pass | Contract, import validation/property, edit, and E2E fixtures cover required front/back with optional notes and any number of variants. |
-| 6 | Pass | Statistics unit/property, API, accessible table, card disclosure, management, session-summary, and global E2E evidence pass. |
-| 7 | Pass | Effective-config and settings tests prove section → global user → official default precedence. |
-| 8 | Pass | Optimizer replay/apply/rollback tests, migration rollback, online backup, 68-test recovery matrix, and real hard-process termination fixtures pass. |
-| 9 | Pass | Catalog static analysis, formatter/plural tests, Arabic/English parity, pseudo-locale, RTL/LTR, and route-wide browser checks pass. |
-| 10 | Pending | The Windows automated suite passes, but Linux execution and signed stable Chrome/NVDA manual audit remain absent. |
+- New/current/old-schema databases, every migration, corrupt and foreign
+  inputs, interrupted migration, concurrent backup, restore swaps, hard
+  termination at each rename phase, WAL/SHM conflict states, and graceful
+  shutdown fixtures passed.
+- Production passed the loopback-only DNS/socket fence; Host, Origin, CSRF,
+  CSP, no-CORS, no-store, and content-free logging boundaries passed.
+- PWA caches contain the shell only, never API responses or card text.
+- Adapter and lockfile fences passed. The production-license allowlist remains
+  stricter than the reviewed development-tool inventory.
+- Repository images were generated from synthetic cards and a temporary SQLite
+  database; visual inspection found no real data, username, machine path, or
+  browser chrome.
 
 ## Release decision
 
-- [ ] All ten product acceptance criteria pass.
-- [ ] Stable Chrome/NVDA manual results are signed with no critical-flow defect.
-- [ ] Final clean Windows and Linux runs pass at one commit.
-- [x] Dependency-license and repository-asset inventory is recorded and checked
-  on Windows/Linux CI; this does not select the project license.
-- [ ] The owner has selected a repository license and required notices.
-- [ ] A release-candidate commit is recorded.
-- [ ] A public tag or release is authorized.
+- [x] All ten product acceptance criteria have automated evidence.
+- [x] Owner-reported Chrome/NVDA Arabic and English acceptance is complete.
+- [x] Exact Node/pnpm clean Windows and Linux verification passed at one commit.
+- [x] Apache-2.0, NOTICE, third-party notices, and dependency inventory pass.
+- [x] Normal and portable Windows launchers pass against the final ZIP.
+- [x] Source author is `Abdullah Mansour <abdullahmansour.marketing@gmail.com>`.
+- [ ] Initial hosted GitHub checks pass at the public commit.
+- [ ] The annotated `v1.0.0` tag and hosted release workflow pass.
+- [ ] The downloaded public ZIP, checksum, provenance, and launchers pass.
 
-Current decision: **do not tag, publish, or describe this build as a release
-candidate**.
+Code signing is an explicit v1 non-goal. Distribution integrity is provided by
+the SHA-256 file and GitHub artifact provenance. The source is authorized for a
+public push; the stable tag is authorized only after the initial hosted checks
+are green.

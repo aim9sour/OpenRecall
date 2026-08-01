@@ -670,7 +670,7 @@ git commit -m "ci: secure and automate OpenRecall releases"
 - Consumes: complete source and Windows artifact.
 - Produces: fresh evidence that permits public push and tag creation.
 
-- [ ] **Step 1: Run focused repository gates**
+- [x] **Step 1: Run focused repository gates**
 
 ```bash
 pnpm exec vitest run tests/ci tests/documentation
@@ -678,7 +678,7 @@ pnpm release:licenses
 git diff --check
 ```
 
-- [ ] **Step 2: Run complete Windows source verification with exact Node 24.18.0**
+- [x] **Step 2: Run complete Windows source verification with exact Node 24.18.0**
 
 ```powershell
 pnpm verify
@@ -687,7 +687,7 @@ $env:OPENRECALL_E2E_PORT_OFFSET = "1000"
 pnpm test:e2e
 ```
 
-- [ ] **Step 3: Rebuild and smoke the final Windows ZIP**
+- [x] **Step 3: Rebuild and smoke the final Windows ZIP**
 
 ```powershell
 pnpm package:windows
@@ -697,7 +697,7 @@ pnpm smoke:package:windows --archive "$PWD\release-output\OpenRecall-v1.0.0-wind
 Extract it once more to a clean temp directory and inspect the manifest and
 licenses. Verify the SHA-256 file with `Get-FileHash`.
 
-- [ ] **Step 4: Run complete Linux verification in WSL**
+- [x] **Step 4: Run complete Linux verification in WSL**
 
 Archive the current commit into an ext4 temp directory, use exact Node
 24.18.0/pnpm 11.17.0, then run:
@@ -713,14 +713,14 @@ pnpm test:e2e
 Expected: every discovered test file, production build, smoke, and all 13
 Playwright tests pass with zero 320-pixel overflow.
 
-- [ ] **Step 5: Update release evidence truthfully**
+- [x] **Step 5: Update release evidence truthfully**
 
 Record exact commands, runtime versions, pass counts, package SHA-256, and the
 owner's completed Chrome/NVDA Arabic/English acceptance. Promote the completed
 changelog section to `[1.0.0] - 2026-08-01`. Remove obsolete license and Linux
 blockers; retain code-signing as an explicit non-goal.
 
-- [ ] **Step 6: Run final clean-tree verification**
+- [x] **Step 6: Run final clean-tree verification**
 
 ```bash
 git status --short
@@ -730,7 +730,7 @@ git log -1 --format="%an <%ae>"
 
 Expected: only evidence files changed; author identity matches Abdullah Mansour.
 
-- [ ] **Step 7: Commit release evidence**
+- [x] **Step 7: Commit release evidence**
 
 ```bash
 git add docs/releases/first-release-checklist.md CHANGELOG.md
