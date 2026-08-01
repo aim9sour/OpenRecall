@@ -58,7 +58,7 @@
 - Consumes: existing `.filter-form` markup in `StatisticsPage.tsx` and Playwright overflow assertions.
 - Produces: a single shrinkable Grid column without changing DOM order or native form semantics.
 
-- [ ] **Step 1: Reproduce both Linux failures against the current commit**
+- [x] **Step 1: Reproduce both Linux failures against the current commit**
 
 Use the existing WSL Node 24.18.0/pnpm 11.17.0 isolated archive workflow and run:
 
@@ -71,7 +71,7 @@ pnpm exec playwright test \
 
 Expected: both tests fail because `/statistics` reaches approximately 330 pixels at a 320-pixel viewport.
 
-- [ ] **Step 2: Add the minimum shrink-safe Grid rule**
+- [x] **Step 2: Add the minimum shrink-safe Grid rule**
 
 Add this rule beside `.filter-form h2`:
 
@@ -86,13 +86,13 @@ Add this rule beside `.filter-form h2`:
 }
 ```
 
-- [ ] **Step 3: Run the two focused Linux tests**
+- [x] **Step 3: Run the two focused Linux tests**
 
 Run the command from Step 1.
 
 Expected: 2 passed, zero horizontal overflow at 320 pixels.
 
-- [ ] **Step 4: Run the complete web component and English Playwright coverage**
+- [x] **Step 4: Run the complete web component and English Playwright coverage**
 
 ```bash
 pnpm exec vitest run apps/web/src/pages/StatisticsPage.test.tsx
@@ -101,7 +101,7 @@ pnpm exec playwright test --project=chromium-en
 
 Expected: all selected tests pass; labels, focus, filter URL state, and reflow remain intact.
 
-- [ ] **Step 5: Commit the reflow correction**
+- [x] **Step 5: Commit the reflow correction**
 
 ```bash
 git add apps/web/src/styles/layout.css

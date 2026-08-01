@@ -75,8 +75,14 @@
 
 form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  inline-size: 100%;
   max-inline-size: 32rem;
   gap: var(--space-3);
+}
+
+form > * {
+  min-inline-size: 0;
 }
 
 .settings-version-list {
