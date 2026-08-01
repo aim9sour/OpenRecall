@@ -1,6 +1,6 @@
 import type { ReviewPageState } from "@openrecall/contracts";
 import { createI18n, type LocaleTag } from "@openrecall/i18n";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import axe from "axe-core";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -90,6 +90,10 @@ async function renderReview(
   locale: LocaleTag = "en",
   initialState: ReviewPageState = questionState,
   shownGate?: Promise<void>,
+  postOverride?: (
+    path: string,
+    body: unknown,
+  ) => Promise<ReviewPageState | void> | undefined,
 ) {
   let currentState = initialState;
   const posts: Array<{ path: string; body: unknown }> = [];
@@ -102,6 +106,10 @@ async function renderReview(
     get: async <T,>() => currentState as T,
     post: async <T,>(path: string, body: unknown) => {
       posts.push({ path, body });
+      const overridden = postOverride?.(path, body);
+      if (overridden !== undefined) {
+        return (await overridden) as T;
+      }
       if (path.endsWith("/current/shown")) {
         await shownGate;
         return undefined as T;
@@ -140,6 +148,7 @@ async function renderReview(
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -206,9 +215,14 @@ describe("ReviewPage NVDA interaction", () => {
 
   it("claims a card at its exact due time when SSE is unavailable", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(1_000);
+    // The browser clock can differ from the server clock. Scheduling must use
+    // the server snapshot carried by the response, not the local wall clock.
+    vi.setSystemTime(1_000_000);
     vi.stubGlobal("EventSource", undefined);
     const { posts } = await renderReview("en", waitingForDueState);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
 
     expect(
       posts.filter(({ path }) => path.endsWith("/next")),
@@ -231,6 +245,372 @@ describe("ReviewPage NVDA interaction", () => {
       selector: '[data-review-content="question"]',
     });
     expect(document.activeElement).toBe(question);
+  });
+
+  it("uses local timer slices without claiming before a far-future due time", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    const maximumTimerDelayMs = 2_147_000_000;
+    const dueDelayMs = maximumTimerDelayMs + 1_000;
+    let monotonicNowMs = 0;
+    vi.spyOn(window.performance, "now").mockImplementation(
+      () => monotonicNowMs,
+    );
+    const { posts } = await renderReview("en", {
+      ...waitingForDueState,
+      nextDueAtMs: 1_000 + dueDelayMs,
+      session: progress({
+        currentlyRemaining: 0,
+        newRemaining: 0,
+        nextDueAtMs: 1_000 + dueDelayMs,
+        remainingSnapshotAtMs: 1_000,
+      }),
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    monotonicNowMs = dueDelayMs;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(maximumTimerDelayMs);
+    });
+    expect(
+      posts.filter(({ path }) => path.endsWith("/next")),
+    ).toHaveLength(1);
+  });
+
+  it("waits for a hung claim without starting a 100ms polling loop", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    let releaseClaim: ((state: ReviewPageState) => void) | undefined;
+    const firstClaim = new Promise<ReviewPageState>((resolve) => {
+      releaseClaim = resolve;
+    });
+    let attempts = 0;
+    const { posts } = await renderReview(
+      "en",
+      {
+        ...waitingForDueState,
+        nextDueAtMs: 1_000,
+        session: progress({
+          currentlyRemaining: 0,
+          newRemaining: 0,
+          nextDueAtMs: 1_000,
+          remainingSnapshotAtMs: 1_000,
+        }),
+      },
+      undefined,
+      (path) => {
+        if (!path.endsWith("/next")) {
+          return undefined;
+        }
+        attempts += 1;
+        return attempts === 1
+          ? firstClaim
+          : Promise.resolve(nextQuestionState);
+      },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(1);
+
+    await act(async () => {
+      releaseClaim?.(nextQuestionState);
+      await firstClaim;
+      await Promise.resolve();
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(2);
+  });
+
+  it("retries a failed due claim with backoff", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    let attempts = 0;
+    const { posts } = await renderReview(
+      "en",
+      {
+        ...waitingForDueState,
+        nextDueAtMs: 1_000,
+        session: progress({
+          currentlyRemaining: 0,
+          newRemaining: 0,
+          nextDueAtMs: 1_000,
+          remainingSnapshotAtMs: 1_000,
+        }),
+      },
+      undefined,
+      (path) => {
+        if (!path.endsWith("/next")) {
+          return undefined;
+        }
+        attempts += 1;
+        return attempts === 1
+          ? Promise.reject(new Error("temporary"))
+          : Promise.resolve(nextQuestionState);
+      },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(999);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(2);
+    expect(
+      screen.getByText("What comes next?", {
+        selector: '[data-review-content="question"]',
+      }),
+    ).toBe(document.activeElement);
+  });
+
+  it("defers a due claim and focus while the end-session dialog is open", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    const { posts } = await renderReview("en", waitingForDueState);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "End this review session?",
+    });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(0);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(1);
+    expect(
+      screen.getByText("What comes next?", {
+        selector: '[data-review-content="question"]',
+      }),
+    ).toBe(document.activeElement);
+  });
+
+  it("ignores an older due-claim response after pausing", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    let releaseClaim: ((state: ReviewPageState) => void) | undefined;
+    const claim = new Promise<ReviewPageState>((resolve) => {
+      releaseClaim = resolve;
+    });
+    const pausedState: ReviewPageState = {
+      ...waitingForDueState,
+      session: progress({
+        status: "paused",
+        currentlyRemaining: 0,
+        newRemaining: 0,
+        nextDueAtMs: 1_000,
+        remainingSnapshotAtMs: 1_000,
+      }),
+    };
+    await renderReview(
+      "en",
+      {
+        ...waitingForDueState,
+        nextDueAtMs: 1_000,
+        session: progress({
+          currentlyRemaining: 0,
+          newRemaining: 0,
+          nextDueAtMs: 1_000,
+          remainingSnapshotAtMs: 1_000,
+        }),
+      },
+      undefined,
+      (path) => {
+        if (path.endsWith("/next")) {
+          return claim;
+        }
+        if (path.endsWith("/pause")) {
+          return Promise.resolve(pausedState);
+        }
+        return undefined;
+      },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue later" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("heading", { name: "Review paused" }),
+    ).toBe(document.activeElement);
+
+    await act(async () => {
+      releaseClaim?.(nextQuestionState);
+      await claim;
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("What comes next?")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Review paused" }),
+    ).toBe(document.activeElement);
+  });
+
+  it("ignores an older due-claim response after finishing", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", undefined);
+    let releaseClaim: ((state: ReviewPageState) => void) | undefined;
+    const claim = new Promise<ReviewPageState>((resolve) => {
+      releaseClaim = resolve;
+    });
+    const completedState: ReviewPageState = {
+      kind: "completed",
+      summary: {
+        sessionId: SESSION_ID,
+        sectionId: SECTION_ID,
+        completedAtMs: 2_000,
+        reviewEvents: 1,
+        uniqueItems: 1,
+        repeatedWithinSession: 0,
+        elapsedActiveMs: 1_000,
+        ratingCounts: { again: 0, hard: 0, good: 1, easy: 0 },
+      },
+    };
+    await renderReview(
+      "en",
+      {
+        ...waitingForDueState,
+        nextDueAtMs: 1_000,
+        session: progress({
+          currentlyRemaining: 0,
+          newRemaining: 0,
+          nextDueAtMs: 1_000,
+          remainingSnapshotAtMs: 1_000,
+        }),
+      },
+      undefined,
+      (path) => {
+        if (path.endsWith("/next")) {
+          return claim;
+        }
+        if (path.endsWith("/finish")) {
+          return Promise.resolve(completedState);
+        }
+        return undefined;
+      },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finish session" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("heading", { name: "Review complete" }),
+    ).toBe(document.activeElement);
+
+    await act(async () => {
+      releaseClaim?.(nextQuestionState);
+      await claim;
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("What comes next?")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Review complete" }),
+    ).toBe(document.activeElement);
+  });
+
+  it("closes the dialog when revalidation wins the race with pause", async () => {
+    let releasePause: ((state: ReviewPageState) => void) | undefined;
+    const pauseResponse = new Promise<ReviewPageState>((resolve) => {
+      releasePause = resolve;
+    });
+    const pausedState: ReviewPageState = {
+      ...waitingForDueState,
+      session: progress({
+        status: "paused",
+        currentlyRemaining: 0,
+        newRemaining: 0,
+        nextDueAtMs: 61_000,
+        remainingSnapshotAtMs: 1_000,
+      }),
+    };
+    const { router, setCurrentState } = await renderReview(
+      "en",
+      waitingForDueState,
+      undefined,
+      (path) =>
+        path.endsWith("/pause") ? pauseResponse : undefined,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "End review" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Continue later" }));
+    setCurrentState(pausedState);
+    await act(async () => {
+      await router.revalidate();
+    });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    await act(async () => {
+      releasePause?.(pausedState);
+      await pauseResponse;
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Review paused" }),
+    ).toBe(document.activeElement);
+  });
+
+  it("restores focus to End review when the same card dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    await renderReview();
+    const question = await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(question));
+    const endButton = screen.getByRole("button", { name: "End review" });
+    await user.click(endButton);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(document.activeElement).toBe(endButton));
+  });
+
+  it("focuses the paused heading when pausing from a question", async () => {
+    const user = userEvent.setup();
+    const pausedQuestionState: ReviewPageState = {
+      ...questionState,
+      session: progress({ status: "paused" }),
+    };
+    await renderReview("en", questionState, undefined, (path) =>
+      path.endsWith("/pause")
+        ? Promise.resolve(pausedQuestionState)
+        : undefined,
+    );
+    const question = await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(question));
+    await user.click(screen.getByRole("button", { name: "End review" }));
+    await user.click(
+      screen.getByRole("button", { name: "Continue later" }),
+    );
+    const pausedHeading = await screen.findByRole("heading", {
+      name: "Review paused",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(pausedHeading));
   });
 
   it("focuses card content directly through reveal and the next rating", async () => {

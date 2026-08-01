@@ -207,6 +207,12 @@ While a review session is active, the server queries the indexed minimum future
 server queries `due_at <= now`, inserts newly due items once, and arms the next
 timer. Server-Sent Events notify the review page that the queue changed.
 
+While the page is waiting, it also arms one client fallback from the server's
+`nextDueAtMs - remainingSnapshotAtMs` interval. At expiry it calls the canonical
+`/next` transaction, which rechecks SQLite before merging and claiming work.
+This recovers a missed SSE event without trusting the browser wall clock and
+without recurring polling.
+
 Because Node timers cannot safely represent delays beyond 2,147,483,647
 milliseconds, a far-future wake-up is divided into capped timer slices. Every
 slice ends with a database requery; the database timestamp, not timer memory, is
@@ -278,6 +284,8 @@ one unit.
 - Reveal-answer action.
 - Answer, optional notes, outcome previews, and four rating actions after
   reveal.
+- Outcome intervals are locale-aware: minutes below one hour, hours below 24
+  hours, days below 30 days, and 30-day months thereafter.
 - Pause/end-now action that persists the session.
 
 The displayed “remaining” count is explicitly a current snapshot because due

@@ -50,7 +50,11 @@ test("review core continuously rotates variants, resumes, and finishes with a su
 
   await page.getByRole("button", { name: "عرض الإجابة" }).click();
   await expect(page.locator('[data-review-content="answer"]')).toBeFocused();
-  await page.getByRole("button", { name: /مرة أخرى/ }).click();
+  const againButton = page.getByRole("button", {
+    name: /^مرة أخرى — .*(?:دقيقة|دقيقتان|دقائق)$/,
+  });
+  await expect(againButton).toBeVisible();
+  await againButton.click();
 
   await expect(
     page.getByRole("heading", {

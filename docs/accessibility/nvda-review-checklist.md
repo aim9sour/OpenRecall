@@ -45,6 +45,8 @@ run is performed.
 
 3. Inspect the rating group and activate Again / `مرة أخرى`.
    - Four buttons are exposed in a named rating group, each with its interval.
+   - Intervals use localized minutes below one hour, hours below 24 hours, days
+     below 30 days, and months from 30 days onward.
    - When the next card is ready, focus moves directly to its normal question
      content and NVDA announces it without the preceding heading label.
    - If due work joined the current session, the polite status announces only
@@ -57,6 +59,8 @@ run is performed.
      or the page says that no future review is scheduled.
    - When the due timer fires, the item rejoins without a refresh. Its alternate
      presentation is announced directly as the newly focused question.
+   - The same transition succeeds if the SSE notification is unavailable,
+     because the page keeps one server-relative timer for the exact due interval.
 
 5. Press 0 or activate End review / `إنهاء المراجعة`.
    - Pressing 0 only focuses the button and performs no destructive action.

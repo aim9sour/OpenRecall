@@ -21,9 +21,11 @@ synchronization, telemetry, or remote runtime dependency.
 - One scheduling state per learning item with any number of alternate
   presentations. Smart rotation changes the wording without treating variants
   as separate cards.
-- A continuous due queue: newly due items can join the active session without
-  fixed ten-minute polling steps.
-- Four ratings—Again, Hard, Good, and Easy—through a versioned FSRS adapter.
+- A continuous due queue: newly due items join the active session at their
+  exact stored due time. Server events are backed by a one-shot browser timer,
+  with no fixed polling steps.
+- Four ratings—Again, Hard, Good, and Easy—through a versioned FSRS adapter,
+  with localized minute, hour, day, or month interval previews.
 - Global scheduler settings, section overrides, optimizer training, profile
   preview/application/rollback, and safe fallbacks.
 - SQLite-only backup and restore. JSON is an interchange format for cards, not

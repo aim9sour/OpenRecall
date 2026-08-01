@@ -7,6 +7,13 @@ made a public release and currently has no public-use license.
 
 ### Fixed
 
+- A waiting review now performs a one-shot claim at the exact server-relative
+  due interval, so a card rejoins without reopening the page even if an SSE
+  notification is missed or the browser and server wall clocks differ.
+- Rating buttons now format projected intervals in localized minutes, hours,
+  days, or 30-day months instead of displaying every interval in minutes.
+- Restore responses now wait for staged-upload cleanup, eliminating a race that
+  could leave the temporary file visible after the request completed.
 - Question, answer, and notes content is normal text instead of arbitrary
   headings. Localized label headings remain available for navigation, while
   automatic review focus announces the card content directly.

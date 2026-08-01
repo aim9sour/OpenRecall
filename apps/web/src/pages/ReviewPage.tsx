@@ -12,11 +12,18 @@ import { useReviewEvents } from "../review/use-review-events.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 
 const MAX_CLIENT_TIMER_DELAY_MS = 2_147_000_000;
+const CLAIM_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000] as const;
 
 function sessionIdOf(state: ReviewPageState): string {
   return state.kind === "completed"
     ? state.summary.sessionId
     : state.session.id;
+}
+
+function reviewContentKey(state: ReviewPageState): string {
+  return state.kind === "question" || state.kind === "answer"
+    ? `${state.kind}:${state.card.entryId}`
+    : state.kind;
 }
 
 export function ReviewPage({ api }: { readonly api: ApiClient }) {
@@ -35,16 +42,26 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const [busy, setBusy] = useState(false);
   const [shownEntryId, setShownEntryId] = useState<string | null>(null);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [claimWakeRevision, setClaimWakeRevision] = useState(0);
   const [announcement, setAnnouncement] = useState(
     initialNoticeKey === null ? "" : t(initialNoticeKey),
   );
   const questionRef = useRef<HTMLParagraphElement>(null);
   const answerRef = useRef<HTMLParagraphElement>(null);
+  const pausedHeadingRef = useRef<HTMLHeadingElement>(null);
   const endButtonRef = useRef<HTMLButtonElement>(null);
   const previousRevision = useRef(
     loaderState.kind === "completed" ? -1 : loaderState.session.revision,
   );
-  const claimInFlight = useRef(false);
+  const claimInFlight = useRef<Promise<void> | null>(null);
+  const claimGeneration = useRef(0);
+  const interactionBlocked = useRef(false);
+  const dueDeadline = useRef<{
+    readonly key: string;
+    readonly atPerformanceMs: number;
+  } | null>(null);
+  const dialogOpenedContentKey = useRef<string | null>(null);
+  const dialogWasOpen = useRef(false);
   const sessionId = sessionIdOf(page);
   const activeReview =
     page.kind !== "completed" && page.session.status === "active";
@@ -52,6 +69,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   useReviewEvents(sessionId);
 
   useEffect(() => {
+    claimGeneration.current += 1;
     setPage(loaderState);
   }, [loaderState]);
 
@@ -71,7 +89,29 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   }, [page, t]);
 
   useEffect(() => {
-    if (page.kind === "question") {
+    if (endDialogOpen) {
+      dialogWasOpen.current = true;
+      return;
+    }
+    if (dialogWasOpen.current) {
+      dialogWasOpen.current = false;
+      if (
+        (page.kind === "question" || page.kind === "answer") &&
+        page.session.status === "paused"
+      ) {
+        pausedHeadingRef.current?.focus();
+        return;
+      }
+      if (dialogOpenedContentKey.current === reviewContentKey(page)) {
+        return;
+      }
+    }
+    if (
+      (page.kind === "question" || page.kind === "answer") &&
+      page.session.status === "paused"
+    ) {
+      pausedHeadingRef.current?.focus();
+    } else if (page.kind === "question") {
       questionRef.current?.focus();
     } else if (page.kind === "answer") {
       answerRef.current?.focus();
@@ -81,6 +121,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     page.kind === "question" || page.kind === "answer"
       ? page.card.entryId
       : "",
+    page.kind === "question" || page.kind === "answer"
+      ? page.session.status
+      : "",
+    endDialogOpen,
   ]);
 
   useEffect(() => {
@@ -103,8 +147,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   useEffect(() => {
     if (
       page.kind !== "waiting" ||
-      page.session.status !== "active" ||
-      claimInFlight.current
+      page.session.status !== "active"
     ) {
       return;
     }
@@ -114,33 +157,119 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         ? 0
         : page.nextDueAtMs === null
           ? null
-          : Math.max(0, page.nextDueAtMs - Date.now());
+          : Math.max(
+              0,
+              page.nextDueAtMs - page.session.remainingSnapshotAtMs,
+            );
     if (delayMs === null) {
       return;
     }
 
-    const timer = window.setTimeout(
-      () => {
-        if (claimInFlight.current) {
-          return;
+    const deadlineKey = [
+      page.session.id,
+      page.session.revision,
+      page.session.remainingSnapshotAtMs,
+      page.nextDueAtMs,
+      page.session.currentlyRemaining,
+    ].join(":");
+    if (dueDeadline.current?.key !== deadlineKey) {
+      dueDeadline.current = {
+        key: deadlineKey,
+        atPerformanceMs: window.performance.now() + delayMs,
+      };
+    }
+
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const claim = async (
+      attempt: number,
+      generation: number,
+    ): Promise<void> => {
+      if (
+        cancelled ||
+        interactionBlocked.current ||
+        generation !== claimGeneration.current
+      ) {
+        return;
+      }
+      const existingClaim = claimInFlight.current;
+      if (existingClaim !== null) {
+        await existingClaim;
+        if (
+          !cancelled &&
+          !interactionBlocked.current &&
+          generation === claimGeneration.current
+        ) {
+          void claim(attempt, generation);
         }
-        claimInFlight.current = true;
-        void api
-          .post<ReviewPageState>(
+        return;
+      }
+      const operation = (async (): Promise<void> => {
+        try {
+          const state = await api.post<ReviewPageState>(
             `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/next`,
             {},
-          )
-          .then(setPage)
-          .catch(() => setAnnouncement(t("review.error")))
-          .finally(() => {
-            claimInFlight.current = false;
-          });
-      },
-      Math.min(delayMs, MAX_CLIENT_TIMER_DELAY_MS),
-    );
+          );
+          if (!cancelled && generation === claimGeneration.current) {
+            setPage(state);
+          }
+        } catch {
+          if (cancelled || generation !== claimGeneration.current) {
+            return;
+          }
+          setAnnouncement(t("review.error"));
+          const retryDelay = CLAIM_RETRY_DELAYS_MS[attempt];
+          if (retryDelay !== undefined) {
+            timer = window.setTimeout(
+              () => void claim(attempt + 1, generation),
+              retryDelay,
+            );
+          }
+        }
+      })();
+      const trackedOperation = operation.finally(() => {
+        if (claimInFlight.current === trackedOperation) {
+          claimInFlight.current = null;
+        }
+      });
+      claimInFlight.current = trackedOperation;
+      await trackedOperation;
+    };
 
-    return () => window.clearTimeout(timer);
-  }, [api, page, t]);
+    const waitForDue = (): void => {
+      if (cancelled) {
+        return;
+      }
+      const deadline = dueDeadline.current;
+      if (deadline === null || deadline.key !== deadlineKey) {
+        return;
+      }
+      const remainingMs = Math.max(
+        0,
+        deadline.atPerformanceMs - window.performance.now(),
+      );
+      if (remainingMs === 0) {
+        if (!interactionBlocked.current) {
+          void claim(0, claimGeneration.current);
+        }
+        return;
+      }
+      timer = window.setTimeout(
+        waitForDue,
+        Math.min(remainingMs, MAX_CLIENT_TIMER_DELAY_MS),
+      );
+    };
+
+    waitForDue();
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [api, claimWakeRevision, page, t]);
 
   const reveal = useCallback(() => {
     if (
@@ -211,6 +340,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (page.kind === "completed" || busy) {
       return;
     }
+    interactionBlocked.current = false;
     setBusy(true);
     void api
       .post<ReviewPageState>(
@@ -246,6 +376,24 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     onRate: rate,
     onReveal: reveal,
   });
+
+  const openEndDialog = (): void => {
+    dialogOpenedContentKey.current = reviewContentKey(page);
+    claimGeneration.current += 1;
+    interactionBlocked.current = true;
+    setEndDialogOpen(true);
+  };
+
+  const cancelEndDialog = (): void => {
+    interactionBlocked.current = false;
+    setEndDialogOpen(false);
+    if (
+      dueDeadline.current !== null &&
+      dueDeadline.current.atPerformanceMs <= window.performance.now()
+    ) {
+      setClaimWakeRevision((revision) => revision + 1);
+    }
+  };
 
   return (
     <div data-openrecall-review-active={activeReview ? "true" : "false"}>
@@ -325,7 +473,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
           endButtonRef={endButtonRef}
           nextDueAtMs={page.nextDueAtMs}
           paused={page.session.status === "paused"}
-          onEnd={() => setEndDialogOpen(true)}
+          onEnd={openEndDialog}
           onResume={resume}
         />
       )}
@@ -337,7 +485,9 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       {(page.kind === "question" || page.kind === "answer") &&
         page.session.status === "paused" && (
           <section className="panel">
-            <h2>{t("review.paused")}</h2>
+            <h2 ref={pausedHeadingRef} tabIndex={-1}>
+              {t("review.paused")}
+            </h2>
             <button type="button" disabled={busy} onClick={resume}>
               {t("review.resume")}
             </button>
@@ -351,7 +501,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
             ref={endButtonRef}
             type="button"
             disabled={busy}
-            onClick={() => setEndDialogOpen(true)}
+            onClick={openEndDialog}
           >
             {t("review.end")}
           </button>
@@ -362,7 +512,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         <EndSessionDialog
           busy={busy}
           openerRef={endButtonRef}
-          onCancel={() => setEndDialogOpen(false)}
+          restoreOpener={
+            dialogOpenedContentKey.current === reviewContentKey(page)
+          }
+          onCancel={cancelEndDialog}
           onFinish={finish}
           onPause={pause}
         />

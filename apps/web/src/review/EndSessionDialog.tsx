@@ -7,12 +7,14 @@ export function EndSessionDialog({
   onFinish,
   onPause,
   openerRef,
+  restoreOpener = true,
 }: {
   readonly busy: boolean;
   readonly onCancel: () => void;
   readonly onFinish: () => void;
   readonly onPause: () => void;
   readonly openerRef: RefObject<HTMLButtonElement | null>;
+  readonly restoreOpener?: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstButtonRef = useRef<HTMLButtonElement>(null);
@@ -22,7 +24,9 @@ export function EndSessionDialog({
   const cancel = (): void => {
     const opener = openerRef.current;
     onCancel();
-    queueMicrotask(() => opener?.focus());
+    if (restoreOpener) {
+      queueMicrotask(() => opener?.focus());
+    }
   };
 
   useEffect(() => {
