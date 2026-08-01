@@ -1,5 +1,12 @@
 export { API_VERSION, APP_NAME } from "./app-identity.js";
 export {
+  ApplicationLocalePreferenceMutationSchema,
+  ApplicationLocalePreferenceSchema,
+  ProductionLocaleSchema,
+  type ApplicationLocalePreference,
+  type ApplicationLocalePreferenceMutation,
+} from "./application-preferences.js";
+export {
   CardEditSchema,
   CardItemParamsSchema,
   CardLifecycleMutationSchema,

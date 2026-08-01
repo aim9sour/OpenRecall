@@ -1,6 +1,8 @@
 import { Value } from "typebox/value";
 import { describe, expect, it } from "vitest";
 import {
+  ApplicationLocalePreferenceMutationSchema,
+  ApplicationLocalePreferenceSchema,
   ApiErrorSchema,
   CardImportSchema,
   ImportPreviewSchema,
@@ -9,6 +11,27 @@ import {
 } from "./index.js";
 
 describe("shared runtime contracts", () => {
+  it("accepts registered production locales and rejects the development locale", () => {
+    expect(
+      Value.Check(ApplicationLocalePreferenceSchema, {
+        locale: "ar",
+        updatedAtMs: 100,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(ApplicationLocalePreferenceMutationSchema, {
+        locale: "en",
+        expectedUpdatedAtMs: 100,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(ApplicationLocalePreferenceMutationSchema, {
+        locale: "en-XA",
+        expectedUpdatedAtMs: 100,
+      }),
+    ).toBe(false);
+  });
+
   it("accepts a card with any number of optional presentations", () => {
     const card = {
       front: "What is spaced retrieval?",

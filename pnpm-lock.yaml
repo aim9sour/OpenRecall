@@ -160,6 +160,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      '@openrecall/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       typebox:
         specifier: 1.3.8
         version: 1.3.8
@@ -179,6 +182,9 @@ importers:
       '@openrecall/domain':
         specifier: workspace:*
         version: link:../domain
+      '@openrecall/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@openrecall/optimizer':
         specifier: workspace:*
         version: link:../optimizer

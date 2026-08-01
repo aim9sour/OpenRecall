@@ -4,6 +4,12 @@ export {
   SCHEMA_VERSION,
 } from "./constants.js";
 export {
+  ApplicationPreferenceConflictError,
+  ApplicationPreferenceRepository,
+  type ApplicationPreferenceRepositoryOptions,
+  type StoredApplicationLocalePreference,
+} from "./application-preference-repository.js";
+export {
   createBackupService,
   type BackupService,
   type CreateBackupServiceOptions,
