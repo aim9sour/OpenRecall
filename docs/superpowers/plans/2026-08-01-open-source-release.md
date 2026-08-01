@@ -606,20 +606,20 @@ git commit -m "docs: present the OpenRecall 1.0 experience"
 - Release builder: Windows latest, Node 24.18.0, pnpm 11.17.0.
 - Attestation: `actions/attest@v4` with `id-token`, `attestations`, and `artifact-metadata` write permissions.
 
-- [ ] **Step 1: Add failing workflow contract tests**
+- [x] **Step 1: Add failing workflow contract tests**
 
-Assert dependency review uses `actions/dependency-review-action@v4`, CodeQL
+Assert dependency review uses `actions/dependency-review-action@v5`, CodeQL
 uses `github/codeql-action/*@v4`, release uses `actions/attest@v4`, permissions
 are minimal, the tag version equals package version, the exact ZIP is smoked,
 and a draft release is populated before publication.
 
-- [ ] **Step 2: Run release-gate tests to verify failure**
+- [x] **Step 2: Run release-gate tests to verify failure**
 
 ```bash
 pnpm exec vitest run tests/ci/release-gates.test.ts
 ```
 
-- [ ] **Step 3: Add dependency review and CodeQL workflows**
+- [x] **Step 3: Add dependency review and CodeQL workflows**
 
 Dependency review runs only on pull requests with `contents: read` and fails on
 moderate-or-higher vulnerabilities. The existing audited local license gate
@@ -627,7 +627,7 @@ remains authoritative for production-license policy. CodeQL runs
 JavaScript/TypeScript on pushes, pull requests, and a weekly schedule with
 `security-events: write` and no package publishing permission.
 
-- [ ] **Step 4: Add the Windows release workflow**
+- [x] **Step 4: Add the Windows release workflow**
 
 The workflow checks out full history, installs exact tools and dependencies,
 runs release policy checks, builds the artifact, runs packaged normal/portable
@@ -636,21 +636,21 @@ provenance with `actions/attest@v4`, creates a draft release with `gh release
 create --draft`, uploads ZIP/checksum, then publishes only after every step
 passes.
 
-- [ ] **Step 5: Harden existing workflows**
+- [x] **Step 5: Harden existing workflows**
 
 Keep Linux and Windows jobs sequential, add package tests to Windows, preserve
 stable Chrome, set explicit `shell`, and use 30-minute Linux, 35-minute Windows,
 and 45-minute release job timeouts. Keep Dependabot weekly npm and GitHub Actions
 updates and risky dependency groups.
 
-- [ ] **Step 6: Run workflow policy and documentation tests**
+- [x] **Step 6: Run workflow policy and documentation tests**
 
 ```bash
 pnpm exec vitest run tests/ci/release-gates.test.ts tests/documentation/documentation.test.ts tests/ci/windows-package.test.ts
 git diff --check
 ```
 
-- [ ] **Step 7: Commit automation**
+- [x] **Step 7: Commit automation**
 
 ```bash
 git add .github tests/ci/release-gates.test.ts

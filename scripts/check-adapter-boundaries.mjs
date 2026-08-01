@@ -6,6 +6,7 @@ const SOURCE_ROOTS = ["apps", "packages", "scripts"];
 const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".ts", ".tsx"]);
 const LOOPBACK_TEMPLATE = "http:" + "//${host}:${port}";
 const STATIC_PARSER_ORIGIN = "http:" + "//openrecall.invalid";
+const SVG_NAMESPACE = "http:" + "//www.w3.org/2000/svg";
 const NODE_DISTRIBUTION_TEMPLATE =
   "https:" + "//nodejs.org/dist/v${nodeVersion}";
 const EXCLUDED_DIRECTORIES = new Set([
@@ -94,6 +95,9 @@ function isAllowedRuntimeUrl(rawUrl, path) {
   }
   if (rawUrl === STATIC_PARSER_ORIGIN) {
     return path === "apps/server/src/production/static-client.ts";
+  }
+  if (rawUrl === SVG_NAMESPACE) {
+    return path === "scripts/capture-repository-assets.mjs";
   }
   let url;
   try {

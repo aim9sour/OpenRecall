@@ -21,6 +21,9 @@ jobs:
     name: Windows production and stable Chrome
     runs-on: windows-latest
     timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -48,6 +51,8 @@ jobs:
           pnpm release:licenses
       - name: Type-check every workspace
         run: pnpm check
+      - name: Test Windows package contracts
+        run: pnpm test:package
       - name: Exercise Windows migrations, backup, and restore
         run: pnpm vitest run packages/database/src/migrations packages/database/src/backup-service.test.ts apps/server/src/durability/restore-service.test.ts apps/server/src/routes/restore.test.ts
       - name: Build production workspaces

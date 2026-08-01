@@ -480,4 +480,76 @@ describe("repository release automation", () => {
     expect(template).toContain("LTR");
     expect(template).toContain("NVDA");
   });
+
+  it("reviews pull-request dependencies and scans JavaScript with current security actions", async () => {
+    const [dependencyReview, codeql] = await Promise.all([
+      readFile(
+        join(repositoryRoot, ".github/workflows/dependency-review.yml"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, ".github/workflows/codeql.yml"), "utf8"),
+    ]);
+
+    expect(dependencyReview).toContain("pull_request:");
+    expect(dependencyReview).toContain("contents: read");
+    expect(dependencyReview).toContain("actions/dependency-review-action@v5");
+    expect(dependencyReview).toContain("fail-on-severity: moderate");
+    expect(codeql).toContain("security-events: write");
+    expect(codeql).toContain("github/codeql-action/init@v4");
+    expect(codeql).toContain("github/codeql-action/analyze@v4");
+    expect(codeql).toContain("languages: javascript-typescript");
+    expect(codeql).toContain("cron:");
+  });
+
+  it("builds, smokes, attests, and only then publishes an exact tagged release", async () => {
+    const workflow = await readFile(
+      join(repositoryRoot, ".github/workflows/release.yml"),
+      "utf8",
+    );
+    for (const permission of [
+      "contents: write",
+      "id-token: write",
+      "attestations: write",
+      "artifact-metadata: write",
+    ]) {
+      expect(workflow).toContain(permission);
+    }
+    expect(workflow).toContain('tags: ["v*.*.*"]');
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("timeout-minutes: 45");
+    expect(workflow).toContain("node-version: 24.18.0");
+    expect(workflow).toContain("PNPM_VERSION: 11.17.0");
+    expect(workflow).toContain('"v$Version"');
+    expect(workflow).toContain("github.ref_name");
+    expect(workflow).toContain("pnpm package:windows");
+    expect(workflow).toContain(
+      "OpenRecall-v1.0.0-windows-x64.zip",
+    );
+    expect(workflow).toContain("smoke:package:windows");
+    expect(workflow).toContain("actions/upload-artifact@v6");
+    expect(workflow).toContain("actions/attest@v4");
+    expect(workflow).toContain("subject-path:");
+    const draftAt = workflow.indexOf("gh release create");
+    const uploadAt = workflow.indexOf("gh release upload");
+    const publishAt = workflow.indexOf("--draft=false");
+    expect(draftAt).toBeGreaterThan(-1);
+    expect(workflow.slice(draftAt, uploadAt)).toContain("--draft");
+    expect(uploadAt).toBeGreaterThan(draftAt);
+    expect(publishAt).toBeGreaterThan(uploadAt);
+  });
+
+  it("runs package contracts on Windows with explicit shells and bounded jobs", async () => {
+    const [linux, windows] = await Promise.all([
+      readFile(join(repositoryRoot, ".github/workflows/ci.yml"), "utf8"),
+      readFile(
+        join(repositoryRoot, ".github/workflows/windows-smoke.yml"),
+        "utf8",
+      ),
+    ]);
+    expect(linux).toContain("timeout-minutes: 30");
+    expect(linux).toContain("shell: bash");
+    expect(windows).toContain("timeout-minutes: 35");
+    expect(windows).toContain("shell: pwsh");
+    expect(windows).toContain("pnpm test:package");
+  });
 });

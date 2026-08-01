@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: 11.17.0
+  ARCHIVE_NAME: OpenRecall-v1.0.0-windows-x64.zip
+
+jobs:
+  release:
+    name: Verify and publish Windows release
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out exact release commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - name: Install exact Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify release identity
+        run: |
+          $Version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and "v$Version" -ne "${{ github.ref_name }}") {
+            throw "OPENRECALL_RELEASE_TAG_VERSION_MISMATCH"
+          }
+          if ($env:ARCHIVE_NAME -ne "OpenRecall-v$Version-windows-x64.zip") {
+            throw "OPENRECALL_RELEASE_ARCHIVE_VERSION_MISMATCH"
+          }
+      - name: Run release policy gates
+        run: |
+          node scripts/check-committed-whitespace.mjs
+          node scripts/check-adapter-boundaries.mjs
+          node scripts/check-lockfile-versions.mjs
+          pnpm release:licenses
+          pnpm check
+          pnpm test
+      - name: Build production workspaces
+        run: pnpm build
+      - name: Build verified Windows ZIP
+        run: pnpm package:windows
+      - name: Smoke normal and portable launchers
+        run: pnpm smoke:package:windows -- --archive "$PWD\release-output\$env:ARCHIVE_NAME"
+      - name: Upload temporary workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: OpenRecall-v1.0.0-windows-x64
+          path: |
+            release-output/${{ env.ARCHIVE_NAME }}
+            release-output/${{ env.ARCHIVE_NAME }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+      - name: Attest release ZIP provenance
+        if: github.ref_type == 'tag'
+        uses: actions/attest@v4
+        with:
+          subject-path: release-output/${{ env.ARCHIVE_NAME }}
+      - name: Create draft release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall 1.0.0" --notes-file docs/releases/v1.0.0.md
+      - name: Upload release assets
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" "release-output\$env:ARCHIVE_NAME" "release-output\$env:ARCHIVE_NAME.sha256"
+      - name: Publish only after successful upload
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --latest
