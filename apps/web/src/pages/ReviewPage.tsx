@@ -11,6 +11,8 @@ import { WaitingState } from "../review/WaitingState.js";
 import { useReviewEvents } from "../review/use-review-events.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 
+const MAX_CLIENT_TIMER_DELAY_MS = 2_147_000_000;
+
 function sessionIdOf(state: ReviewPageState): string {
   return state.kind === "completed"
     ? state.summary.sessionId
@@ -102,22 +104,42 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (
       page.kind !== "waiting" ||
       page.session.status !== "active" ||
-      page.session.currentlyRemaining === 0 ||
       claimInFlight.current
     ) {
       return;
     }
-    claimInFlight.current = true;
-    void api
-      .post<ReviewPageState>(
-        `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/next`,
-        {},
-      )
-      .then(setPage)
-      .catch(() => setAnnouncement(t("review.error")))
-      .finally(() => {
-        claimInFlight.current = false;
-      });
+
+    const delayMs =
+      page.session.currentlyRemaining > 0
+        ? 0
+        : page.nextDueAtMs === null
+          ? null
+          : Math.max(0, page.nextDueAtMs - Date.now());
+    if (delayMs === null) {
+      return;
+    }
+
+    const timer = window.setTimeout(
+      () => {
+        if (claimInFlight.current) {
+          return;
+        }
+        claimInFlight.current = true;
+        void api
+          .post<ReviewPageState>(
+            `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/next`,
+            {},
+          )
+          .then(setPage)
+          .catch(() => setAnnouncement(t("review.error")))
+          .finally(() => {
+            claimInFlight.current = false;
+          });
+      },
+      Math.min(delayMs, MAX_CLIENT_TIMER_DELAY_MS),
+    );
+
+    return () => window.clearTimeout(timer);
   }, [api, page, t]);
 
   const reveal = useCallback(() => {

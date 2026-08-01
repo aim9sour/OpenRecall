@@ -1,6 +1,6 @@
 import type { ReviewPageState } from "@openrecall/contracts";
 import { createI18n, type LocaleTag } from "@openrecall/i18n";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import axe from "axe-core";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -75,6 +75,17 @@ const nextQuestionState: ReviewPageState = {
   }),
 };
 
+const waitingForDueState: ReviewPageState = {
+  kind: "waiting",
+  nextDueAtMs: 61_000,
+  session: progress({
+    currentlyRemaining: 0,
+    newRemaining: 0,
+    nextDueAtMs: 61_000,
+    remainingSnapshotAtMs: 1_000,
+  }),
+};
+
 async function renderReview(
   locale: LocaleTag = "en",
   initialState: ReviewPageState = questionState,
@@ -103,6 +114,10 @@ async function renderReview(
         currentState = nextQuestionState;
         return currentState as T;
       }
+      if (path.endsWith("/next")) {
+        currentState = nextQuestionState;
+        return currentState as T;
+      }
       return currentState as T;
     },
     put: async <T,>() => ({}) as T,
@@ -124,6 +139,7 @@ async function renderReview(
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -186,6 +202,35 @@ describe("ReviewPage NVDA interaction", () => {
     await waitFor(() =>
       expect((showAnswer as HTMLButtonElement).disabled).toBe(false),
     );
+  });
+
+  it("claims a card at its exact due time when SSE is unavailable", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    vi.stubGlobal("EventSource", undefined);
+    const { posts } = await renderReview("en", waitingForDueState);
+
+    expect(
+      posts.filter(({ path }) => path.endsWith("/next")),
+    ).toHaveLength(0);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(59_999);
+    });
+    expect(
+      posts.filter(({ path }) => path.endsWith("/next")),
+    ).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(
+      posts.filter(({ path }) => path.endsWith("/next")),
+    ).toHaveLength(1);
+    const question = screen.getByText("What comes next?", {
+      selector: '[data-review-content="question"]',
+    });
+    expect(document.activeElement).toBe(question);
   });
 
   it("focuses card content directly through reveal and the next rating", async () => {
