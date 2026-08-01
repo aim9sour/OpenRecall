@@ -535,7 +535,7 @@ describe("repository release automation", () => {
     );
     expect(workflow).toContain("pnpm smoke:package:windows --archive");
     expect(workflow).not.toContain("smoke:package:windows -- --archive");
-    expect(workflow).toContain("actions/upload-artifact@v6");
+    expect(workflow).toContain("actions/upload-artifact@v7");
     expect(workflow).toContain("actions/attest@v4");
     expect(workflow).toContain("subject-path:");
     const draftAt = workflow.indexOf("gh release create");
@@ -560,5 +560,30 @@ describe("repository release automation", () => {
     expect(windows).toContain("timeout-minutes: 35");
     expect(windows).toContain("shell: pwsh");
     expect(windows).toContain("pnpm test:package");
+  });
+
+  it("uses the current supported GitHub Actions majors", async () => {
+    const [ci, windows, release, dependencyReview, codeql] = await Promise.all(
+      [
+        "ci.yml",
+        "windows-smoke.yml",
+        "release.yml",
+        "dependency-review.yml",
+        "codeql.yml",
+      ].map((filename) =>
+        readFile(join(repositoryRoot, ".github/workflows", filename), "utf8"),
+      ),
+    );
+
+    for (const workflow of [ci, windows, release, dependencyReview, codeql]) {
+      expect(workflow).toContain("actions/checkout@v7");
+      expect(workflow).not.toContain("actions/checkout@v6");
+    }
+    for (const workflow of [ci, windows, release]) {
+      expect(workflow).toContain("actions/setup-node@v7");
+      expect(workflow).not.toContain("actions/setup-node@v6");
+    }
+    expect(release).toContain("actions/upload-artifact@v7");
+    expect(release).not.toContain("actions/upload-artifact@v6");
   });
 });
