@@ -130,6 +130,35 @@ describe("adapter and runtime-network boundary gate", () => {
       "RUNTIME_EXTERNAL_URL_FORBIDDEN",
     );
   });
+
+  it("allows only the pinned Node distribution URL in the Windows packager", async () => {
+    const root = await temporaryRoot();
+    await write(
+      root,
+      "scripts/package-windows.mjs",
+      'export const source = `https://nodejs.org/dist/v${nodeVersion}`;\n',
+    );
+    await expect(checkAdapterBoundaries(root)).resolves.toBeUndefined();
+
+    await write(
+      root,
+      "scripts/package-windows.mjs",
+      'export const source = "https://downloads.example/node.zip";\n',
+    );
+    await expect(checkAdapterBoundaries(root)).rejects.toThrow(
+      "RUNTIME_EXTERNAL_URL_FORBIDDEN:scripts/package-windows.mjs",
+    );
+
+    await rm(join(root, "scripts"), { force: true, recursive: true });
+    await write(
+      root,
+      "apps/server/src/remote.ts",
+      'export const source = "https://nodejs.org/dist/v24.18.0";\n',
+    );
+    await expect(checkAdapterBoundaries(root)).rejects.toThrow(
+      "RUNTIME_EXTERNAL_URL_FORBIDDEN:apps/server/src/remote.ts",
+    );
+  });
 });
 
 describe("lockfile and install-script gate", () => {

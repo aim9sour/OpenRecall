@@ -6,6 +6,8 @@ const SOURCE_ROOTS = ["apps", "packages", "scripts"];
 const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".ts", ".tsx"]);
 const LOOPBACK_TEMPLATE = "http:" + "//${host}:${port}";
 const STATIC_PARSER_ORIGIN = "http:" + "//openrecall.invalid";
+const NODE_DISTRIBUTION_TEMPLATE =
+  "https:" + "//nodejs.org/dist/v${nodeVersion}";
 const EXCLUDED_DIRECTORIES = new Set([
   "assets",
   "dist",
@@ -79,6 +81,12 @@ function assertAdapterImports(source, path) {
 
 function isAllowedRuntimeUrl(rawUrl, path) {
   if (rawUrl.includes("${")) {
+    if (
+      path === "scripts/package-windows.mjs" &&
+      rawUrl === NODE_DISTRIBUTION_TEMPLATE
+    ) {
+      return true;
+    }
     return (
       path === "apps/server/src/startup/single-instance.ts" &&
       rawUrl === LOOPBACK_TEMPLATE
@@ -92,6 +100,20 @@ function isAllowedRuntimeUrl(rawUrl, path) {
     url = new URL(rawUrl);
   } catch {
     return false;
+  }
+  if (
+    path === "scripts/package-windows.mjs" &&
+    url.protocol === "https:" &&
+    url.hostname === "nodejs.org" &&
+    url.port === "" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
+    (url.pathname === "/dist/v24.18.0" ||
+      url.pathname.startsWith("/dist/v24.18.0/"))
+  ) {
+    return true;
   }
   return url.protocol === "http:" && url.hostname === "127.0.0.1";
 }

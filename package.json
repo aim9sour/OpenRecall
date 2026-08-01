@@ -12,8 +12,10 @@
   "scripts": {
     "build": "pnpm -r build",
     "check": "tsc -p tsconfig.tools.json && pnpm -r check",
+    "package:windows": "node scripts/package-windows.mjs --version 1.0.0",
     "release:licenses": "node scripts/check-dependency-licenses.mjs",
     "test": "vitest run",
+    "test:package": "vitest run tests/ci/windows-package.test.ts",
     "test:e2e": "playwright test",
     "verify": "pnpm check && pnpm release:licenses && pnpm test && pnpm build",
     "verify:full": "pnpm verify && node scripts/smoke-production.mjs --skip-build && pnpm test:e2e",

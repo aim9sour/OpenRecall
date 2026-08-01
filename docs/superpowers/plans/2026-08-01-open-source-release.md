@@ -337,7 +337,7 @@ git commit -m "docs: prepare OpenRecall community health files"
 - Produces `inspectStagingDirectory(root)` returning a sorted file manifest or throwing a stable `OPENRECALL_PACKAGE_*` code.
 - Produces CLI `node scripts/package-windows.mjs --version 1.0.0 --output "$PWD\release-output"`.
 
-- [ ] **Step 1: Write failing pure packaging tests**
+- [x] **Step 1: Write failing pure packaging tests**
 
 Cover exact names, semantic version validation, refusal of relative/root/repo
 output paths, SHA mismatch, forbidden `.sqlite3`/logs/traces/source maps, missing
@@ -352,7 +352,7 @@ expect(() => assertSafeReleaseDirectory(repositoryRoot, repositoryRoot))
   .toThrow("OPENRECALL_PACKAGE_OUTPUT_UNSAFE");
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 ```bash
 pnpm exec vitest run tests/ci/windows-package.test.ts
@@ -360,14 +360,14 @@ pnpm exec vitest run tests/ci/windows-package.test.ts
 
 Expected: missing module/functions.
 
-- [ ] **Step 3: Implement release naming, path safety, and SHA verification**
+- [x] **Step 3: Implement release naming, path safety, and SHA verification**
 
 Use `path.resolve`, `path.parse(path).root`, `crypto.createHash("sha256")`, and
 stable error codes. Never recursively remove before verifying that the resolved
 target is an explicit child of the requested output directory and is not the
 repository root.
 
-- [ ] **Step 4: Implement staged-tree inspection**
+- [x] **Step 4: Implement staged-tree inspection**
 
 Allow only the documented release layout. Reject paths matching:
 
@@ -379,7 +379,7 @@ Require `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, Node's `LICENSE`, both
 CMD launchers, shared PowerShell launcher, `runtime/node.exe`,
 `app/server/src/index.ts`, `app/server/node_modules`, and `app/web/dist/index.html`.
 
-- [ ] **Step 5: Implement the Windows orchestration CLI**
+- [x] **Step 5: Implement the Windows orchestration CLI**
 
 The CLI must:
 
@@ -394,7 +394,7 @@ Use direct child-process arguments, `windowsHide: true`, bounded buffers, and
 stable diagnostics. Network URLs are limited to
 `https://nodejs.org/dist/v24.18.0/` and are packaging-time only.
 
-- [ ] **Step 6: Generate dependency license copies from deployed packages**
+- [x] **Step 6: Generate dependency license copies from deployed packages**
 
 Walk deployed package roots, preserve each `LICENSE*`, `COPYING*`, or `NOTICE*`
 under `licenses/npm/${encodeURIComponent(packageName)}/${packageVersion}/`, and
@@ -402,7 +402,7 @@ fail if a deployed package has neither a recognized license file nor an explicit
 audited exception. Copy the official Node distribution `LICENSE` to
 `licenses/node/LICENSE`.
 
-- [ ] **Step 7: Add package scripts and output ignores**
+- [x] **Step 7: Add package scripts and output ignores**
 
 ```json
 "package:windows": "node scripts/package-windows.mjs --version 1.0.0",
@@ -411,7 +411,7 @@ audited exception. Copy the official Node distribution `LICENSE` to
 
 Ignore `/release-output/` and `/release-staging/`.
 
-- [ ] **Step 8: Run core tests and type-aware repository checks**
+- [x] **Step 8: Run core tests and type-aware repository checks**
 
 ```bash
 pnpm exec vitest run tests/ci/windows-package.test.ts tests/ci/release-gates.test.ts
@@ -419,7 +419,7 @@ pnpm exec tsc -p tsconfig.tools.json
 git diff --check
 ```
 
-- [ ] **Step 9: Commit the packaging core**
+- [x] **Step 9: Commit the packaging core**
 
 ```bash
 git add scripts/release scripts/package-windows.mjs tests/ci/windows-package.test.ts package.json .gitignore apps/server/package.json pnpm-lock.yaml
