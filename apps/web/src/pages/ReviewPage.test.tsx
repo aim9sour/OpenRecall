@@ -101,7 +101,9 @@ async function renderReview(
     bootstrap: async () => ({
       apiVersion: 1,
       csrfToken: "token",
+      databaseRevision: 1,
       locale,
+      localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => currentState as T,
     post: async <T,>(path: string, body: unknown) => {

@@ -84,7 +84,9 @@ async function renderList(overrides: Partial<ApiClient> = {}) {
     bootstrap: async () => ({
       apiVersion: 1,
       csrfToken: "token",
+      databaseRevision: 1,
       locale: "en",
+      localeUpdatedAtMs: 0,
     }),
     get: overrides.get ?? get,
     post: overrides.post ?? post,

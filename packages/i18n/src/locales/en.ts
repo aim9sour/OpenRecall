@@ -37,6 +37,17 @@ export const englishLocale = {
     "serverUnavailable.helpBody":
       "Open a terminal in the OpenRecall folder and run:",
     "settings.title": "Settings",
+    "settings.language.heading": "Interface language",
+    "settings.language.description":
+      "Choose the language used throughout OpenRecall.",
+    "settings.language.label": "Language",
+    "settings.language.save": "Save language",
+    "settings.language.saving": "Saving language…",
+    "settings.language.saved": "Language saved.",
+    "settings.language.saveError":
+      "The language preference could not be saved.",
+    "settings.language.conflict":
+      "The language changed elsewhere. Your selection is still available; save it again to confirm.",
     "settings.scope": "Settings scope",
     "settings.global": "General settings",
     "settings.chooseScope": "Choose scope",

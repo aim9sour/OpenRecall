@@ -16,7 +16,9 @@ describe("API client", () => {
         return jsonResponse({
           apiVersion: 1,
           csrfToken: "one-token",
+          databaseRevision: 1,
           locale: "en",
+          localeUpdatedAtMs: 1_500,
         });
       }
       methods.push(init?.method ?? "");
@@ -39,7 +41,9 @@ describe("API client", () => {
         ? jsonResponse({
             apiVersion: 1,
             csrfToken: "one-token",
+            databaseRevision: 1,
             locale: "en",
+            localeUpdatedAtMs: 1_500,
           })
         : new Response(null, { status: 204 }),
     );
@@ -54,7 +58,9 @@ describe("API client", () => {
       return jsonResponse({
         apiVersion: 1,
         csrfToken: "one-token",
+        databaseRevision: 7,
         locale: "en",
+        localeUpdatedAtMs: 1_500,
       });
     });
 
@@ -64,6 +70,11 @@ describe("API client", () => {
     ]);
 
     expect(first).toEqual(second);
+    expect(first).toMatchObject({
+      databaseRevision: 7,
+      locale: "en",
+      localeUpdatedAtMs: 1_500,
+    });
     expect(requestCount).toBe(1);
   });
 
@@ -77,7 +88,9 @@ describe("API client", () => {
         return jsonResponse({
           apiVersion: 1,
           csrfToken: `token-${bootstrapCount}`,
+          databaseRevision: bootstrapCount,
           locale: "en",
+          localeUpdatedAtMs: 1_500 + bootstrapCount,
         });
       }
 
@@ -110,7 +123,9 @@ describe("API client", () => {
         return jsonResponse({
           apiVersion: 1,
           csrfToken: "download-token",
+          databaseRevision: 1,
           locale: "en",
+          localeUpdatedAtMs: 1_500,
         });
       }
       expect(init?.method).toBe("POST");
@@ -143,6 +158,7 @@ describe("API client", () => {
           csrfToken: `restore-token-${bootstrapCount}`,
           databaseRevision: bootstrapCount,
           locale: "en",
+          localeUpdatedAtMs: 1_500,
         });
       }
       expect(input).toBe("/api/v1/restore");

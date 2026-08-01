@@ -47,7 +47,9 @@ async function renderHome(
     bootstrap: async () => ({
       apiVersion: 1,
       csrfToken: "test-token",
+      databaseRevision: 1,
       locale: "en",
+      localeUpdatedAtMs: 0,
     }),
     get: async <T,>(path: string) =>
       (path.startsWith("/api/v1/review-sessions/")
@@ -160,7 +162,9 @@ describe("HomePage accessibility", () => {
       bootstrap: async () => ({
         apiVersion: 1,
         csrfToken: "test-token",
+        databaseRevision: 1,
         locale: "ar",
+        localeUpdatedAtMs: 0,
       }),
       get: async <T,>() => [] as T,
       post: async <T,>() => ({}) as T,

@@ -36,6 +36,16 @@ export const arabicLocale = {
     "serverUnavailable.helpBody":
       "افتح الطرفية داخل مجلد أوبن ريكول ثم شغّل:",
     "settings.title": "الإعدادات",
+    "settings.language.heading": "لغة الواجهة",
+    "settings.language.description":
+      "اختر اللغة المستخدمة في جميع أجزاء أوبن ريكول.",
+    "settings.language.label": "اللغة",
+    "settings.language.save": "حفظ اللغة",
+    "settings.language.saving": "جارٍ حفظ اللغة…",
+    "settings.language.saved": "تم حفظ اللغة.",
+    "settings.language.saveError": "تعذر حفظ تفضيل اللغة.",
+    "settings.language.conflict":
+      "تغيرت اللغة في مكان آخر. ما زال اختيارك محفوظًا؛ احفظه مرة أخرى للتأكيد.",
     "settings.scope": "نطاق الإعدادات",
     "settings.global": "الإعدادات العامة",
     "settings.chooseScope": "اختيار النطاق",

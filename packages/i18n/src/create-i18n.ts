@@ -1,10 +1,18 @@
 import { createInstance, type i18n } from "i18next";
-import { getLocaleDefinition } from "./locale-registry.js";
+import {
+  getLocaleDefinition,
+  registeredLocaleTags,
+} from "./locale-registry.js";
 import type { LocaleTag } from "./types.js";
 
 export async function createI18n(locale: LocaleTag): Promise<i18n> {
   const instance = createInstance();
-  const definition = getLocaleDefinition(locale);
+  const resources = Object.fromEntries(
+    registeredLocaleTags().map((tag) => [
+      tag,
+      { translation: getLocaleDefinition(tag).resources },
+    ]),
+  );
 
   await instance.init({
     lng: locale,
@@ -14,11 +22,7 @@ export async function createI18n(locale: LocaleTag): Promise<i18n> {
     interpolation: {
       escapeValue: false,
     },
-    resources: {
-      [locale]: {
-        translation: definition.resources,
-      },
-    },
+    resources,
   });
 
   return instance;

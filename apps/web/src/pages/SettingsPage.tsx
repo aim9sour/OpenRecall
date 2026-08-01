@@ -13,8 +13,13 @@ import { BackupPanel } from "../settings/BackupPanel.js";
 import { OptimizerPanel } from "../settings/OptimizerPanel.js";
 import { ProfilePreview } from "../settings/ProfilePreview.js";
 import { RestorePanel } from "../settings/RestorePanel.js";
+import {
+  LanguageSettingsPanel,
+  type LocalePreferenceView,
+} from "../settings/LanguageSettingsPanel.js";
 
 export interface SettingsPageData {
+  readonly localePreference: LocalePreferenceView;
   readonly sections: readonly SectionSummary[];
   readonly optimizerEligibility: OptimizerEligibility;
   readonly profiles: readonly OptimizerProfile[];
@@ -47,6 +52,11 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
       <h1 data-route-heading tabIndex={-1}>
         {t("settings.title")}
       </h1>
+
+      <LanguageSettingsPanel
+        api={api}
+        initial={loaded.localePreference}
+      />
 
       <Form className="panel" key={location.search} method="get">
         <label htmlFor="settings-scope">{t("settings.scope")}</label>

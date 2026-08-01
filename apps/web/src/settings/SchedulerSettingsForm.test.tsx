@@ -134,7 +134,9 @@ function api(overrides: Partial<ApiClient> = {}): ApiClient {
     bootstrap: async () => ({
       apiVersion: 1,
       csrfToken: "token",
+      databaseRevision: 1,
       locale: "en",
+      localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => ({}) as T,
     post: async <T,>() => ({}) as T,

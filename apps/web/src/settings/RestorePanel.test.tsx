@@ -27,6 +27,7 @@ function client(
       csrfToken: "token",
       databaseRevision: 1,
       locale: "en",
+      localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => ({}) as T,
     post: async <T,>() => ({}) as T,

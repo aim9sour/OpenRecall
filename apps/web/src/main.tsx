@@ -1,7 +1,6 @@
 import {
   createI18n,
   isDevelopmentLocale,
-  isProductionLocale,
   pseudoEnglishLocale,
   registerLocale,
   type LocaleTag,
@@ -12,31 +11,16 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 import { createApiClient } from "./api/client.js";
 import { I18nProvider } from "./app/I18nProvider.js";
 import { ServerUnavailable } from "./app/ServerUnavailable.js";
+import {
+  readRememberedLocale,
+  rememberLocale,
+} from "./i18n/locale-storage.js";
 import { registerOpenRecallServiceWorker } from "./pwa/register-openrecall-service-worker.js";
 import {
   inactiveServiceWorkerUpdateController,
 } from "./pwa/register-service-worker.js";
 import { createRoutes } from "./router.js";
 import "./styles/base.css";
-
-const localeStorageKey = "openrecall.locale";
-
-function rememberedLocale(): LocaleTag {
-  try {
-    const value = localStorage.getItem(localeStorageKey);
-    if (value !== null && isProductionLocale(value)) return value;
-    if (
-      value !== null &&
-      import.meta.env.DEV &&
-      isDevelopmentLocale(value)
-    ) {
-      return value;
-    }
-  } catch {
-    // A blocked storage API must not prevent the local startup help.
-  }
-  return "ar";
-}
 
 function prepareLocale(locale: LocaleTag): void {
   if (locale === "en-XA") {
@@ -66,7 +50,7 @@ async function start(): Promise<void> {
   try {
     bootstrap = await api.bootstrap();
   } catch {
-    const locale = rememberedLocale();
+    const locale = readRememberedLocale();
     prepareLocale(locale);
     const i18n = await createI18n(locale);
     root.render(
@@ -80,11 +64,7 @@ async function start(): Promise<void> {
   }
 
   prepareLocale(bootstrap.locale);
-  try {
-    localStorage.setItem(localeStorageKey, bootstrap.locale);
-  } catch {
-    // Locale persistence is a convenience, not a startup dependency.
-  }
+  rememberLocale(bootstrap.locale);
   const i18n = await createI18n(bootstrap.locale);
   const router = createBrowserRouter(createRoutes({ api, i18n, updates }));
 

@@ -90,7 +90,9 @@ describe("CardStatisticsDisclosure", () => {
       bootstrap: async () => ({
         apiVersion: 1,
         csrfToken: "token",
+        databaseRevision: 1,
         locale: "en",
+        localeUpdatedAtMs: 0,
       }),
       get: async <T,>(path: string) => (await get(path)) as T,
       post: async <T,>() => ({}) as T,

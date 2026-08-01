@@ -2,13 +2,22 @@ import {
   createContext,
   useContext,
   useEffect,
+  useState,
   type ReactNode,
 } from "react";
 import type { createI18n } from "@openrecall/i18n";
+import { subscribeToRememberedLocale } from "../i18n/locale-storage.js";
 
 export type I18nInstance = Awaited<ReturnType<typeof createI18n>>;
 
-const I18nContext = createContext<I18nInstance | undefined>(undefined);
+interface I18nContextValue {
+  readonly i18n: I18nInstance;
+  readonly language: string;
+}
+
+const I18nContext = createContext<I18nContextValue | undefined>(
+  undefined,
+);
 
 export function I18nProvider({
   children,
@@ -17,19 +26,39 @@ export function I18nProvider({
   readonly children: ReactNode;
   readonly i18n: I18nInstance;
 }) {
+  const [language, setLanguage] = useState(i18n.language);
+
+  useEffect(() => {
+    const changed = (next: string): void => setLanguage(next);
+    i18n.on("languageChanged", changed);
+    return () => i18n.off("languageChanged", changed);
+  }, [i18n]);
+
   useEffect(() => {
     document.documentElement.lang = i18n.language;
     document.documentElement.dir = i18n.dir();
     document.title = i18n.t("app.name");
-  }, [i18n]);
+  }, [i18n, language]);
 
-  return <I18nContext.Provider value={i18n}>{children}</I18nContext.Provider>;
+  useEffect(
+    () =>
+      subscribeToRememberedLocale((locale) => {
+        void i18n.changeLanguage(locale);
+      }),
+    [i18n],
+  );
+
+  return (
+    <I18nContext.Provider value={{ i18n, language }}>
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useI18n(): I18nInstance {
-  const i18n = useContext(I18nContext);
-  if (i18n === undefined) {
+  const context = useContext(I18nContext);
+  if (context === undefined) {
     throw new Error("I18N_PROVIDER_MISSING");
   }
-  return i18n;
+  return context.i18n;
 }

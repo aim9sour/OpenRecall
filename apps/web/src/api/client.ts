@@ -7,8 +7,9 @@ import type { LocaleTag } from "@openrecall/i18n";
 export interface BootstrapResponse {
   readonly apiVersion: 1;
   readonly csrfToken: string;
-  readonly databaseRevision?: number;
+  readonly databaseRevision: number;
   readonly locale: LocaleTag;
+  readonly localeUpdatedAtMs: number;
 }
 
 export interface ApiClient {
