@@ -5,6 +5,7 @@ import { reviewCoreMigration } from "./migrations/002-review-core.js";
 import { cardManagementMigration } from "./migrations/003-card-management.js";
 import { statisticsMigration } from "./migrations/004-statistics.js";
 import { settingsOptimizerMigration } from "./migrations/005-settings-optimizer.js";
+import { sectionDeletionMigration } from "./migrations/006-section-deletion.js";
 
 export interface Migration {
   readonly version: number;
@@ -17,6 +18,7 @@ const MIGRATIONS: readonly Migration[] = [
   cardManagementMigration,
   statisticsMigration,
   settingsOptimizerMigration,
+  sectionDeletionMigration,
 ];
 
 function readIntegerPragma(db: Database.Database, name: string): number {
@@ -78,15 +80,23 @@ export function migrateDatabase(
   const pending = validateMigrationSequence(currentVersion, migrations);
 
   if (pending.length > 0) {
-    db.transaction(() => {
-      for (const migration of pending) {
-        migration.up(db);
-        db.pragma(`application_id = ${APPLICATION_ID}`);
-        db.pragma(`user_version = ${migration.version}`);
-      }
+    const foreignKeysEnabled = readIntegerPragma(db, "foreign_keys");
+    db.pragma("foreign_keys = OFF");
+    try {
+      db.transaction(() => {
+        for (const migration of pending) {
+          migration.up(db);
+          db.pragma(`application_id = ${APPLICATION_ID}`);
+          db.pragma(`user_version = ${migration.version}`);
+        }
 
-      verifyDatabaseIntegrity(db);
-    })();
+        verifyDatabaseIntegrity(db);
+      })();
+    } finally {
+      db.pragma(
+        `foreign_keys = ${foreignKeysEnabled === 0 ? "OFF" : "ON"}`,
+      );
+    }
   } else {
     verifyDatabaseIntegrity(db);
   }

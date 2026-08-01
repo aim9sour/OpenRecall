@@ -142,6 +142,116 @@ describe("SectionRepository", () => {
     });
   });
 
+  it("deletes a current section through database cascades", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+        db.prepare(
+          `
+            INSERT INTO learning_items
+              (id, section_id, lifecycle, created_at_ms, updated_at_ms)
+            VALUES ('item-1', ?, 'active', 1000, 1000)
+          `,
+        ).run(section.id);
+
+        repository.deleteSection({
+          sectionId: section.id,
+          expectedUpdatedAtMs: section.updatedAtMs,
+        });
+
+        expect(repository.getSection(section.id, 2_000)).toBeUndefined();
+        expect(
+          db.prepare("SELECT count(*) FROM learning_items").pluck().get(),
+        ).toBe(0);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("rejects missing and stale section deletion", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+        repository.renameSection({
+          sectionId: section.id,
+          name: "Current",
+          expectedUpdatedAtMs: 1_000,
+          nowMs: 2_000,
+        });
+
+        expect(() =>
+          repository.deleteSection({
+            sectionId: section.id,
+            expectedUpdatedAtMs: 1_000,
+          }),
+        ).toThrow(SectionConflictError);
+        expect(() =>
+          repository.deleteSection({
+            sectionId: "d9428888-122b-41e1-985c-61cd3cbb3210",
+            expectedUpdatedAtMs: 1_000,
+          }),
+        ).toThrow(SectionNotFoundError);
+        expect(repository.getSection(section.id, 2_000)).toMatchObject({
+          name: "Current",
+          updatedAtMs: 2_000,
+        });
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("rolls back every cascade when section deletion fails", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+        db.prepare(
+          `
+            INSERT INTO learning_items
+              (id, section_id, lifecycle, created_at_ms, updated_at_ms)
+            VALUES ('item-1', ?, 'active', 1000, 1000)
+          `,
+        ).run(section.id);
+        db.exec(`
+          CREATE TRIGGER fail_section_delete
+          BEFORE DELETE ON sections
+          BEGIN
+            SELECT RAISE(ABORT, 'EXPECTED_SECTION_DELETE_FAILURE');
+          END;
+        `);
+
+        expect(() =>
+          repository.deleteSection({
+            sectionId: section.id,
+            expectedUpdatedAtMs: section.updatedAtMs,
+          }),
+        ).toThrow("EXPECTED_SECTION_DELETE_FAILURE");
+        expect(repository.getSection(section.id, 2_000)).toBeDefined();
+        expect(
+          db.prepare("SELECT count(*) FROM learning_items").pluck().get(),
+        ).toBe(1);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   it.each(["", " \n\t ", "x".repeat(201)])(
     "rejects an invalid section name without writing a row",
     async (name) => {

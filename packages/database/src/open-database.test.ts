@@ -13,6 +13,7 @@ import {
 describe("openDatabase", () => {
   it("enforces and verifies the durable connection policy", async () => {
     await withTempDatabase((databasePath) => {
+      expect(SCHEMA_VERSION).toBe(6);
       const db = openDatabase(databasePath);
 
       try {
@@ -136,11 +137,16 @@ describe("openDatabase", () => {
       const db = openDatabase(databasePath);
 
       try {
+        let foreignKeysDuringMigration: number | undefined;
         expect(() =>
           migrateDatabase(db, [
             {
               version: SCHEMA_VERSION + 1,
               up(database) {
+                foreignKeysDuringMigration = database.pragma(
+                  "foreign_keys",
+                  { simple: true },
+                ) as number;
                 database.exec(
                   "CREATE TABLE must_be_rolled_back (id TEXT PRIMARY KEY) STRICT;",
                 );
@@ -150,6 +156,8 @@ describe("openDatabase", () => {
           ]),
         ).toThrow("EXPECTED_TEST_MIGRATION_FAILURE");
 
+        expect(foreignKeysDuringMigration).toBe(0);
+        expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(db.pragma("user_version", { simple: true })).toBe(
           SCHEMA_VERSION,
         );
@@ -161,6 +169,31 @@ describe("openDatabase", () => {
             .pluck()
             .get(),
         ).toBe(0);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("restores an intentionally disabled foreign-key pragma after migration", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        db.pragma("foreign_keys = OFF");
+        migrateDatabase(db, [
+          {
+            version: SCHEMA_VERSION + 1,
+            up(database) {
+              expect(
+                database.pragma("foreign_keys", { simple: true }),
+              ).toBe(0);
+              database.exec(
+                "CREATE TABLE migration_with_fk_off (id TEXT PRIMARY KEY) STRICT;",
+              );
+            },
+          },
+        ]);
+        expect(db.pragma("foreign_keys", { simple: true })).toBe(0);
       } finally {
         db.close();
       }

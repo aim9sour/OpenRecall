@@ -90,6 +90,7 @@ export class SectionRepository {
   readonly #list;
   readonly #get;
   readonly #rename;
+  readonly #delete;
 
   constructor(db: Database.Database) {
     this.#db = db;
@@ -147,6 +148,14 @@ export class SectionRepository {
       WHERE
         id = @sectionId
         AND updated_at_ms = @expectedUpdatedAtMs
+    `);
+
+    this.#delete = db.prepare<{
+      readonly sectionId: string;
+      readonly expectedUpdatedAtMs: number;
+    }>(`
+      DELETE FROM sections
+      WHERE id = @sectionId AND updated_at_ms = @expectedUpdatedAtMs
     `);
   }
 
@@ -206,5 +215,25 @@ export class SectionRepository {
       return updated;
     });
     return rename.immediate();
+  }
+
+  deleteSection(input: {
+    readonly sectionId: string;
+    readonly expectedUpdatedAtMs: number;
+  }): void {
+    validateNow(input.expectedUpdatedAtMs);
+    const remove = this.#db.transaction(() => {
+      const row = this.#get.get(input.sectionId);
+      if (row === undefined) throw new SectionNotFoundError();
+      const current = mapSummary(row);
+      if (current.updatedAtMs !== input.expectedUpdatedAtMs) {
+        throw new SectionConflictError(current);
+      }
+      const result = this.#delete.run(input);
+      if (result.changes !== 1) {
+        throw new SectionConflictError(current);
+      }
+    });
+    remove.immediate();
   }
 }

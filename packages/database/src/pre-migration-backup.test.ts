@@ -7,6 +7,10 @@ import type { BackupService } from "./backup-service.js";
 import { APPLICATION_ID, SCHEMA_VERSION } from "./constants.js";
 import { migrateDatabase } from "./migrate.js";
 import { coreMigration } from "./migrations/001-core.js";
+import { reviewCoreMigration } from "./migrations/002-review-core.js";
+import { cardManagementMigration } from "./migrations/003-card-management.js";
+import { statisticsMigration } from "./migrations/004-statistics.js";
+import { settingsOptimizerMigration } from "./migrations/005-settings-optimizer.js";
 import {
   isExistingDatabaseValidationError,
   openDatabase,
@@ -14,10 +18,18 @@ import {
   openExistingDatabaseWithPreMigrationBackup,
 } from "./open-database.js";
 
-function createVersionOneDatabase(path: string): void {
+const versionFiveMigrations = [
+  coreMigration,
+  reviewCoreMigration,
+  cardManagementMigration,
+  statisticsMigration,
+  settingsOptimizerMigration,
+] as const;
+
+function createVersionFiveDatabase(path: string): void {
   const db = new Database(path);
   try {
-    migrateDatabase(db, [coreMigration]);
+    migrateDatabase(db, versionFiveMigrations);
     db.prepare(
       `
         INSERT INTO sections (id, name, created_at_ms, updated_at_ms)
@@ -32,7 +44,7 @@ function createVersionOneDatabase(path: string): void {
 describe("pre-migration backup", () => {
   it("validates an automatic old-schema snapshot before migrating an existing database", async () => {
     await withTempDatabase(async (databasePath) => {
-      createVersionOneDatabase(databasePath);
+      createVersionFiveDatabase(databasePath);
       const snapshotDirectory = join(dirname(databasePath), "snapshots");
 
       const db = await openDatabaseWithPreMigrationBackup(databasePath, {
@@ -63,7 +75,7 @@ describe("pre-migration backup", () => {
           ).toBe(APPLICATION_ID);
           expect(
             snapshot.pragma("user_version", { simple: true }),
-          ).toBe(1);
+          ).toBe(5);
           expect(
             snapshot.prepare(
               "SELECT name FROM sections WHERE id = 'legacy-section'",
@@ -80,7 +92,7 @@ describe("pre-migration backup", () => {
 
   it("does not migrate when snapshot validation fails and requires the guarded API for old schemas", async () => {
     await withTempDatabase(async (databasePath) => {
-      createVersionOneDatabase(databasePath);
+      createVersionFiveDatabase(databasePath);
       expect(() => openDatabase(databasePath)).toThrow(
         "DATABASE_PRE_MIGRATION_BACKUP_REQUIRED",
       );
@@ -111,11 +123,14 @@ describe("pre-migration backup", () => {
       try {
         expect(
           unchanged.pragma("user_version", { simple: true }),
-        ).toBe(1);
+        ).toBe(5);
         expect(
-          unchanged.prepare(
-            "SELECT count(*) FROM sqlite_schema WHERE name = 'parameter_profiles'",
-          ).pluck().get(),
+          unchanged
+            .prepare(
+              "SELECT count(*) FROM pragma_foreign_key_list('review_sessions') WHERE [from] = 'section_id' AND on_delete = 'CASCADE'",
+            )
+            .pluck()
+            .get(),
         ).toBe(0);
       } finally {
         unchanged.close();
@@ -144,7 +159,7 @@ describe("pre-migration backup", () => {
 
   it("keeps an operational pre-migration backup failure distinct from database validation failure", async () => {
     await withTempDatabase(async (databasePath) => {
-      createVersionOneDatabase(databasePath);
+      createVersionFiveDatabase(databasePath);
       const transient = new Error("TRANSIENT_BACKUP_FAILURE");
       const failingBackup: BackupService = {
         createSnapshot: vi.fn(async () => {
@@ -175,7 +190,7 @@ describe("pre-migration backup", () => {
       try {
         expect(
           unchanged.pragma("user_version", { simple: true }),
-        ).toBe(1);
+        ).toBe(5);
       } finally {
         unchanged.close();
       }

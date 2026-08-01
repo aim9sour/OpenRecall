@@ -19,6 +19,7 @@ export {
 } from "./backup-service.js";
 export { migrateDatabase, type Migration } from "./migrate.js";
 export { coreMigration } from "./migrations/001-core.js";
+export { sectionDeletionMigration } from "./migrations/006-section-deletion.js";
 export {
   ExistingDatabaseValidationError,
   isExistingDatabaseValidationError,
