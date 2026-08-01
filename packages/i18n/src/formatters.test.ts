@@ -6,6 +6,7 @@ import {
   formatPluralCount,
   formatRatingCount,
   formatRelativeTime,
+  formatReviewInterval,
   getPluralCategory,
 } from "./formatters.js";
 
@@ -35,6 +36,46 @@ describe("explicit locale formatters", () => {
       /يوم.*ساعة.*دقيقة.*ثانية/,
     );
   });
+
+  it.each([
+    [0, "1 minute"],
+    [3_599_999, "60 minutes"],
+    [3_600_000, "1 hour"],
+    [86_399_999, "24 hours"],
+    [86_400_000, "1 day"],
+    [2_591_999_999, "30 days"],
+    [2_592_000_000, "1 month"],
+    [3_888_000_000, "2 months"],
+  ] as const)(
+    "formats review interval %i ms as %s",
+    (intervalMs, expected) => {
+      expect(formatReviewInterval(intervalMs, "en")).toBe(expected);
+    },
+  );
+
+  it("uses locale-aware Arabic review interval units", () => {
+    expect(formatReviewInterval(59 * 60_000, "ar")).toBe(
+      "٥٩ دقيقة",
+    );
+    expect(formatReviewInterval(3 * 3_600_000, "ar")).toBe(
+      "٣ ساعات",
+    );
+    expect(formatReviewInterval(4 * 86_400_000, "ar")).toBe(
+      "٤ أيام",
+    );
+    expect(formatReviewInterval(60 * 86_400_000, "ar")).toBe(
+      "شهران",
+    );
+  });
+
+  it.each([-1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid review interval %s",
+    (intervalMs) => {
+      expect(() => formatReviewInterval(intervalMs, "en")).toThrow(
+        "FORMAT_REVIEW_INTERVAL_INVALID",
+      );
+    },
+  );
 });
 
 describe("plural and rating helpers", () => {

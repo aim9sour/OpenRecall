@@ -309,7 +309,6 @@ export const englishLocale = {
     "review.rating.hard": "Hard",
     "review.rating.good": "Good",
     "review.rating.easy": "Easy",
-    "review.minutes": "{{count}} min",
     "review.progressLabel": "Session progress",
     "review.progress":
       "{{completed}} completed; {{remaining}} remaining; {{newCount}} new; {{repeated}} repeated.",

@@ -25,6 +25,7 @@ export {
   formatPluralCount,
   formatRatingCount,
   formatRelativeTime,
+  formatReviewInterval,
   getPluralCategory,
   type PluralCategory,
   type PluralForms,

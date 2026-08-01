@@ -1,4 +1,8 @@
 import type { OutcomePreview } from "@openrecall/contracts";
+import {
+  formatReviewInterval,
+  type LocaleTag,
+} from "@openrecall/i18n";
 import { useI18n } from "../app/I18nProvider.js";
 
 const ratingKeys = {
@@ -17,7 +21,8 @@ export function RatingButtons({
   readonly onRate: (rating: 1 | 2 | 3 | 4) => void;
   readonly outcomes: readonly OutcomePreview[];
 }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
 
   return (
     <div
@@ -26,9 +31,9 @@ export function RatingButtons({
       aria-label={t("review.ratingGroup")}
     >
       {outcomes.map((outcome) => {
-        const minutes = Math.max(
-          1,
-          Math.ceil(outcome.intervalMs / 60_000),
+        const interval = formatReviewInterval(
+          outcome.intervalMs,
+          i18n.language as LocaleTag,
         );
         return (
           <button
@@ -37,8 +42,7 @@ export function RatingButtons({
             disabled={disabled}
             onClick={() => onRate(outcome.rating)}
           >
-            {t(ratingKeys[outcome.rating])} —{" "}
-            {t("review.minutes", { count: minutes })}
+            {t(ratingKeys[outcome.rating])} — {interval}
           </button>
         );
       })}

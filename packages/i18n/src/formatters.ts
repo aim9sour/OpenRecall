@@ -93,6 +93,34 @@ export function formatDuration(
   }).format(parts);
 }
 
+export function formatReviewInterval(
+  intervalMs: number,
+  locale: LocaleTag,
+): string {
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 0) {
+    throw new Error("FORMAT_REVIEW_INTERVAL_INVALID");
+  }
+
+  const hourMs = 60 * 60 * 1_000;
+  const dayMs = 24 * hourMs;
+  const monthMs = 30 * dayMs;
+  const [unit, unitMs] =
+    intervalMs < hourMs
+      ? (["minute", 60_000] as const)
+      : intervalMs < dayMs
+        ? (["hour", hourMs] as const)
+        : intervalMs < monthMs
+          ? (["day", dayMs] as const)
+          : (["month", monthMs] as const);
+  const count = Math.max(1, Math.round(intervalMs / unitMs));
+
+  return new Intl.NumberFormat(formatLocale(locale), {
+    style: "unit",
+    unit,
+    unitDisplay: "long",
+  }).format(count);
+}
+
 export function getPluralCategory(
   count: number,
   locale: LocaleTag,

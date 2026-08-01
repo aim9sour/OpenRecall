@@ -307,7 +307,6 @@ export const arabicLocale = {
     "review.rating.hard": "صعب",
     "review.rating.good": "جيد",
     "review.rating.easy": "سهل",
-    "review.minutes": "{{count}} د",
     "review.progressLabel": "تقدم الجلسة",
     "review.progress":
       "اكتملت {{completed}}؛ المتبقية {{remaining}}؛ الجديدة {{newCount}}؛ المتكررة {{repeated}}.",

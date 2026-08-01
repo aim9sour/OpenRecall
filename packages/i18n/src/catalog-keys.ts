@@ -251,7 +251,6 @@ export const COMMON_MESSAGE_KEYS = [
   "review.rating.hard",
   "review.rating.good",
   "review.rating.easy",
-  "review.minutes",
   "review.progressLabel",
   "review.progress",
   "review.waiting",
