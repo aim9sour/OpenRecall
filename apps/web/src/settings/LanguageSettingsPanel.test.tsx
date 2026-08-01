@@ -68,6 +68,23 @@ describe("LanguageSettingsPanel", () => {
     expect(status.textContent).toBe("تم حفظ اللغة.");
     expect(document.documentElement.dir).toBe("rtl");
     expect(localStorage.getItem("openrecall.locale")).toBe("ar");
+
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "openrecall.locale",
+        newValue: "en",
+        storageArea: localStorage,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("Language") as HTMLSelectElement).value,
+      ).toBe("en");
+      expect(screen.getByRole("status").textContent).toBe(
+        "Language saved.",
+      );
+      expect(document.documentElement.dir).toBe("ltr");
+    });
   });
 
   it("keeps the draft and focuses an error without changing language when saving fails", async () => {

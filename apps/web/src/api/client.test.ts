@@ -78,6 +78,37 @@ describe("API client", () => {
     expect(requestCount).toBe(1);
   });
 
+  it("updates the cached locale revision after a successful locale mutation", async () => {
+    let bootstrapCount = 0;
+    const api = createApiClient(async (input) => {
+      if (input === "/api/v1/bootstrap") {
+        bootstrapCount += 1;
+        return jsonResponse({
+          apiVersion: 1,
+          csrfToken: "one-token",
+          databaseRevision: 7,
+          locale: "en",
+          localeUpdatedAtMs: 1_500,
+        });
+      }
+      expect(input).toBe("/api/v1/application-settings/locale");
+      return jsonResponse({ locale: "ar", updatedAtMs: 1_501 });
+    });
+
+    await api.bootstrap();
+    await api.put("/api/v1/application-settings/locale", {
+      locale: "ar",
+      expectedUpdatedAtMs: 1_500,
+    });
+
+    await expect(api.bootstrap()).resolves.toMatchObject({
+      databaseRevision: 7,
+      locale: "ar",
+      localeUpdatedAtMs: 1_501,
+    });
+    expect(bootstrapCount).toBe(1);
+  });
+
   it("refreshes bootstrap once after a rejected mutation", async () => {
     const mutationTokens: string[] = [];
     let bootstrapCount = 0;

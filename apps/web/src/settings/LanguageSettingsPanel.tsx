@@ -24,6 +24,11 @@ export interface LocalePreferenceView {
   readonly updatedAtMs: number;
 }
 
+type LanguageNoticeKey = "settings.language.saved";
+type LanguageErrorKey =
+  | "settings.language.saveError"
+  | "settings.language.conflict";
+
 function conflictPreference(
   error: ApiClientError,
 ): LocalePreferenceView | undefined {
@@ -71,20 +76,32 @@ export function LanguageSettingsPanel({
   const [selected, setSelected] = useState(() =>
     isProductionLocale(initial.locale) ? initial.locale : "en",
   );
+  const [draftIsDirty, setDraftIsDirty] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [noticeKey, setNoticeKey] = useState<
+    LanguageNoticeKey | ""
+  >("");
+  const [errorKey, setErrorKey] = useState<LanguageErrorKey | "">(
+    "",
+  );
   const statusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (notice !== "") statusRef.current?.focus();
-  }, [notice]);
+    if (noticeKey !== "") statusRef.current?.focus();
+  }, [noticeKey]);
+
+  const activeLanguage = i18n.language;
+  useEffect(() => {
+    if (!draftIsDirty && isProductionLocale(activeLanguage)) {
+      setSelected(activeLanguage);
+    }
+  }, [activeLanguage, draftIsDirty]);
 
   const save = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     setBusy(true);
-    setNotice("");
-    setErrorMessage("");
+    setNoticeKey("");
+    setErrorKey("");
     try {
       const saved = await api.put<ApplicationLocalePreference>(
         "/api/v1/application-settings/locale",
@@ -96,17 +113,18 @@ export function LanguageSettingsPanel({
       setPreference(saved);
       await i18n.changeLanguage(saved.locale);
       rememberLocale(saved.locale);
-      setNotice(i18n.t("settings.language.saved"));
+      setDraftIsDirty(false);
+      setNoticeKey("settings.language.saved");
     } catch (caught) {
       if (caught instanceof ApiClientError) {
         const current = conflictPreference(caught);
         if (current !== undefined) {
           setPreference(current);
-          setErrorMessage(t("settings.language.conflict"));
+          setErrorKey("settings.language.conflict");
           return;
         }
       }
-      setErrorMessage(t("settings.language.saveError"));
+      setErrorKey("settings.language.saveError");
     } finally {
       setBusy(false);
     }
@@ -120,11 +138,11 @@ export function LanguageSettingsPanel({
       <p>{t("settings.language.description")}</p>
       <ErrorSummary
         errors={
-          errorMessage === ""
+          errorKey === ""
             ? []
-            : [{ id: "language-save-error", message: errorMessage }]
+            : [{ id: "language-save-error", message: t(errorKey) }]
         }
-        focus={errorMessage !== ""}
+        focus={errorKey !== ""}
         title={t("error.summary")}
       />
       <form onSubmit={(event) => void save(event)}>
@@ -136,6 +154,7 @@ export function LanguageSettingsPanel({
           onChange={(event) => {
             if (isProductionLocale(event.target.value)) {
               setSelected(event.target.value);
+              setDraftIsDirty(true);
             }
           }}
           value={selected}
@@ -152,9 +171,9 @@ export function LanguageSettingsPanel({
             : t("settings.language.save")}
         </button>
       </form>
-      {notice !== "" && (
+      {noticeKey !== "" && (
         <div ref={statusRef} role="status" tabIndex={-1}>
-          {notice}
+          {t(noticeKey)}
         </div>
       )}
     </section>

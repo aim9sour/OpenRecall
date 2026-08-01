@@ -1,8 +1,12 @@
 import type {
   ApiError,
+  ApplicationLocalePreference,
   RestoreResult,
 } from "@openrecall/contracts";
-import type { LocaleTag } from "@openrecall/i18n";
+import {
+  isProductionLocale,
+  type LocaleTag,
+} from "@openrecall/i18n";
 
 export interface BootstrapResponse {
   readonly apiVersion: 1;
@@ -60,6 +64,22 @@ async function readError(response: Response): Promise<ApiError> {
     code: "HTTP_ERROR",
     messageKey: "error.internal",
   };
+}
+
+function isApplicationLocalePreference(
+  value: unknown,
+): value is ApplicationLocalePreference {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "locale" in value &&
+    typeof value.locale === "string" &&
+    isProductionLocale(value.locale) &&
+    "updatedAtMs" in value &&
+    typeof value.updatedAtMs === "number" &&
+    Number.isSafeInteger(value.updatedAtMs) &&
+    value.updatedAtMs >= 0
+  );
 }
 
 export function createApiClient(
@@ -127,7 +147,20 @@ export function createApiClient(
       return undefined as T;
     }
 
-    return (await response.json()) as T;
+    const value: unknown = await response.json();
+    if (
+      method === "PUT" &&
+      path === "/api/v1/application-settings/locale" &&
+      isApplicationLocalePreference(value)
+    ) {
+      const current = await bootstrap();
+      bootstrapPromise = Promise.resolve({
+        ...current,
+        locale: value.locale,
+        localeUpdatedAtMs: value.updatedAtMs,
+      });
+    }
+    return value as T;
   }
 
   async function download(
