@@ -319,6 +319,25 @@ describe("dependency license review gate", () => {
 });
 
 describe("repository release automation", () => {
+  it("provides serial local verification commands for resource-heavy gates", async () => {
+    const [packageJsonText, agentInstructions] = await Promise.all([
+      readFile(join(repositoryRoot, "package.json"), "utf8"),
+      readFile(join(repositoryRoot, "AGENTS.md"), "utf8"),
+    ]);
+    const packageJson = JSON.parse(packageJsonText) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(packageJson.scripts?.["verify"]).toBe(
+      "pnpm check && pnpm release:licenses && pnpm test && pnpm build",
+    );
+    expect(packageJson.scripts?.["verify:full"]).toBe(
+      "pnpm verify && node scripts/smoke-production.mjs --skip-build && pnpm test:e2e",
+    );
+    expect(agentInstructions).toContain("pnpm verify:full");
+    expect(agentInstructions).toContain("must not run concurrently");
+  });
+
   it("checks a pull request range or the complete pushed commit", () => {
     expect(committedWhitespaceArgs("abc1234")).toEqual([
       "diff",

@@ -11,12 +11,15 @@ Use Node.js 24.18+ in the Node 24 line and pnpm 11.17.0:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm check
-pnpm release:licenses
-pnpm test
-pnpm build
-pnpm test:e2e
+pnpm verify:full
 ```
+
+`verify` runs type checks, the dependency-license gate, the complete Vitest
+suite, and the production build sequentially. `verify:full` then runs the
+production smoke test and Playwright sequentially. Do not launch these
+resource-heavy gates in parallel on the same checkout; concurrent TypeScript,
+Vitest, and build processes can cause misleading timeout failures on otherwise
+healthy tests.
 
 Playwright normally reserves API ports `3210`–`3214` and web ports
 `5173`–`5177`. If another local checkout is already using that range, move the

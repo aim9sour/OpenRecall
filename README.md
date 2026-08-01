@@ -110,16 +110,15 @@ server is running.
 ## Verify a change
 
 ```bash
-pnpm check
-pnpm release:licenses
-pnpm test
-pnpm build
-pnpm test:e2e
-node scripts/smoke-production.mjs
+pnpm verify:full
 ```
 
-The suite covers unit, property, integration, migration, backup/restore,
-security, PWA, accessibility, Arabic/LTR behavior, and production startup.
+The command deliberately runs every resource-heavy gate sequentially. Do not
+run `check`, Vitest, builds, smoke tests, or Playwright concurrently in the same
+checkout: resource contention can produce misleading timeout failures. Use
+`pnpm verify` when only the type/license/unit/build gates are needed. The full
+suite covers unit, property, integration, migration, backup/restore, security,
+PWA, accessibility, Arabic/LTR behavior, and production startup.
 
 ## Architecture and project policies
 

@@ -6,8 +6,8 @@ import { resolveE2ePorts } from "../e2e/ports.js";
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 
 describe("isolated E2E port allocation", () => {
-  it("preserves the documented default port set", () => {
-    expect(resolveE2ePorts(undefined)).toEqual({
+  it("preserves the documented zero-offset port set", () => {
+    expect(resolveE2ePorts("0")).toEqual({
       api: [3210, 3211, 3212, 3213, 3214],
       web: [5173, 5174, 5175, 5176, 5177],
     });

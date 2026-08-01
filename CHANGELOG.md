@@ -10,6 +10,9 @@ made a public release and currently has no public-use license.
 - Question, answer, and notes content is normal text instead of arbitrary
   headings. Localized label headings remain available for navigation, while
   automatic review focus announces the card content directly.
+- Local verification now has serial `verify` and `verify:full` entry points so
+  resource-heavy gates do not create misleading timeout failures by competing
+  with one another.
 
 ### Added
 

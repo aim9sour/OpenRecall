@@ -14,6 +14,15 @@ const serverEntry = resolve(
   "apps/server/src/index.ts",
 );
 const origin = "http://127.0.0.1:3210";
+const smokeArguments = process.argv.slice(2);
+const unsupportedArgument = smokeArguments.find(
+  (argument) => argument !== "--skip-build",
+);
+if (unsupportedArgument !== undefined) {
+  process.stderr.write("OPENRECALL_SMOKE_ARGUMENT_INVALID\n");
+  process.exit(2);
+}
+const skipBuild = smokeArguments.includes("--skip-build");
 const dataDirectory = await mkdtemp(
   join(tmpdir(), "openrecall-production-smoke-"),
 );
@@ -234,7 +243,9 @@ function verifyDatabaseReopens() {
 }
 
 try {
-  await runBuild();
+  if (!skipBuild) {
+    await runBuild();
+  }
   child = launchServer();
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
