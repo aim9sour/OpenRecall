@@ -5,6 +5,12 @@ made a public release and currently has no public-use license.
 
 ## Unreleased
 
+### Fixed
+
+- Question, answer, and notes content is normal text instead of arbitrary
+  headings. Localized label headings remain available for navigation, while
+  automatic review focus announces the card content directly.
+
 ### Added
 
 - Local-only Fastify/React application with Arabic and English interfaces.

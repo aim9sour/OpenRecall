@@ -65,12 +65,13 @@ fixed loopback server.
 ## Chrome and NVDA accessibility contract
 
 Every feature must be usable from the keyboard. The review view moves focus to
-the question heading when a card appears, to the answer content when revealed,
-and directly to the next question after a rating. The accessible names do not
-prefix card content with “Question” or “Answer”; notes remain a navigable
-heading without being forced into the immediate answer announcement. Queue and
-session status use short live-region updates without repeating private card
-text.
+the plain question content when a card appears, to the plain answer content
+when revealed, and directly to the next question content after a rating. The
+localized “Question,” “Answer,” and optional “Notes” labels are the navigable
+headings; card content itself is never a heading. Because focus targets the
+plain content, automatic speech does not prepend those heading labels. Queue
+and session status use short live-region updates without repeating private
+card text.
 
 Automated axe checks are necessary but not sufficient. Changes to critical
 flows require a manual stable Chrome/NVDA pass in both Arabic and English.

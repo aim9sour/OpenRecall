@@ -177,7 +177,9 @@ test("management and statistics preserve history, isolate deletion, and reflow",
 
   await page.getByRole("button", { name: t.startReview }).click();
   for (let index = 0; index < 2; index += 1) {
-    await expect(page.locator("main h1")).toBeFocused();
+    await expect(
+      page.locator('[data-review-content="question"]'),
+    ).toBeFocused();
     await page.getByRole("button", { name: t.showAnswer }).click();
     await page.getByRole("button", { name: t.good }).click();
   }

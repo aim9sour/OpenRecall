@@ -213,6 +213,13 @@ form {
   overflow-wrap: anywhere;
 }
 
+.review-card-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+  line-height: 1.6;
+}
+
 .rating-buttons {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));

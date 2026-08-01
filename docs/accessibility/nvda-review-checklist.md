@@ -28,23 +28,25 @@ run is performed.
 ## Run once in Arabic and once in English
 
 1. Start a review.
-   - Focus moves to the question `h1`.
-   - Expected speech begins with only the question text. OpenRecall must not
-     prepend “Question” or `السؤال`.
+   - “Question” / `السؤال` is the `h1`; the question content is normal text.
+   - Focus moves directly to that normal question content. Expected speech
+     begins with only the question text, without the preceding heading label or
+     a heading-role announcement.
    - The live region must not repeat the question, answer, or notes.
 
 2. Press Space or activate “Show answer” / `عرض الإجابة`.
-   - Focus moves directly to the answer `h2`.
-   - Expected speech begins with only the answer text. OpenRecall must not
-     prepend “Answer” or `الإجابة`.
-   - The optional notes remain a separate `h3`, reachable with heading
-     navigation. OpenRecall must not prepend “Notes” or `ملاحظات`.
-   - With empty or omitted notes, no empty notes heading exists.
+   - “Answer” / `الإجابة` is an `h2`; the answer content is normal text.
+   - Focus moves directly to that normal answer content. Expected speech begins
+     with only the answer text, without the preceding heading label or a
+     heading-role announcement.
+   - Optional “Notes” / `الملاحظات` is a separate `h2`, reachable with heading
+     navigation; the notes content itself is normal text.
+   - With empty or omitted notes, neither a notes heading nor content exists.
 
 3. Inspect the rating group and activate Again / `مرة أخرى`.
    - Four buttons are exposed in a named rating group, each with its interval.
-   - When the next card is ready, focus moves directly to its question heading
-     and NVDA announces that question without a label prefix.
+   - When the next card is ready, focus moves directly to its normal question
+     content and NVDA announces it without the preceding heading label.
    - If due work joined the current session, the polite status announces only
      the count; it never exposes card content.
 

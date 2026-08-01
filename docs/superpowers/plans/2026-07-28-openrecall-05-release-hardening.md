@@ -524,9 +524,10 @@ In Arabic and English, complete:
 
 - Landmarks/headings/skip link.
 - Section creation/import/error navigation.
-- Exact question speech.
-- Immediate answer speech without “Answer.”
-- Notes heading without “Notes.”
+- Navigable localized Question/Answer/Notes label headings with normal card
+  content beneath them.
+- Exact question speech and immediate answer speech without automatically
+  prepending their heading labels.
 - Rating-to-next-question speech.
 - Queue/session live announcements without duplicate card content.
 - Waiting, pause/resume, completion.

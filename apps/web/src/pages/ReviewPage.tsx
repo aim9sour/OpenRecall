@@ -36,8 +36,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const [announcement, setAnnouncement] = useState(
     initialNoticeKey === null ? "" : t(initialNoticeKey),
   );
-  const questionRef = useRef<HTMLHeadingElement>(null);
-  const answerRef = useRef<HTMLHeadingElement>(null);
+  const questionRef = useRef<HTMLParagraphElement>(null);
+  const answerRef = useRef<HTMLParagraphElement>(null);
   const endButtonRef = useRef<HTMLButtonElement>(null);
   const previousRevision = useRef(
     loaderState.kind === "completed" ? -1 : loaderState.session.revision,
@@ -237,9 +237,16 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
 
       {page.kind === "question" && (
         <section className="review-card">
-          <h1 ref={questionRef} tabIndex={-1} dir="auto">
+          <h1>{t("review.question")}</h1>
+          <p
+            ref={questionRef}
+            tabIndex={-1}
+            dir="auto"
+            className="review-card-content"
+            data-review-content="question"
+          >
             {page.card.front}
-          </h1>
+          </p>
           <button
             type="button"
             disabled={busy || shownEntryId !== page.card.entryId}
@@ -252,15 +259,36 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
 
       {page.kind === "answer" && (
         <section className="review-card">
-          <h1 tabIndex={-1} dir="auto">
+          <h1>{t("review.question")}</h1>
+          <p
+            dir="auto"
+            className="review-card-content"
+            data-review-content="question"
+          >
             {page.card.front}
-          </h1>
-          <h2 ref={answerRef} tabIndex={-1} dir="auto">
+          </p>
+          <h2>{t("review.answer")}</h2>
+          <p
+            ref={answerRef}
+            tabIndex={-1}
+            dir="auto"
+            className="review-card-content"
+            data-review-content="answer"
+          >
             {page.card.back}
-          </h2>
+          </p>
           {page.card.notes !== null &&
             page.card.notes.trim() !== "" && (
-            <h3 dir="auto">{page.card.notes}</h3>
+              <>
+                <h2>{t("review.notes")}</h2>
+                <p
+                  dir="auto"
+                  className="review-card-content"
+                  data-review-content="notes"
+                >
+                  {page.card.notes}
+                </p>
+              </>
             )}
           <RatingButtons
             disabled={busy || page.session.status !== "active"}

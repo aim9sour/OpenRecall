@@ -329,15 +329,14 @@ NVDA release is the primary manual acceptance combination.
 
 On the review page:
 
-- The actual question text is the page heading. No visible or accessible
-  “Question” prefix is inserted.
-- Reveal moves programmatic focus to the actual answer text, rendered as a
-  focusable heading. NVDA therefore speaks the answer immediately without an
-  “Answer” prefix.
-- Optional notes are omitted entirely when empty. When present, their actual
-  text is the next heading so heading navigation reaches it directly without a
-  “Notes” prefix.
-- Rating moves focus to the next actual question heading.
+- Localized “Question,” “Answer,” and optional “Notes” labels are the page's
+  navigable headings. The actual front, back, and notes content is rendered as
+  normal text and must not expose a heading role.
+- When a card appears, programmatic focus moves to the plain question content.
+  Reveal moves it to the plain answer content, and rating moves it to the next
+  plain question content. NVDA therefore speaks the content immediately without
+  automatically inserting the preceding heading label.
+- Optional notes and their heading are omitted entirely when notes are empty.
 - A dedicated polite live region announces queue-count and session-status
   changes, never the card content already spoken through focus.
 
@@ -615,7 +614,8 @@ prompt-based and never reload an active review or dirty form automatically.
 Each release follows a documented Chrome/NVDA checklist:
 
 - Landmark and heading navigation.
-- Exact question/answer/notes speech and absence of unwanted prefixes.
+- Heading labels remain navigable while focused card content is spoken without
+  an unwanted label prefix or heading-role announcement.
 - Reveal/rating focus behavior.
 - Keyboard-only completion of every critical flow.
 - Live announcements without duplicate speech.

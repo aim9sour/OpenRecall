@@ -19,7 +19,7 @@
 - A far-future timer is sliced below Node's 2,147,483,647 ms limit and always re-queries SQLite.
 - One learning item may have only one queued/active appearance per session, but may return after a completed appearance.
 - Rating is idempotent and revision-checked in one synchronous `BEGIN IMMEDIATE` transaction.
-- Question, answer, and notes are spoken by focusing their actual text headings; no hidden “Question,” “Answer,” or “Notes” prefix.
+- Localized “Question,” “Answer,” and optional “Notes” labels are headings; actual card content is normal text and receives focus for content-only automatic speech.
 - `Space` reveals; `1`–`4` rate after reveal; `0` focuses but never activates the end action.
 - Card content uses `dir="auto"` and never enters a live region.
 
@@ -735,12 +735,13 @@ git commit -m "feat: expose the review session API"
 
 Assert:
 
-- Initial actual question is the only `<h1>` and receives focus.
-- It has no accessible “Question” prefix.
-- Reveal focuses actual answer heading and speaks no “Answer” label.
-- Nonempty notes are a following heading containing only their text.
-- Empty notes are absent.
-- Rating focuses the next actual question.
+- The localized “Question” label is the only `<h1>`; actual question content is
+  normal text and receives focus.
+- Reveal focuses normal answer content while the localized “Answer” label is an
+  `h2`; automatic speech does not prepend that label.
+- Nonempty notes have a localized `h2` label followed by normal text. Empty
+  notes and their label are absent.
+- Rating focuses the next normal question content.
 - The status live region never contains front/back/notes.
 - When due items join, the live region announces only the localized added count
   and does not interrupt or reread the current question.
@@ -762,13 +763,15 @@ Expected: FAIL because review components are absent.
 Use refs and post-commit effects to focus:
 
 ```tsx
-<h1 ref={questionRef} tabIndex={-1} dir="auto">{front}</h1>
-<h2 ref={answerRef} tabIndex={-1} dir="auto">{back}</h2>
-{notes ? <h3 dir="auto">{notes}</h3> : null}
+<h1>{t("review.question")}</h1>
+<p ref={questionRef} tabIndex={-1} dir="auto">{front}</p>
+<h2>{t("review.answer")}</h2>
+<p ref={answerRef} tabIndex={-1} dir="auto">{back}</p>
+{notes ? <><h2>{t("review.notes")}</h2><p dir="auto">{notes}</p></> : null}
 ```
 
-Render visible translated labels only on controls and progress, never prepended
-to card content. Keep one pre-mounted
+Keep translated label headings separate from normal card content so focus
+announces the content directly. Keep one pre-mounted
 `<div role="status" aria-atomic="true">` for short queue messages.
 
 - [ ] **Step 5: Connect external start-review actions**

@@ -130,9 +130,7 @@ afterEach(() => {
 describe("ReviewPage NVDA interaction", () => {
   it("marks only an actually active review as update-blocking", async () => {
     const active = await renderReview();
-    await screen.findByRole("heading", {
-      name: "What is active recall?",
-    });
+    await screen.findByText("What is active recall?", { selector: "p" });
     expect(
       active.container.querySelector(
         '[data-openrecall-review-active="true"]',
@@ -144,9 +142,7 @@ describe("ReviewPage NVDA interaction", () => {
       ...questionState,
       session: progress({ status: "paused" }),
     });
-    await screen.findByRole("heading", {
-      name: "What is active recall?",
-    });
+    await screen.findByText("What is active recall?", { selector: "p" });
     expect(
       paused.container.querySelector(
         '[data-openrecall-review-active="true"]',
@@ -196,26 +192,46 @@ describe("ReviewPage NVDA interaction", () => {
     const user = userEvent.setup();
     await renderReview();
 
-    const question = await screen.findByRole("heading", {
-      level: 1,
-      name: "What is active recall?",
+    const question = await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
     });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Question" }),
+    ).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.queryByRole("heading", { name: "What is active recall?" }),
+    ).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(question));
     expect(question.textContent).toBe("What is active recall?");
 
     await user.click(screen.getByRole("button", { name: "Show answer" }));
-    const answer = await screen.findByRole("heading", {
-      level: 2,
-      name: "Retrieving an answer from memory.",
-    });
-    await waitFor(() => expect(document.activeElement).toBe(answer));
+    const answer = await screen.findByText(
+      "Retrieving an answer from memory.",
+      {
+        selector: '[data-review-content="answer"]',
+      },
+    );
     expect(
-      screen.getByRole("heading", {
-        level: 3,
-        name: "Do not reread first.",
+      screen.getByRole("heading", { level: 2, name: "Answer" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Notes" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Retrieving an answer from memory.",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByText("Do not reread first.", {
+        selector: '[data-review-content="notes"]',
       }).textContent,
     ).toBe("Do not reread first.");
+    expect(
+      screen.queryByRole("heading", { name: "Do not reread first." }),
+    ).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(answer));
 
     const status = screen.getByRole("status");
     expect(status.textContent).not.toMatch(
@@ -223,9 +239,8 @@ describe("ReviewPage NVDA interaction", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /Good/ }));
-    const nextQuestion = await screen.findByRole("heading", {
-      level: 1,
-      name: "What comes next?",
+    const nextQuestion = await screen.findByText("What comes next?", {
+      selector: '[data-review-content="question"]',
     });
     await waitFor(() => expect(document.activeElement).toBe(nextQuestion));
     expect(status.textContent).toBe("2 cards joined this session.");
@@ -237,17 +252,21 @@ describe("ReviewPage NVDA interaction", () => {
       card: { ...answerState.card, notes: "" },
     });
 
-    await screen.findByRole("heading", {
-      level: 2,
-      name: "Retrieving an answer from memory.",
+    await screen.findByText("Retrieving an answer from memory.", {
+      selector: '[data-review-content="answer"]',
     });
-    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Answer" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Notes" })).toBeNull();
   });
 
   it("supports Space, rating keys, and focus-only zero", async () => {
     const user = userEvent.setup();
     const { posts } = await renderReview();
-    await screen.findByRole("heading", { name: "What is active recall?" });
+    await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
     await waitFor(() =>
       expect(
         (
@@ -259,9 +278,8 @@ describe("ReviewPage NVDA interaction", () => {
     );
 
     await user.keyboard(" ");
-    await screen.findByRole("heading", {
-      level: 2,
-      name: "Retrieving an answer from memory.",
+    await screen.findByText("Retrieving an answer from memory.", {
+      selector: '[data-review-content="answer"]',
     });
     await user.keyboard("0");
     expect(document.activeElement).toBe(
@@ -270,7 +288,9 @@ describe("ReviewPage NVDA interaction", () => {
     expect(posts.some(({ path }) => path.endsWith("/pause"))).toBe(false);
 
     await user.keyboard("3");
-    await screen.findByRole("heading", { name: "What comes next?" });
+    await screen.findByText("What comes next?", {
+      selector: '[data-review-content="question"]',
+    });
     expect(
       posts.filter(({ path }) => path.endsWith("/current/rate")),
     ).toHaveLength(1);
@@ -289,8 +309,8 @@ describe("ReviewPage NVDA interaction", () => {
     }
     vi.stubGlobal("EventSource", FakeEventSource);
     const { setCurrentState } = await renderReview();
-    const question = await screen.findByRole("heading", {
-      name: "What is active recall?",
+    const question = await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
     });
     await waitFor(() => expect(document.activeElement).toBe(question));
     const endButton = screen.getByRole("button", { name: "End review" });
@@ -321,7 +341,9 @@ describe("ReviewPage NVDA interaction", () => {
     "has no serious accessibility violations in %s",
     async (locale) => {
       const { container } = await renderReview(locale);
-      await screen.findByRole("heading", { name: "What is active recall?" });
+      await screen.findByText("What is active recall?", {
+        selector: '[data-review-content="question"]',
+      });
 
       const results = await axe.run(container, {
         rules: { "color-contrast": { enabled: false } },
@@ -341,16 +363,15 @@ describe("review shortcut isolation", () => {
   it("ignores shortcuts in editable controls and modal dialogs", async () => {
     const user = userEvent.setup();
     await renderReview();
-    await screen.findByRole("heading", { name: "What is active recall?" });
+    await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
     const input = document.createElement("input");
     document.body.append(input);
     input.focus();
     await user.keyboard(" ");
     expect(
-      screen.queryByRole("heading", {
-        level: 2,
-        name: "Retrieving an answer from memory.",
-      }),
+      screen.queryByText("Retrieving an answer from memory."),
     ).toBeNull();
     input.remove();
 
@@ -360,10 +381,7 @@ describe("review shortcut isolation", () => {
     document.body.append(dialog);
     await user.keyboard(" ");
     expect(
-      screen.queryByRole("heading", {
-        level: 2,
-        name: "Retrieving an answer from memory.",
-      }),
+      screen.queryByText("Retrieving an answer from memory."),
     ).toBeNull();
     dialog.remove();
   });

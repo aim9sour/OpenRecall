@@ -38,7 +38,7 @@ test("review core continuously rotates variants, resumes, and finishes with a su
   await page.getByRole("button", { name: "استيراد البطاقات" }).click();
   await page.getByRole("button", { name: "بدء المراجعة" }).click();
 
-  const firstQuestion = page.locator("main h1");
+  const firstQuestion = page.locator('[data-review-content="question"]');
   await expect(firstQuestion).toHaveText(
     /ما المقصود بالاستدعاء النشط|كيف تختبر ذاكرتك/,
   );
@@ -49,7 +49,7 @@ test("review core continuously rotates variants, resumes, and finishes with a su
   );
 
   await page.getByRole("button", { name: "عرض الإجابة" }).click();
-  await expect(page.locator("main h2")).toBeFocused();
+  await expect(page.locator('[data-review-content="answer"]')).toBeFocused();
   await page.getByRole("button", { name: /مرة أخرى/ }).click();
 
   await expect(

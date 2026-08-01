@@ -182,9 +182,11 @@ test.describe.serial("optimizer and SQLite durability", () => {
       .click();
     await page.getByRole("button", { name: "بدء المراجعة" }).click();
     await expect(page).toHaveURL(/\/review\/[^/]+$/);
-    await expect(
-      page.getByRole("heading", { level: 1, name: question }),
-    ).toBeFocused();
+    const questionContent = page.locator(
+      '[data-review-content="question"]',
+    );
+    await expect(questionContent).toHaveText(question);
+    await expect(questionContent).toBeFocused();
     const reviewUrl = page.url();
     await page.getByRole("button", { name: "عرض الإجابة" }).click();
     await page.getByRole("button", { name: /مرة أخرى/ }).click();
@@ -275,8 +277,7 @@ test.describe.serial("optimizer and SQLite durability", () => {
 
     await writeFile(clockPath, String(Date.parse(dueIso!)), "utf8");
     await page.goto(reviewUrl);
-    await expect(
-      page.getByRole("heading", { level: 1, name: question }),
-    ).toBeFocused({ timeout: 15_000 });
+    await expect(questionContent).toHaveText(question, { timeout: 15_000 });
+    await expect(questionContent).toBeFocused({ timeout: 15_000 });
   });
 });

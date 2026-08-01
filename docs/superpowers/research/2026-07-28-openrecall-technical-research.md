@@ -542,14 +542,17 @@ Windows Chrome 150 stable update `150.0.7871.181/.182`. These numbers belong in
 the release checklist, not in application logic; every release candidate must
 record and test the stable versions current at that later date.
 
-Implementation findings:
+Implementation findings, updated after real screen-reader testing:
 
-- Programmatically focusing a static heading is valid when it is the logical
-  result of the user's action. Use `tabindex="-1"` and a real heading element.
-- The question text itself receives focus when a card appears.
-- The answer text itself receives focus after reveal.
-- Notes, when present, are another actual-content heading.
-- No accessible label or hidden prefix says “Question,” “Answer,” or “Notes.”
+- Programmatically focused card content uses normal text with `tabindex="-1"`.
+  Making arbitrary question, answer, and notes content into headings caused
+  repeated heading-role announcements during reading.
+- Localized “Question,” “Answer,” and optional “Notes” labels are real headings
+  so heading navigation remains useful; their associated content is not a
+  heading.
+- The question text itself receives focus when a card appears, and the answer
+  text itself receives focus after reveal. Focusing content rather than its
+  preceding label keeps the automatic announcement content-only.
 - A persistent, already-mounted `role="status"` region handles only brief queue
   and session messages. It must not repeat focused card content.
 - Native buttons, inputs, tables, and disclosure buttons are preferred.

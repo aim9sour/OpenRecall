@@ -38,8 +38,8 @@ speech observations free of real card content.
   keyboard.
 - [ ] Starting review announces the question text directly.
 - [ ] Revealing announces the answer text directly without adding “Answer.”
-- [ ] Optional notes are reachable by heading navigation, but the immediate
-  announcement does not add “Notes.”
+- [ ] “Question,” “Answer,” and optional “Notes” labels are reachable by
+  heading navigation; their card content is normal text, not a heading.
 - [ ] Rating with keys `1`–`4` announces the next question directly and once.
 - [ ] Queue and session status announcements do not duplicate card content.
 - [ ] Waiting, due-item arrival, pause, resume, early finish, and completion
@@ -63,8 +63,8 @@ Not run.
   keyboard.
 - [ ] Starting review announces the question text directly.
 - [ ] Revealing announces the answer text directly without adding “Answer.”
-- [ ] Optional notes are reachable by heading navigation, but the immediate
-  announcement does not add “Notes.”
+- [ ] “Question,” “Answer,” and optional “Notes” labels are reachable by
+  heading navigation; their card content is normal text, not a heading.
 - [ ] Rating with keys `1`–`4` announces the next question directly and once.
 - [ ] Queue and session status announcements do not duplicate card content.
 - [ ] Waiting, due-item arrival, pause, resume, early finish, and completion
