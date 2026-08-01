@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import {
   ApplicationPreferenceRepository,
   openDatabase,
+  SCHEMA_VERSION,
   SectionRepository,
 } from "@openrecall/database";
 import {
@@ -141,7 +142,7 @@ describe("restore route", () => {
         expect(response.statusCode).toBe(200);
         expect(response.json()).toMatchObject({
           databaseRevision: 2,
-          restoredUserVersion: 5,
+          restoredUserVersion: SCHEMA_VERSION,
           preRestoreBackupFilename: expect.stringMatching(
             /^openrecall-automatic-/,
           ),

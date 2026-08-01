@@ -4,6 +4,7 @@ import {
   TEST_ORIGIN,
   testRequestHeaders,
 } from "@openrecall/test-support";
+import { SCHEMA_VERSION } from "@openrecall/database";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildServer } from "./app.js";
@@ -103,7 +104,7 @@ describe("server boundary security", () => {
         status: "ok",
         database: "not-configured",
         schema: "not-checked",
-        schemaVersion: 5,
+        schemaVersion: SCHEMA_VERSION,
         maintenance: true,
       });
     } finally {

@@ -13,7 +13,7 @@ import {
   testRequestHeaders,
   withTempDatabase,
 } from "@openrecall/test-support";
-import { openDatabase } from "@openrecall/database";
+import { openDatabase, SCHEMA_VERSION } from "@openrecall/database";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildServer } from "../app.js";
@@ -295,7 +295,7 @@ describe("content-free health", () => {
   it("reads database state through a live provider", async () => {
     let database = {
       open: true,
-      pragma: () => 5,
+      pragma: () => SCHEMA_VERSION,
     };
     const server = Fastify({ logger: false });
     registerHealthRoute(
@@ -309,7 +309,7 @@ describe("content-free health", () => {
     const available = await server.inject("/api/v1/health");
     database = {
       open: false,
-      pragma: () => 5,
+      pragma: () => SCHEMA_VERSION,
     };
     const closed = await server.inject("/api/v1/health");
 
@@ -353,7 +353,7 @@ describe("content-free health", () => {
           status: "ok",
           database: "open",
           schema: "supported",
-          schemaVersion: 5,
+          schemaVersion: SCHEMA_VERSION,
           maintenance: false,
         });
         expect(response.body).not.toMatch(
