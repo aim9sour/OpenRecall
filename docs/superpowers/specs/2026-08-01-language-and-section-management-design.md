@@ -68,9 +68,12 @@ small versioned object:
 ```
 
 An application-preference repository owns parsing, validation, initialization,
-and compare-and-swap updates for this key. It accepts production locale tags
-registered by the i18n package. The pseudo-locale remains a development/testing
-facility and is not exposed in the production language selector.
+and compare-and-swap updates for this key. The public update operation accepts
+production locale tags registered by the i18n package. When the server has
+explicitly enabled a registered development locale, initialization and bootstrap
+may also preserve that configured locale so pseudo-locale tests continue to use
+the same SQLite-backed path. A development locale is never accepted from the
+production Settings API or exposed in the production language selector.
 
 At server construction, if `ui.locale` is missing, the repository validates and
 stores `OPENRECALL_LOCALE` as the initial preference. After that first write,
