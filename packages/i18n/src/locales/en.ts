@@ -408,6 +408,32 @@ export const englishLocale = {
       "This card changed elsewhere. Reload it before saving again.",
     "card.deleteConfirmationMismatch":
       "The permanent-delete confirmation did not match this card.",
+    "section.management.heading": "Section management",
+    "section.rename.heading": "Rename section",
+    "section.rename.label": "Section name",
+    "section.rename.save": "Save new name",
+    "section.rename.saving": "Saving name…",
+    "section.rename.saved": "Section name saved.",
+    "section.rename.error": "Enter a valid section name.",
+    "section.rename.conflict":
+      "This section changed elsewhere. Review the current details and try again.",
+    "section.delete.heading": "Permanently delete section",
+    "section.delete.warning":
+      "This permanently deletes the section, all its cards, scheduling data, and review history. This cannot be undone.",
+    "section.delete.confirm":
+      "I understand that this section will be permanently deleted",
+    "section.delete.submit": "Permanently delete section",
+    "section.delete.deleting": "Deleting section…",
+    "section.delete.success": "The section was permanently deleted.",
+    "section.delete.error": "The section could not be deleted. Try again.",
+    "section.delete.conflict":
+      "This section changed elsewhere. Review the current details and confirm deletion again.",
+    "section.delete.confirmationRequired":
+      "Confirm that you understand this deletion is permanent.",
+    "review.sectionDeleted.title": "This section was deleted",
+    "review.sectionDeleted.description":
+      "This review session ended because its section was permanently deleted.",
+    "review.sectionDeleted.home": "Go to home",
     "review.joined_one": "1 card joined this session.",
     "review.joined_other": "{{count}} cards joined this session.",
     "error.summary": "Please correct the following errors.",

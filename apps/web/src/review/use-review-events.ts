@@ -1,12 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRevalidator } from "react-router";
 
-export function useReviewEvents(sessionId: string): void {
+export function useReviewEvents({
+  disabled,
+  onSectionDeleted,
+  sectionId,
+  sessionId,
+}: {
+  readonly disabled: boolean;
+  readonly onSectionDeleted: () => void;
+  readonly sectionId: string;
+  readonly sessionId: string;
+}): void {
   const { revalidate: revalidateRoute } = useRevalidator();
+  const deleted = useRef(disabled);
 
   useEffect(() => {
+    if (disabled) {
+      deleted.current = true;
+      return;
+    }
+    deleted.current = false;
     const requestRevalidation = (): void => {
-      void revalidateRoute();
+      if (!deleted.current) void revalidateRoute();
     };
     const onVisibility = (): void => {
       if (document.visibilityState === "visible") {
@@ -30,6 +46,7 @@ export function useReviewEvents(sessionId: string): void {
       try {
         const data: unknown = JSON.parse(String(event.data));
         if (
+          !deleted.current &&
           typeof data === "object" &&
           data !== null &&
           "sessionId" in data &&
@@ -41,14 +58,33 @@ export function useReviewEvents(sessionId: string): void {
         // Reconnect/focus recovery will refetch canonical state.
       }
     };
+    const onDeleted = (event: Event): void => {
+      if (deleted.current || !(event instanceof MessageEvent)) return;
+      try {
+        const data: unknown = JSON.parse(String(event.data));
+        if (
+          typeof data === "object" &&
+          data !== null &&
+          "sectionId" in data &&
+          data.sectionId === sectionId
+        ) {
+          deleted.current = true;
+          onSectionDeleted();
+        }
+      } catch {
+        // Invalid events are ignored; canonical state remains unchanged.
+      }
+    };
     source?.addEventListener("review-invalidated", onInvalidated);
+    source?.addEventListener("section-deleted", onDeleted);
 
     return () => {
       window.removeEventListener("online", requestRevalidation);
       window.removeEventListener("focus", requestRevalidation);
       document.removeEventListener("visibilitychange", onVisibility);
       source?.removeEventListener("review-invalidated", onInvalidated);
+      source?.removeEventListener("section-deleted", onDeleted);
       source?.close();
     };
-  }, [revalidateRoute, sessionId]);
+  }, [disabled, onSectionDeleted, revalidateRoute, sectionId, sessionId]);
 }

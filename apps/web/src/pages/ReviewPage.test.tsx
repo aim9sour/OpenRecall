@@ -14,6 +14,28 @@ const ENTRY_ID = "e9f65aa8-122b-41e1-985c-61cd3cbb3210";
 const ITEM_ID = "a8f65aa8-122b-41e1-985c-61cd3cbb3210";
 const PRESENTATION_ID = "b9f65aa8-122b-41e1-985c-61cd3cbb3210";
 
+class DeletionEventSource extends EventTarget {
+  static latest: DeletionEventSource | undefined;
+  closed = false;
+
+  constructor(_url: string | URL, _options?: EventSourceInit) {
+    super();
+    DeletionEventSource.latest = this;
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+}
+
+function deleteCurrentSection(): void {
+  DeletionEventSource.latest?.dispatchEvent(
+    new MessageEvent("section-deleted", {
+      data: JSON.stringify({ sectionId: SECTION_ID }),
+    }),
+  );
+}
+
 function progress(overrides = {}) {
   return {
     id: SESSION_ID,
@@ -153,6 +175,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  DeletionEventSource.latest = undefined;
 });
 
 describe("ReviewPage NVDA interaction", () => {
@@ -763,6 +786,123 @@ describe("ReviewPage NVDA interaction", () => {
     expect(screen.getByRole("status").textContent).not.toContain(
       "What is active recall?",
     );
+  });
+
+  it("clears busy after an interactive response becomes stale through revalidation", async () => {
+    vi.stubGlobal("EventSource", DeletionEventSource);
+    let resolveReveal!: (state: ReviewPageState) => void;
+    const reveal = new Promise<ReviewPageState>((resolve) => {
+      resolveReveal = resolve;
+    });
+    const { setCurrentState } = await renderReview(
+      "en",
+      questionState,
+      undefined,
+      (path) => (path.endsWith("/current/reveal") ? reveal : undefined),
+    );
+    const button = await screen.findByRole("button", { name: "Show answer" });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+    setCurrentState({
+      ...questionState,
+      session: progress({ revision: 2 }),
+    });
+
+    act(() => {
+      DeletionEventSource.latest?.dispatchEvent(
+        new MessageEvent("review-invalidated", {
+          data: JSON.stringify({ sessionId: SESSION_ID, revision: 2 }),
+        }),
+      );
+    });
+    await act(async () => resolveReveal(answerState));
+
+    expect(screen.queryByText("Retrieving an answer from memory.")).toBeNull();
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Show answer" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+  });
+
+  it("ends the visible review safely when its section is deleted", async () => {
+    vi.stubGlobal("EventSource", DeletionEventSource);
+    const { posts } = await renderReview();
+    await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
+    await waitFor(() => expect(DeletionEventSource.latest).toBeDefined());
+    const postsBeforeDeletion = posts.length;
+
+    act(() => deleteCurrentSection());
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "This section was deleted",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(screen.queryByText("What is active recall?")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show answer" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Go to home" }).getAttribute("href")).toBe("/");
+    expect(DeletionEventSource.latest?.closed).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("online"));
+    });
+    await Promise.resolve();
+    expect(posts).toHaveLength(postsBeforeDeletion);
+  });
+
+  it("clears a pending due timer when the section is deleted", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", DeletionEventSource);
+    const { posts } = await renderReview("en", waitingForDueState);
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+
+    act(() => deleteCurrentSection());
+    expect(screen.getByRole("heading", { name: "This section was deleted" })).not.toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(posts.filter(({ path }) => path.endsWith("/next"))).toHaveLength(0);
+  });
+
+  it("ignores a reveal response that resolves after section deletion", async () => {
+    vi.stubGlobal("EventSource", DeletionEventSource);
+    let resolveReveal!: (state: ReviewPageState) => void;
+    const reveal = new Promise<ReviewPageState>((resolve) => {
+      resolveReveal = resolve;
+    });
+    await renderReview("en", questionState, undefined, (path) =>
+      path.endsWith("/current/reveal") ? reveal : undefined,
+    );
+    const button = await screen.findByRole("button", { name: "Show answer" });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+
+    act(() => deleteCurrentSection());
+    await screen.findByRole("heading", { name: "This section was deleted" });
+    await act(async () => resolveReveal(answerState));
+    expect(screen.getByRole("heading", { name: "This section was deleted" })).not.toBeNull();
+    expect(screen.queryByText("Retrieving an answer from memory.")).toBeNull();
+  });
+
+  it("ignores a rating response that resolves after section deletion", async () => {
+    vi.stubGlobal("EventSource", DeletionEventSource);
+    let resolveRating!: (state: ReviewPageState) => void;
+    const rating = new Promise<ReviewPageState>((resolve) => {
+      resolveRating = resolve;
+    });
+    await renderReview("en", answerState, undefined, (path) =>
+      path.endsWith("/current/rate") ? rating : undefined,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Good/ }));
+
+    act(() => deleteCurrentSection());
+    await screen.findByRole("heading", { name: "This section was deleted" });
+    await act(async () => resolveRating(nextQuestionState));
+    expect(screen.getByRole("heading", { name: "This section was deleted" })).not.toBeNull();
+    expect(screen.queryByText("What comes next?")).toBeNull();
   });
 
   it.each(["en", "ar"] as const)(

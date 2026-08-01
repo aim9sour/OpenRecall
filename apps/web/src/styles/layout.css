@@ -141,6 +141,11 @@ form {
   margin-block-end: 0;
 }
 
+.danger-panel {
+  border-color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;

@@ -41,6 +41,7 @@ const waitingReview: ReviewPageState = {
 
 async function renderHome(
   post: ApiClient["post"] = async <T,>() => ({}) as T,
+  initialEntry: string | { readonly pathname: string; readonly state?: unknown } = "/",
 ) {
   const i18n = await createI18n("en");
   const api: ApiClient = {
@@ -61,7 +62,7 @@ async function renderHome(
     delete: async <T,>() => undefined as T,
   };
   const router = createMemoryRouter(createRoutes({ api, i18n }), {
-    initialEntries: ["/"],
+    initialEntries: [initialEntry],
   });
   const result = render(<RouterProvider router={router} />);
   await screen.findByRole("heading", { level: 1, name: "Learning sections" });
@@ -183,5 +184,15 @@ describe("HomePage accessibility", () => {
       expect(document.documentElement.lang).toBe("ar");
       expect(document.documentElement.dir).toBe("rtl");
     });
+  });
+
+  it("announces only the known section-deletion navigation state", async () => {
+    await renderHome(undefined, {
+      pathname: "/",
+      state: { announcementKey: "section.delete.success" },
+    });
+    const status = screen.getByRole("status");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+    expect(status.textContent).toBe("The section was permanently deleted.");
   });
 });

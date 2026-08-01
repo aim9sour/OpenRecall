@@ -5,6 +5,7 @@ import {
   Link,
   useActionData,
   useLoaderData,
+  useLocation,
   useNavigation,
 } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
@@ -19,8 +20,15 @@ export function HomePage({ api }: { readonly api: ApiClient }) {
   const sections = useLoaderData() as SectionSummary[];
   const actionData = useActionData() as CreateSectionActionData | undefined;
   const navigation = useNavigation();
+  const location = useLocation();
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
+  const navigationState: unknown = location.state;
+  const announceDeletion =
+    typeof navigationState === "object" &&
+    navigationState !== null &&
+    "announcementKey" in navigationState &&
+    navigationState.announcementKey === "section.delete.success";
 
   useEffect(() => {
     if ((actionData?.errorMessageKeys?.length ?? 0) > 0) {
@@ -33,6 +41,11 @@ export function HomePage({ api }: { readonly api: ApiClient }) {
       <h1 data-route-heading tabIndex={-1}>
         {t("home.title")}
       </h1>
+      {announceDeletion && (
+        <div aria-atomic="true" aria-live="polite" role="status">
+          {t("section.delete.success")}
+        </div>
+      )}
 
       <section aria-labelledby="create-section-heading" className="panel">
         <h2 id="create-section-heading">{t("home.createHeading")}</h2>

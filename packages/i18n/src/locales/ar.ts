@@ -405,6 +405,31 @@ export const arabicLocale = {
       "تغيرت هذه البطاقة في موضع آخر. أعد تحميلها قبل الحفظ.",
     "card.deleteConfirmationMismatch":
       "تأكيد الحذف النهائي لا يطابق هذه البطاقة.",
+    "section.management.heading": "إدارة القسم",
+    "section.rename.heading": "إعادة تسمية القسم",
+    "section.rename.label": "اسم القسم",
+    "section.rename.save": "حفظ الاسم الجديد",
+    "section.rename.saving": "جارٍ حفظ الاسم…",
+    "section.rename.saved": "تم حفظ اسم القسم.",
+    "section.rename.error": "أدخل اسمًا صحيحًا للقسم.",
+    "section.rename.conflict":
+      "تغيّر هذا القسم في موضع آخر. راجع التفاصيل الحالية ثم حاول مرة أخرى.",
+    "section.delete.heading": "حذف القسم نهائيًا",
+    "section.delete.warning":
+      "سيُحذف القسم نهائيًا مع جميع بطاقاته وبيانات الجدولة وسجل المراجعة. لا يمكن التراجع عن ذلك.",
+    "section.delete.confirm": "أفهم أن هذا القسم سيُحذف نهائيًا",
+    "section.delete.submit": "حذف القسم نهائيًا",
+    "section.delete.deleting": "جارٍ حذف القسم…",
+    "section.delete.success": "تم حذف القسم نهائيًا.",
+    "section.delete.error": "تعذر حذف القسم. حاول مرة أخرى.",
+    "section.delete.conflict":
+      "تغيّر هذا القسم في موضع آخر. راجع التفاصيل الحالية ثم أكّد الحذف مجددًا.",
+    "section.delete.confirmationRequired":
+      "أكّد أنك تفهم أن هذا الحذف نهائي.",
+    "review.sectionDeleted.title": "تم حذف هذا القسم",
+    "review.sectionDeleted.description":
+      "انتهت جلسة المراجعة لأن قسمها حُذف نهائيًا.",
+    "review.sectionDeleted.home": "الذهاب إلى الرئيسية",
     "review.joined_zero": "لم تنضم بطاقات جديدة.",
     "review.joined_one": "انضمت بطاقة واحدة إلى هذه الجلسة.",
     "review.joined_two": "انضمت بطاقتان إلى هذه الجلسة.",

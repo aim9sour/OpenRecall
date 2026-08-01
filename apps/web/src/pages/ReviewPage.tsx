@@ -1,6 +1,6 @@
 import type { ReviewPageState } from "@openrecall/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLoaderData, useLocation } from "react-router";
+import { Link, useLoaderData, useLocation } from "react-router";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { RatingButtons } from "../review/RatingButtons.js";
@@ -14,10 +14,20 @@ import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
 const MAX_CLIENT_TIMER_DELAY_MS = 2_147_000_000;
 const CLAIM_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000] as const;
 
+type ReviewDisplayState =
+  | ReviewPageState
+  | { readonly kind: "section-deleted"; readonly sectionId: string };
+
 function sessionIdOf(state: ReviewPageState): string {
   return state.kind === "completed"
     ? state.summary.sessionId
     : state.session.id;
+}
+
+function sectionIdOf(state: ReviewPageState): string {
+  return state.kind === "completed"
+    ? state.summary.sectionId
+    : state.session.sectionId;
 }
 
 function reviewContentKey(state: ReviewPageState): string {
@@ -38,7 +48,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     typeof navigationState.reviewNoticeKey === "string"
       ? navigationState.reviewNoticeKey
       : null;
-  const [page, setPage] = useState(loaderState);
+  const [page, setPage] = useState<ReviewDisplayState>(loaderState);
   const [busy, setBusy] = useState(false);
   const [shownEntryId, setShownEntryId] = useState<string | null>(null);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
@@ -49,32 +59,56 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const questionRef = useRef<HTMLParagraphElement>(null);
   const answerRef = useRef<HTMLParagraphElement>(null);
   const pausedHeadingRef = useRef<HTMLHeadingElement>(null);
+  const deletedHeadingRef = useRef<HTMLHeadingElement>(null);
   const endButtonRef = useRef<HTMLButtonElement>(null);
   const previousRevision = useRef(
     loaderState.kind === "completed" ? -1 : loaderState.session.revision,
   );
   const claimInFlight = useRef<Promise<void> | null>(null);
   const claimGeneration = useRef(0);
+  const busyOperation = useRef(0);
   const interactionBlocked = useRef(false);
   const dueDeadline = useRef<{
     readonly key: string;
     readonly atPerformanceMs: number;
   } | null>(null);
   const dialogOpenedContentKey = useRef<string | null>(null);
+  const dialogGeneration = useRef(0);
   const dialogWasOpen = useRef(false);
-  const sessionId = sessionIdOf(page);
+  const sessionId = sessionIdOf(loaderState);
+  const sectionId = sectionIdOf(loaderState);
   const activeReview =
-    page.kind !== "completed" && page.session.status === "active";
+    page.kind !== "completed" &&
+    page.kind !== "section-deleted" &&
+    page.session.status === "active";
 
-  useReviewEvents(sessionId);
+  const handleSectionDeleted = useCallback(() => {
+    claimGeneration.current += 1;
+    busyOperation.current += 1;
+    dialogGeneration.current += 1;
+    interactionBlocked.current = true;
+    dueDeadline.current = null;
+    setEndDialogOpen(false);
+    setBusy(false);
+    setPage({ kind: "section-deleted", sectionId });
+  }, [sectionId]);
+
+  useReviewEvents({
+    disabled: page.kind === "section-deleted",
+    onSectionDeleted: handleSectionDeleted,
+    sectionId,
+    sessionId,
+  });
 
   useEffect(() => {
     claimGeneration.current += 1;
-    setPage(loaderState);
+    setPage((current) =>
+      current.kind === "section-deleted" ? current : loaderState,
+    );
   }, [loaderState]);
 
   useEffect(() => {
-    if (page.kind === "completed") {
+    if (page.kind === "completed" || page.kind === "section-deleted") {
       return;
     }
     if (
@@ -89,6 +123,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   }, [page, t]);
 
   useEffect(() => {
+    if (page.kind === "section-deleted") {
+      deletedHeadingRef.current?.focus();
+      return;
+    }
     if (endDialogOpen) {
       dialogWasOpen.current = true;
       return;
@@ -131,6 +169,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (page.kind !== "question" || page.session.status !== "active") {
       return;
     }
+    const generation = claimGeneration.current;
     const entryId = page.card.entryId;
     void api
       .post<void>(
@@ -140,8 +179,14 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
           presentationId: page.card.presentationId,
         },
       )
-      .then(() => setShownEntryId(entryId))
-      .catch(() => setAnnouncement(t("review.error")));
+      .then(() => {
+        if (generation === claimGeneration.current) setShownEntryId(entryId);
+      })
+      .catch(() => {
+        if (generation === claimGeneration.current) {
+          setAnnouncement(t("review.error"));
+        }
+      });
   }, [api, page, t]);
 
   useEffect(() => {
@@ -275,19 +320,30 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (
       page.kind !== "question" ||
       shownEntryId !== page.card.entryId ||
-      busy
+      busy ||
+      interactionBlocked.current
     ) {
       return;
     }
+    const generation = claimGeneration.current;
+    const operation = ++busyOperation.current;
     setBusy(true);
     void api
       .post<ReviewPageState>(
         `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/current/reveal`,
         { entryId: page.card.entryId },
       )
-      .then(setPage)
-      .catch(() => setAnnouncement(t("review.error")))
-      .finally(() => setBusy(false));
+      .then((state) => {
+        if (generation === claimGeneration.current) setPage(state);
+      })
+      .catch(() => {
+        if (generation === claimGeneration.current) {
+          setAnnouncement(t("review.error"));
+        }
+      })
+      .finally(() => {
+        if (operation === busyOperation.current) setBusy(false);
+      });
   }, [api, busy, page, shownEntryId, t]);
 
   const rate = useCallback(
@@ -295,10 +351,13 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       if (
         page.kind !== "answer" ||
         page.session.status !== "active" ||
-        busy
+        busy ||
+        interactionBlocked.current
       ) {
         return;
       }
+      const generation = claimGeneration.current;
+      const operation = ++busyOperation.current;
       setBusy(true);
       void api
         .post<ReviewPageState>(
@@ -311,17 +370,32 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
             idempotencyKey: crypto.randomUUID(),
           },
         )
-        .then(setPage)
-        .catch(() => setAnnouncement(t("review.error")))
-        .finally(() => setBusy(false));
+        .then((state) => {
+          if (generation === claimGeneration.current) setPage(state);
+        })
+        .catch(() => {
+          if (generation === claimGeneration.current) {
+            setAnnouncement(t("review.error"));
+          }
+        })
+        .finally(() => {
+          if (operation === busyOperation.current) setBusy(false);
+        });
     },
     [api, busy, page, t],
   );
 
   const pause = (): void => {
-    if (page.kind === "completed" || busy) {
+    if (
+      page.kind === "completed" ||
+      page.kind === "section-deleted" ||
+      busy
+    ) {
       return;
     }
+    const generation = claimGeneration.current;
+    const operation = ++busyOperation.current;
+    const openedDialog = dialogGeneration.current;
     setBusy(true);
     void api
       .post<ReviewPageState>(
@@ -329,33 +403,64 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         {},
       )
       .then((state) => {
-        setPage(state);
-        setEndDialogOpen(false);
+        if (generation === claimGeneration.current) {
+          setPage(state);
+        }
+        if (openedDialog === dialogGeneration.current) {
+          setEndDialogOpen(false);
+        }
       })
-      .catch(() => setAnnouncement(t("review.error")))
-      .finally(() => setBusy(false));
+      .catch(() => {
+        if (generation === claimGeneration.current) {
+          setAnnouncement(t("review.error"));
+        }
+      })
+      .finally(() => {
+        if (operation === busyOperation.current) setBusy(false);
+      });
   };
 
   const resume = (): void => {
-    if (page.kind === "completed" || busy) {
+    if (
+      page.kind === "completed" ||
+      page.kind === "section-deleted" ||
+      busy
+    ) {
       return;
     }
     interactionBlocked.current = false;
+    const generation = claimGeneration.current;
+    const operation = ++busyOperation.current;
     setBusy(true);
     void api
       .post<ReviewPageState>(
         `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/resume`,
         {},
       )
-      .then(setPage)
-      .catch(() => setAnnouncement(t("review.error")))
-      .finally(() => setBusy(false));
+      .then((state) => {
+        if (generation === claimGeneration.current) setPage(state);
+      })
+      .catch(() => {
+        if (generation === claimGeneration.current) {
+          setAnnouncement(t("review.error"));
+        }
+      })
+      .finally(() => {
+        if (operation === busyOperation.current) setBusy(false);
+      });
   };
 
   const finish = (): void => {
-    if (page.kind === "completed" || busy) {
+    if (
+      page.kind === "completed" ||
+      page.kind === "section-deleted" ||
+      busy
+    ) {
       return;
     }
+    const generation = claimGeneration.current;
+    const operation = ++busyOperation.current;
+    const openedDialog = dialogGeneration.current;
     setBusy(true);
     void api
       .post<ReviewPageState>(
@@ -363,11 +468,21 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         {},
       )
       .then((state) => {
-        setPage(state);
-        setEndDialogOpen(false);
+        if (generation === claimGeneration.current) {
+          setPage(state);
+        }
+        if (openedDialog === dialogGeneration.current) {
+          setEndDialogOpen(false);
+        }
       })
-      .catch(() => setAnnouncement(t("review.error")))
-      .finally(() => setBusy(false));
+      .catch(() => {
+        if (generation === claimGeneration.current) {
+          setAnnouncement(t("review.error"));
+        }
+      })
+      .finally(() => {
+        if (operation === busyOperation.current) setBusy(false);
+      });
   };
 
   useReviewShortcuts({
@@ -378,6 +493,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   });
 
   const openEndDialog = (): void => {
+    if (page.kind === "completed" || page.kind === "section-deleted") return;
+    dialogGeneration.current += 1;
     dialogOpenedContentKey.current = reviewContentKey(page);
     claimGeneration.current += 1;
     interactionBlocked.current = true;
@@ -385,6 +502,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   };
 
   const cancelEndDialog = (): void => {
+    if (page.kind === "section-deleted") return;
     interactionBlocked.current = false;
     setEndDialogOpen(false);
     if (
@@ -401,7 +519,19 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         {announcement}
       </div>
 
-      {page.kind !== "completed" && (
+      {page.kind === "section-deleted" && (
+        <section className="panel">
+          <h1 ref={deletedHeadingRef} data-route-heading tabIndex={-1}>
+            {t("review.sectionDeleted.title")}
+          </h1>
+          <p>{t("review.sectionDeleted.description")}</p>
+          <p>
+            <Link to="/">{t("review.sectionDeleted.home")}</Link>
+          </p>
+        </section>
+      )}
+
+      {page.kind !== "completed" && page.kind !== "section-deleted" && (
         <SessionProgress session={page.session} />
       )}
 
@@ -508,7 +638,9 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         </p>
       )}
 
-      {endDialogOpen && page.kind !== "completed" && (
+      {endDialogOpen &&
+        page.kind !== "completed" &&
+        page.kind !== "section-deleted" && (
         <EndSessionDialog
           busy={busy}
           openerRef={endButtonRef}
