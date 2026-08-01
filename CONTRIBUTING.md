@@ -1,9 +1,12 @@
 # Contributing to OpenRecall
 
-OpenRecall is not yet publicly licensed. Until the repository owner selects a
-license, public release and third-party reuse remain blocked; see
-[the licensing decision](docs/decisions/licensing.md). The workflow below
-describes the technical review contract for authorized contributors.
+OpenRecall welcomes public contributions under the
+[Apache License 2.0](LICENSE). Contributions intentionally submitted for
+inclusion are licensed under Apache-2.0 as described by section 5; no separate
+contributor license agreement is required. By contributing, you confirm that
+you have the right to submit the work under those terms. See
+[the licensing decision](docs/decisions/licensing.md) for the redistribution
+boundary.
 
 ## Development setup
 

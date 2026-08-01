@@ -146,6 +146,28 @@ describe("repository documentation", () => {
     expect(schema).toMatch(/application_id/iu);
     expect(schema).toMatch(/user_version/iu);
   });
+
+  it("provides safe public community and support routes", async () => {
+    const [conduct, support, issueConfig, security, ...issueForms] =
+      await Promise.all([
+        text("CODE_OF_CONDUCT.md"),
+        text("SUPPORT.md"),
+        text(".github/ISSUE_TEMPLATE/config.yml"),
+        text("SECURITY.md"),
+        text(".github/ISSUE_TEMPLATE/bug.yml"),
+        text(".github/ISSUE_TEMPLATE/accessibility.yml"),
+        text(".github/ISSUE_TEMPLATE/feature.yml"),
+      ]);
+
+    expect(conduct).toContain("Contributor Covenant 3.0");
+    expect(support).toContain("GitHub Discussions");
+    expect(issueConfig).toContain("blank_issues_enabled: false");
+    expect(security).toContain("v1.x");
+    for (const issueForm of issueForms) {
+      expect(issueForm).toMatch(/SQLite/iu);
+      expect(issueForm).toMatch(/private|sensitive|خاص|حساس/iu);
+    }
+  });
 });
 
 describe("documented JSON examples", () => {

@@ -1,7 +1,8 @@
 # Security policy
 
-OpenRecall is an unreleased, local-only application. Security fixes target the
-current main branch; no historical public release line is supported yet.
+OpenRecall is a local-only application. Security fixes target the current
+`v1.x` release line and the `main` branch. Older minor releases may be asked to
+upgrade to the latest `v1.x` patch before a fix is backported.
 
 ## Report a vulnerability
 

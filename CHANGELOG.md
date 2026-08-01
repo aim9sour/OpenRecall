@@ -1,7 +1,8 @@
 # Changelog
 
-All notable changes to OpenRecall will be recorded here. The project has not
-made a public release and currently has no public-use license.
+All notable changes to OpenRecall will be recorded here. The project is
+licensed under Apache-2.0 and follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
@@ -36,12 +37,13 @@ made a public release and currently has no public-use license.
   allowlist and Linux/Windows CI enforcement.
 - Configurable, validated E2E port-range isolation so a second local checkout
   can run Playwright without stopping an existing OpenRecall development server.
+- Apache-2.0 licensing, public contribution and support routes, structured issue
+  forms, and private security-reporting guidance.
 
 ### Known limitations
 
 - FSRS-7 is unsupported.
 - No accounts, cloud sync, collaboration, rich media, Anki packages, or native
   wrapper.
-- Stable Chrome automation passes on the audited Windows baseline. A signed
-  human NVDA speech audit, a fresh Linux run, and repository license selection
-  remain release blockers.
+- Code signing is not included in the first release. The downloadable archive
+  is protected by a published SHA-256 checksum and GitHub artifact provenance.

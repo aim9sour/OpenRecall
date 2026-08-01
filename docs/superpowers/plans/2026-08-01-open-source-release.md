@@ -243,7 +243,7 @@ git commit -m "docs: license OpenRecall under Apache 2.0"
 - Consumes: Apache contribution model and GitHub private vulnerability reporting.
 - Produces: structured public support, contribution, conduct, issue, and security routes.
 
-- [ ] **Step 1: Add failing community-health assertions**
+- [x] **Step 1: Add failing community-health assertions**
 
 Assert the required files exist and contain:
 
@@ -256,7 +256,7 @@ expect(await text("SECURITY.md")).toContain("v1.x");
 
 Assert each issue form warns against real SQLite databases and private card content.
 
-- [ ] **Step 2: Run the documentation test to verify it fails**
+- [x] **Step 2: Run the documentation test to verify it fails**
 
 ```bash
 pnpm exec vitest run tests/documentation/documentation.test.ts
@@ -264,14 +264,14 @@ pnpm exec vitest run tests/documentation/documentation.test.ts
 
 Expected: missing community files.
 
-- [ ] **Step 3: Add Contributor Covenant 3.0**
+- [x] **Step 3: Add Contributor Covenant 3.0**
 
 Use the official Markdown text from
 `https://www.contributor-covenant.org/version/3/0/code_of_conduct/`, retain its
 CC BY-SA 4.0 attribution, and set conduct reports to
 `abdullahmansour.marketing@gmail.com`.
 
-- [ ] **Step 4: Add support and public contribution routes**
+- [x] **Step 4: Add support and public contribution routes**
 
 `SUPPORT.md` sends usage questions to GitHub Discussions, reproducible defects
 to issue forms, security reports to private vulnerability reporting, and
@@ -279,7 +279,7 @@ conduct reports to the designated email. Update `CONTRIBUTING.md` to welcome
 Apache-2.0 contributions without a CLA and keep all current durability,
 algorithm, translation, and NVDA gates.
 
-- [ ] **Step 5: Add three issue forms and chooser configuration**
+- [x] **Step 5: Add three issue forms and chooser configuration**
 
 Each YAML form must require OpenRecall version, operating system, Chrome
 version, synthetic reproduction, expected/actual result, and verification that
@@ -298,21 +298,21 @@ contact_links:
     about: Ask for help without uploading private study data.
 ```
 
-- [ ] **Step 6: Update PR, security, and changelog policies**
+- [x] **Step 6: Update PR, security, and changelog policies**
 
 Add packaging normal/portable checks, artifact-content checks, and release-note
 impact to the PR template. Change security support from “unreleased” to the
 current `v1.x` line. Add the completed release notes under `Unreleased`; Task 8
 promotes them to `1.0.0` only after all local release gates pass.
 
-- [ ] **Step 7: Run documentation and YAML-oriented gates**
+- [x] **Step 7: Run documentation and YAML-oriented gates**
 
 ```bash
 pnpm exec vitest run tests/documentation/documentation.test.ts tests/ci/release-gates.test.ts
 git diff --check
 ```
 
-- [ ] **Step 8: Commit community files**
+- [x] **Step 8: Commit community files**
 
 ```bash
 git add .github CODE_OF_CONDUCT.md SUPPORT.md CONTRIBUTING.md SECURITY.md CHANGELOG.md tests/documentation/documentation.test.ts
