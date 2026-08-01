@@ -9,7 +9,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("API client", () => {
-  it("sends PUT and DELETE as CSRF-protected mutations", async () => {
+  it("sends PATCH, PUT, and DELETE as CSRF-protected mutations", async () => {
     const methods: string[] = [];
     const api = createApiClient(async (input, init) => {
       if (input === "/api/v1/bootstrap") {
@@ -25,14 +25,19 @@ describe("API client", () => {
       expect(new Headers(init?.headers).get("x-openrecall-csrf")).toBe(
         "one-token",
       );
+      expect(new Headers(init?.headers).get("content-type")).toBe(
+        "application/json",
+      );
+      expect(typeof init?.body).toBe("string");
       return init?.method === "DELETE"
         ? new Response(null, { status: 204 })
         : jsonResponse({ id: "updated" });
     });
 
+    await api.patch("/api/v1/sections/one", { name: "Renamed" });
     await api.put("/api/v1/cards/one", { value: 1 });
     await api.delete("/api/v1/cards/one", { confirmation: "one" });
-    expect(methods).toEqual(["PUT", "DELETE"]);
+    expect(methods).toEqual(["PATCH", "PUT", "DELETE"]);
   });
 
   it("accepts a successful response with no content", async () => {
@@ -109,7 +114,7 @@ describe("API client", () => {
     expect(bootstrapCount).toBe(1);
   });
 
-  it("refreshes bootstrap once after a rejected mutation", async () => {
+  it("refreshes bootstrap once after a rejected PATCH mutation", async () => {
     const mutationTokens: string[] = [];
     let bootstrapCount = 0;
     let mutationCount = 0;
@@ -141,7 +146,7 @@ describe("API client", () => {
     });
 
     await expect(
-      api.post("/api/v1/sections", { name: "Biology" }),
+      api.patch("/api/v1/sections/one", { name: "Biology" }),
     ).resolves.toEqual({ id: "created" });
     expect(bootstrapCount).toBe(2);
     expect(mutationCount).toBe(2);

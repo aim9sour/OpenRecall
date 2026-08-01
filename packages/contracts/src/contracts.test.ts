@@ -7,6 +7,9 @@ import {
   CardImportSchema,
   ImportPreviewSchema,
   ReviewPageStateSchema,
+  SectionConflictResponseSchema,
+  SectionDeleteSchema,
+  SectionRenameSchema,
   SectionSummarySchema,
 } from "./index.js";
 
@@ -69,10 +72,20 @@ describe("shared runtime contracts", () => {
         id: "d9428888-122b-11e1-b85c-61cd3cbb3210",
         name: "Biology",
         createdAtMs: 1_722_110_400_000,
+        updatedAtMs: 1_722_110_500_000,
         counts: { total: 20, new: 4, dueNow: 3 },
         nextDueAtMs: null,
       }),
     ).toBe(true);
+    expect(
+      Value.Check(SectionSummarySchema, {
+        id: "d9428888-122b-11e1-b85c-61cd3cbb3210",
+        name: "Biology",
+        createdAtMs: 1_722_110_400_000,
+        counts: { total: 20, new: 4, dueNow: 3 },
+        nextDueAtMs: null,
+      }),
+    ).toBe(false);
 
     expect(
       Value.Check(ImportPreviewSchema, {
@@ -99,6 +112,52 @@ describe("shared runtime contracts", () => {
             warnings: [],
           },
         ],
+      }),
+    ).toBe(true);
+  });
+
+  it("validates section rename, deletion, and conflict contracts", () => {
+    expect(
+      Value.Check(SectionRenameSchema, {
+        name: "Human Biology",
+        expectedUpdatedAtMs: 1_000,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(SectionRenameSchema, {
+        name: "😀".repeat(200),
+        expectedUpdatedAtMs: 1_000,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(SectionRenameSchema, {
+        name: "😀".repeat(201),
+        expectedUpdatedAtMs: 1_000,
+      }),
+    ).toBe(false);
+    expect(
+      Value.Check(SectionDeleteSchema, {
+        expectedUpdatedAtMs: 1_000,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(SectionDeleteSchema, {
+        confirmed: true,
+        expectedUpdatedAtMs: 1_000,
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(SectionConflictResponseSchema, {
+        code: "SECTION_CONFLICT",
+        messageKey: "section.rename.conflict",
+        current: {
+          id: "d9428888-122b-11e1-b85c-61cd3cbb3210",
+          name: "Biology",
+          createdAtMs: 500,
+          updatedAtMs: 1_000,
+          counts: { total: 20, new: 4, dueNow: 3 },
+          nextDueAtMs: null,
+        },
       }),
     ).toBe(true);
   });

@@ -71,6 +71,7 @@ function api(overrides: Partial<ApiClient> = {}): ApiClient {
       localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => ({}) as T,
+    patch: async <T,>() => ({}) as T,
     post: async <T,>() => ({}) as T,
     put: async <T,>() => ({}) as T,
     delete: async <T,>() => ({}) as T,

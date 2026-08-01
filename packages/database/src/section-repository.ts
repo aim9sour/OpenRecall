@@ -20,6 +20,7 @@ interface SectionSummaryRow {
   readonly id: string;
   readonly name: string;
   readonly created_at_ms: number;
+  readonly updated_at_ms: number;
   readonly total_count: number;
   readonly new_count: number;
 }
@@ -27,6 +28,18 @@ interface SectionSummaryRow {
 export class SectionNameError extends Error {
   constructor() {
     super("SECTION_NAME_INVALID");
+  }
+}
+
+export class SectionConflictError extends Error {
+  constructor(readonly current: SectionSummary) {
+    super("SECTION_CONFLICT");
+  }
+}
+
+export class SectionNotFoundError extends Error {
+  constructor() {
+    super("SECTION_NOT_FOUND");
   }
 }
 
@@ -61,6 +74,7 @@ function mapSummary(row: SectionSummaryRow): SectionSummary {
     id: row.id,
     name: row.name,
     createdAtMs: row.created_at_ms,
+    updatedAtMs: row.updated_at_ms,
     counts: {
       total: row.total_count,
       new: row.new_count,
@@ -71,11 +85,14 @@ function mapSummary(row: SectionSummaryRow): SectionSummary {
 }
 
 export class SectionRepository {
+  readonly #db: Database.Database;
   readonly #insert;
   readonly #list;
   readonly #get;
+  readonly #rename;
 
   constructor(db: Database.Database) {
+    this.#db = db;
     this.#insert = db.prepare<
       {
         readonly id: string;
@@ -94,6 +111,7 @@ export class SectionRepository {
         sections.id,
         sections.name,
         sections.created_at_ms,
+        sections.updated_at_ms,
         count(learning_items.id) AS total_count,
         count(learning_items.id) AS new_count
       FROM sections
@@ -112,6 +130,23 @@ export class SectionRepository {
       ${summarySelect}
       WHERE sections.id = ?
       GROUP BY sections.id
+    `);
+
+    this.#rename = db.prepare<
+      {
+        readonly sectionId: string;
+        readonly name: string;
+        readonly expectedUpdatedAtMs: number;
+        readonly nowMs: number;
+      }
+    >(`
+      UPDATE sections
+      SET
+        name = @name,
+        updated_at_ms = max(@nowMs, updated_at_ms + 1)
+      WHERE
+        id = @sectionId
+        AND updated_at_ms = @expectedUpdatedAtMs
     `);
   }
 
@@ -140,5 +175,36 @@ export class SectionRepository {
     validateNow(nowMs);
     const row = this.#get.get(sectionId);
     return row === undefined ? undefined : mapSummary(row);
+  }
+
+  renameSection(input: {
+    readonly sectionId: string;
+    readonly name: string;
+    readonly expectedUpdatedAtMs: number;
+    readonly nowMs: number;
+  }): SectionSummary {
+    validateNow(input.expectedUpdatedAtMs);
+    validateNow(input.nowMs);
+    const name = normalizeSectionName(input.name);
+    const rename = this.#db.transaction(() => {
+      const current = this.getSection(input.sectionId, input.nowMs);
+      if (current === undefined) throw new SectionNotFoundError();
+      if (current.updatedAtMs !== input.expectedUpdatedAtMs) {
+        throw new SectionConflictError(current);
+      }
+      const result = this.#rename.run({
+        sectionId: input.sectionId,
+        name,
+        expectedUpdatedAtMs: input.expectedUpdatedAtMs,
+        nowMs: input.nowMs,
+      });
+      if (result.changes !== 1) {
+        throw new Error("SECTION_RENAME_FAILED");
+      }
+      const updated = this.getSection(input.sectionId, input.nowMs);
+      if (updated === undefined) throw new SectionNotFoundError();
+      return updated;
+    });
+    return rename.immediate();
   }
 }

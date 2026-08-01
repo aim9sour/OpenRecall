@@ -2,7 +2,9 @@ import { withTempDatabase } from "@openrecall/test-support";
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "./open-database.js";
 import {
+  SectionConflictError,
   SectionNameError,
+  SectionNotFoundError,
   SectionRepository,
 } from "./section-repository.js";
 
@@ -31,10 +33,109 @@ describe("SectionRepository", () => {
             id: section.id,
             name: "Biology",
             createdAtMs: 1_000,
+            updatedAtMs: 1_000,
             counts: { total: 0, new: 0, dueNow: 0 },
             nextDueAtMs: null,
           },
         ]);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("renames atomically with trimmed code-point names and monotonic revisions", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+
+        const renamed = repository.renameSection({
+          sectionId: section.id,
+          name: "  Human Biology  ",
+          expectedUpdatedAtMs: 1_000,
+          nowMs: 1_000,
+        });
+        expect(renamed).toMatchObject({
+          id: section.id,
+          name: "Human Biology",
+          updatedAtMs: 1_001,
+        });
+
+        const twoHundredCodePoints = "😀".repeat(200);
+        const sameClock = repository.renameSection({
+          sectionId: section.id,
+          name: twoHundredCodePoints,
+          expectedUpdatedAtMs: 1_001,
+          nowMs: 1_000,
+        });
+        expect(sameClock).toMatchObject({
+          name: twoHundredCodePoints,
+          updatedAtMs: 1_002,
+        });
+
+        const noOpName = repository.renameSection({
+          sectionId: section.id,
+          name: twoHundredCodePoints,
+          expectedUpdatedAtMs: 1_002,
+          nowMs: 1_000,
+        });
+        expect(noOpName.updatedAtMs).toBe(1_003);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("rejects invalid, missing, and stale renames without changing the section", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+
+        expect(() =>
+          repository.renameSection({
+            sectionId: section.id,
+            name: "😀".repeat(201),
+            expectedUpdatedAtMs: 1_000,
+            nowMs: 2_000,
+          }),
+        ).toThrow(SectionNameError);
+        expect(() =>
+          repository.renameSection({
+            sectionId: "d9428888-122b-41e1-985c-61cd3cbb3210",
+            name: "Missing",
+            expectedUpdatedAtMs: 1_000,
+            nowMs: 2_000,
+          }),
+        ).toThrow(SectionNotFoundError);
+
+        repository.renameSection({
+          sectionId: section.id,
+          name: "Current",
+          expectedUpdatedAtMs: 1_000,
+          nowMs: 2_000,
+        });
+        expect(() =>
+          repository.renameSection({
+            sectionId: section.id,
+            name: "Stale",
+            expectedUpdatedAtMs: 1_000,
+            nowMs: 3_000,
+          }),
+        ).toThrow(SectionConflictError);
+        expect(repository.getSection(section.id, 3_000)).toMatchObject({
+          name: "Current",
+          updatedAtMs: 2_000,
+        });
       } finally {
         db.close();
       }

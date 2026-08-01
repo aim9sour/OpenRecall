@@ -89,6 +89,7 @@ async function renderList(overrides: Partial<ApiClient> = {}) {
       localeUpdatedAtMs: 0,
     }),
     get: overrides.get ?? get,
+    patch: overrides.patch ?? (async <T,>() => ({}) as T),
     post: overrides.post ?? post,
     put: overrides.put ?? put,
     delete: overrides.delete ?? remove,

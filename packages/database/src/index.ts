@@ -29,7 +29,9 @@ export {
   type PreMigrationOpenOptions,
 } from "./open-database.js";
 export {
+  SectionConflictError,
   SectionNameError,
+  SectionNotFoundError,
   SectionRepository,
   type Section,
 } from "./section-repository.js";

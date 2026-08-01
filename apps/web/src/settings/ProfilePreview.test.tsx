@@ -90,6 +90,7 @@ function api(previewResponse: OptimizerProfilePreview = preview) {
       localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => [] as T,
+    patch: async <T,>() => ({}) as T,
     post,
     put: async <T,>() => ({}) as T,
     delete: async <T,>() => ({}) as T,

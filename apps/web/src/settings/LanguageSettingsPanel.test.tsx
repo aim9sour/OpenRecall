@@ -24,6 +24,7 @@ function api(put: PutImplementation): ApiClient {
       localeUpdatedAtMs: 1_500,
     }),
     get: async <T,>() => ({}) as T,
+    patch: async <T,>() => ({}) as T,
     post: async <T,>() => ({}) as T,
     put: async <T,>(path: string, body: unknown) =>
       (await put(path, body)) as T,

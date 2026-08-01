@@ -33,6 +33,7 @@ export const SectionSummarySchema = Type.Object(
     id: UuidSchema,
     name: Type.String({ minLength: 1, maxLength: 200, pattern: "\\S" }),
     createdAtMs: EpochMillisecondsSchema,
+    updatedAtMs: EpochMillisecondsSchema,
     counts: Type.Object(
       {
         total: Type.Integer({ minimum: 0 }),
@@ -46,6 +47,43 @@ export const SectionSummarySchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const SectionRenameSchema = Type.Object(
+  {
+    name: Type.String({
+      minLength: 1,
+      maxLength: 200,
+      pattern: "\\S",
+    }),
+    expectedUpdatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
+export const SectionDeleteSchema = Type.Object(
+  {
+    confirmed: Type.Optional(Type.Boolean()),
+    expectedUpdatedAtMs: EpochMillisecondsSchema,
+  },
+  { additionalProperties: false },
+);
+
+export const SectionConflictResponseSchema = Type.Object(
+  {
+    code: Type.Literal("SECTION_CONFLICT"),
+    messageKey: Type.Union([
+      Type.Literal("section.rename.conflict"),
+      Type.Literal("section.delete.conflict"),
+    ]),
+    current: SectionSummarySchema,
+  },
+  { additionalProperties: false },
+);
+
 export type SectionCreate = Static<typeof SectionCreateSchema>;
 export type Section = Static<typeof SectionSchema>;
 export type SectionSummary = Static<typeof SectionSummarySchema>;
+export type SectionRename = Static<typeof SectionRenameSchema>;
+export type SectionDelete = Static<typeof SectionDeleteSchema>;
+export type SectionConflictResponse = Static<
+  typeof SectionConflictResponseSchema
+>;

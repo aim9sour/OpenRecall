@@ -106,6 +106,7 @@ async function renderReview(
       localeUpdatedAtMs: 0,
     }),
     get: async <T,>() => currentState as T,
+    patch: async <T,>() => ({}) as T,
     post: async <T,>(path: string, body: unknown) => {
       posts.push({ path, body });
       const overridden = postOverride?.(path, body);

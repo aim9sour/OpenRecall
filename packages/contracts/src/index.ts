@@ -74,11 +74,17 @@ export {
 export {
   EpochMillisecondsSchema,
   SectionCreateSchema,
+  SectionConflictResponseSchema,
+  SectionDeleteSchema,
+  SectionRenameSchema,
   SectionSchema,
   SectionSummarySchema,
   UuidSchema,
   type Section,
+  type SectionConflictResponse,
   type SectionCreate,
+  type SectionDelete,
+  type SectionRename,
   type SectionSummary,
 } from "./sections.js";
 export {

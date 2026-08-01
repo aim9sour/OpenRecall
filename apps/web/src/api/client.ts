@@ -19,6 +19,7 @@ export interface BootstrapResponse {
 export interface ApiClient {
   readonly bootstrap: () => Promise<BootstrapResponse>;
   readonly get: <T>(path: string) => Promise<T>;
+  readonly patch: <T>(path: string, body: unknown) => Promise<T>;
   readonly post: <T>(path: string, body: unknown) => Promise<T>;
   readonly put: <T>(path: string, body: unknown) => Promise<T>;
   readonly delete: <T>(path: string, body: unknown) => Promise<T>;
@@ -110,7 +111,7 @@ export function createApiClient(
   }
 
   async function request<T>(
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE",
     path: string,
     body: unknown,
     didRetry: boolean,
@@ -239,6 +240,8 @@ export function createApiClient(
   return {
     bootstrap,
     get: <T>(path: string) => request<T>("GET", path, undefined, false),
+    patch: <T>(path: string, body: unknown) =>
+      request<T>("PATCH", path, body, false),
     post: <T>(path: string, body: unknown) =>
       request<T>("POST", path, body, false),
     put: <T>(path: string, body: unknown) =>

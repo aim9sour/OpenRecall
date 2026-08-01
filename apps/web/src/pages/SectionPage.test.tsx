@@ -14,6 +14,7 @@ const section: SectionSummary = {
   id: "d9428888-122b-41e1-985c-61cd3cbb3210",
   name: "Biology",
   createdAtMs: 1_000,
+  updatedAtMs: 1_000,
   counts: { total: 1, new: 0, dueNow: 1 },
   nextDueAtMs: 1_000,
 };
@@ -74,6 +75,7 @@ describe("SectionPage statistics", () => {
         localeUpdatedAtMs: 0,
       }),
       get: async <T,>(path: string) => (await get(path)) as T,
+      patch: async <T,>() => ({}) as T,
       post: async <T,>() => ({}) as T,
       put: async <T,>() => ({}) as T,
       delete: async <T,>() => undefined as T,

@@ -16,6 +16,7 @@ describe("settings route", () => {
     const api: ApiClient = {
       bootstrap,
       get: async <T,>() => ({}) as T,
+      patch: async <T,>() => ({}) as T,
       post: async <T,>() => ({}) as T,
       put: async <T,>() => ({}) as T,
       delete: async <T,>() => ({}) as T,

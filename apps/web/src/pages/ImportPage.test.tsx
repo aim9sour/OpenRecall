@@ -26,6 +26,7 @@ describe("ImportPage", () => {
           counts: { total: 1, new: 1, dueNow: 0 },
           nextDueAtMs: null,
         }) as T,
+      patch: async <T,>() => ({}) as T,
       post: async <T,>(path: string, body: unknown) => {
         posts.push({ path, body });
         if (path.endsWith("/preview")) {

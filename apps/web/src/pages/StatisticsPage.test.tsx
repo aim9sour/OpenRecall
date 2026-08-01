@@ -96,6 +96,7 @@ async function renderStatistics(
       localeUpdatedAtMs: 0,
     }),
     get: async <T,>(path: string) => (await get(path)) as T,
+    patch: async <T,>() => ({}) as T,
     post: async <T,>() => ({}) as T,
     put: async <T,>() => ({}) as T,
     delete: async <T,>() => undefined as T,
