@@ -13,7 +13,7 @@
     "test": "vitest run packages/test-support/src --passWithNoTests"
   },
   "devDependencies": {
-    "@types/node": "24.13.3",
+    "@types/node": "26.1.2",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
