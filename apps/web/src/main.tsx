@@ -15,10 +15,6 @@ import {
   readRememberedLocale,
   rememberLocale,
 } from "./i18n/locale-storage.js";
-import { registerOpenRecallServiceWorker } from "./pwa/register-openrecall-service-worker.js";
-import {
-  inactiveServiceWorkerUpdateController,
-} from "./pwa/register-service-worker.js";
 import { createRoutes } from "./router.js";
 import "./styles/base.css";
 
@@ -39,12 +35,6 @@ async function start(): Promise<void> {
 
   const root = createRoot(rootElement);
   const api = createApiClient();
-  let updates = inactiveServiceWorkerUpdateController;
-  try {
-    updates = registerOpenRecallServiceWorker();
-  } catch {
-    // A service-worker registration failure must not prevent local study.
-  }
 
   let bootstrap: Awaited<ReturnType<typeof api.bootstrap>>;
   try {
@@ -66,7 +56,7 @@ async function start(): Promise<void> {
   prepareLocale(bootstrap.locale);
   rememberLocale(bootstrap.locale);
   const i18n = await createI18n(bootstrap.locale);
-  const router = createBrowserRouter(createRoutes({ api, i18n, updates }));
+  const router = createBrowserRouter(createRoutes({ api, i18n }));
 
   root.render(
     <StrictMode>

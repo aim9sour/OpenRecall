@@ -18,16 +18,6 @@ export const englishLocale = {
     "theme.dark": "Dark theme",
     "theme.saveError":
       "The appearance preference could not be saved.",
-    "pwa.updateAvailable":
-      "An OpenRecall update is ready. You choose when to install it.",
-    "pwa.offlineReady":
-      "The OpenRecall interface is ready for offline startup.",
-    "pwa.updateNow": "Update now",
-    "pwa.later": "Later",
-    "pwa.updateBlocked":
-      "Finish or pause the review and save or cancel open edits before updating.",
-    "pwa.updateFailed":
-      "The update could not be installed. You can try again later.",
     "serverUnavailable.title": "OpenRecall server is stopped",
     "serverUnavailable.description":
       "The interface is available, but study data is never served from a stale cache. Start the local server, then retry.",

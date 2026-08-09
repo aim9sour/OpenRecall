@@ -1,4 +1,4 @@
-OpenRecall 1.0.0 for Windows
+OpenRecall 1.0.1 for Windows
 ============================
 
 No Node.js or pnpm installation is required.
@@ -15,9 +15,9 @@ the Data folder beside the launcher. Keep the whole folder in a writable
 location and move the whole folder together. Portable and normal data do not
 migrate or merge automatically.
 
-OpenRecall listens only on http://127.0.0.1:3210. It opens stable Google Chrome
-when found, otherwise the Windows default browser. Close the launcher window or
-press Ctrl+C to stop the local server. Use OpenRecall's backup page before
+OpenRecall listens only on http://127.0.0.1:3210. It waits for the local server
+to become healthy, then opens the Windows default browser. Close the launcher
+window or press Ctrl+C to stop the local server. Use OpenRecall's backup page before
 moving, replacing, or deleting any data folder.
 
 العربية

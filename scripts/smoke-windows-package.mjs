@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
@@ -94,6 +101,15 @@ async function waitForReady(child, output) {
   throw smokeError("OPENRECALL_PACKAGE_SMOKE_READY_TIMEOUT");
 }
 
+async function waitForBrowserMarker(path) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (await pathExists(path)) return;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+  }
+  throw smokeError("OPENRECALL_PACKAGE_SMOKE_BROWSER_TIMEOUT");
+}
+
 async function waitForExit(child, timeoutMs) {
   if (child.exitCode !== null) return child.exitCode;
   const timeout = new Promise((_, reject) => {
@@ -145,13 +161,18 @@ async function runMode({ extractedRoot, mode, localAppData }) {
     localAppData,
     `openrecall-${mode.toLowerCase()}-stop.signal`,
   );
+  const browserMarker = resolve(
+    localAppData,
+    `openrecall-${mode.toLowerCase()}-browser.txt`,
+  );
   const environment = {
     ...process.env,
     LOCALAPPDATA: localAppData,
-    OPENRECALL_LAUNCHER_NO_BROWSER: "1",
+    OPENRECALL_LAUNCHER_BROWSER_MARKER: browserMarker,
     OPENRECALL_LAUNCHER_STOP_FILE: stopFile,
   };
   delete environment.OPENRECALL_DATA_DIRECTORY;
+  delete environment.OPENRECALL_LAUNCHER_NO_BROWSER;
   const child = spawn(
     process.env.ComSpec ?? "cmd.exe",
     cmdLauncherArguments(launcher),
@@ -172,6 +193,10 @@ async function runMode({ extractedRoot, mode, localAppData }) {
   });
   try {
     await waitForReady(child, output);
+    await waitForBrowserMarker(browserMarker);
+    if (await readFile(browserMarker, "utf8") !== origin) {
+      throw smokeError("OPENRECALL_PACKAGE_SMOKE_BROWSER_ORIGIN_INVALID");
+    }
     const databasePath = mode === "Normal"
       ? resolve(localAppData, "OpenRecall-nodejs", "Data", "openrecall.sqlite3")
       : resolve(extractedRoot, "Data", "openrecall.sqlite3");

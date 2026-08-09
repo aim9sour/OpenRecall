@@ -1,6 +1,6 @@
 {
   "name": "openrecall",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "check": "tsc -p tsconfig.tools.json && pnpm -r check",
-    "package:windows": "node scripts/package-windows.mjs --version 1.0.0",
+    "package:windows": "node scripts/package-windows.mjs --version 1.0.1",
     "release:licenses": "node scripts/check-dependency-licenses.mjs",
     "smoke:package:windows": "node scripts/smoke-windows-package.mjs",
     "test": "vitest run",

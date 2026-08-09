@@ -544,8 +544,10 @@ describe("repository release automation", () => {
     expect(workflow).toContain("github.ref_name");
     expect(workflow).toContain("pnpm package:windows");
     expect(workflow).toContain(
-      "OpenRecall-v1.0.0-windows-x64.zip",
+      "OpenRecall-v1.0.1-windows-x64.zip",
     );
+    expect(workflow).toContain('docs/releases/v1.0.1.md');
+    expect(workflow).toContain('--title "OpenRecall 1.0.1"');
     expect(workflow).toContain("pnpm smoke:package:windows --archive");
     expect(workflow).not.toContain("smoke:package:windows -- --archive");
     expect(workflow).toContain("actions/upload-artifact@v7");

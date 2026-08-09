@@ -101,32 +101,9 @@ describe("review session API", () => {
           payload: { sectionId: SECTION_ID },
         });
         expect(started.statusCode).toBe(201);
-        const startedBody = started.json<{
+        const question = started.json<{
           kind: string;
           session: { id: string; currentlyRemaining: number };
-        }>();
-        expect(startedBody).toMatchObject({
-          kind: "waiting",
-          session: { currentlyRemaining: 1 },
-        });
-        const sessionId = startedBody.session.id;
-
-        const beforeClaim = await server.inject({
-          method: "GET",
-          url: `/api/v1/review-sessions/${sessionId}`,
-          headers: testRequestHeaders(),
-        });
-        expect(beforeClaim.body).not.toContain("PRIVATE ANSWER");
-        expect(beforeClaim.body).not.toContain("PRIVATE NOTES");
-
-        const next = await server.inject({
-          method: "POST",
-          url: `/api/v1/review-sessions/${sessionId}/next`,
-          headers,
-        });
-        expect(next.statusCode).toBe(200);
-        const question = next.json<{
-          kind: string;
           card: {
             entryId: string;
             learningItemId: string;
@@ -136,6 +113,7 @@ describe("review session API", () => {
         }>();
         expect(question).toMatchObject({
           kind: "question",
+          session: { currentlyRemaining: 1 },
           card: {
             learningItemId: ITEM_ID,
             presentationId: PRESENTATION_ID,
@@ -143,8 +121,9 @@ describe("review session API", () => {
             stateRevision: 0,
           },
         });
-        expect(next.body).not.toContain("PRIVATE ANSWER");
-        expect(next.body).not.toContain("PRIVATE NOTES");
+        expect(started.body).not.toContain("PRIVATE ANSWER");
+        expect(started.body).not.toContain("PRIVATE NOTES");
+        const sessionId = question.session.id;
 
         const revealTooSoon = await server.inject({
           method: "POST",

@@ -16,7 +16,7 @@ remote runtime service.
 
 ## Run it in two clicks
 
-1. Download `OpenRecall-v1.0.0-windows-x64.zip` from the latest release and
+1. Download `OpenRecall-v1.0.1-windows-x64.zip` from the latest release and
    extract the whole ZIP to a writable folder.
 2. Double-click one launcher:
    - `OpenRecall.cmd` keeps data in
@@ -26,8 +26,8 @@ remote runtime service.
 The release includes its own verified Node.js runtime. You do not need Node,
 pnpm, an installer, administrator privileges, or an internet connection. Keep
 the terminal window open while studying; close OpenRecall with `Ctrl+C` and
-wait for the window to finish so SQLite shuts down cleanly. Chrome opens when
-available, with the default browser as a fallback.
+wait for the window to finish so SQLite shuts down cleanly. The launcher waits
+for the local server to become healthy, then opens your Windows default browser.
 
 > Normal and portable modes are intentionally separate. Moving the extracted
 > folder moves portable data with it; normal data stays in Local App Data.
@@ -47,7 +47,7 @@ available, with the default browser as a fallback.
 - Per-section statistics and scheduler overrides, global statistics, optimizer
   training, profile preview/application/rollback, and safe fallbacks.
 - Exact-duplicate detection during JSON import, section rename and permanent
-  delete, card trash/restore/delete, themes, RTL/LTR, and an installable PWA.
+  delete, card trash/restore/delete, themes, and RTL/LTR.
 - SQLite-only backup and validated restore. JSON is card interchange, not a
   backup format.
 
@@ -85,8 +85,8 @@ emulates experimental FSRS-7 behavior. See the
 ## Privacy and backup safety
 
 The production server binds only to `http://127.0.0.1:3210`. Security tests
-reject outbound DNS and sockets. API responses and card text are excluded from
-PWA runtime caches; logs use content-free diagnostic codes.
+reject outbound DNS and sockets. The browser does not keep an offline runtime
+cache; logs use content-free diagnostic codes.
 
 Create a SQLite backup in Settings before risky changes. Never copy only a live
 database file while the server is running. Permanent section deletion removes
