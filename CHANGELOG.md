@@ -6,7 +6,17 @@ licensed under Apache-2.0 and follows
 
 ## Unreleased
 
-No changes yet.
+### Changed
+
+- Section statistics, cards, and management are now collapsed by default and
+  load their heavy content only when opened.
+- End review now finishes the session immediately instead of opening a
+  pause-or-finish dialog.
+
+### Fixed
+
+- Learning repetitions that become due during a review now appear immediately
+  after the active card instead of waiting behind the original session backlog.
 
 ## [1.0.1] - 2026-08-09
 
