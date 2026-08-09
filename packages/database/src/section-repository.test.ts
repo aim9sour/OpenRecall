@@ -44,6 +44,60 @@ describe("SectionRepository", () => {
     });
   });
 
+  it("counts only active items by scheduler state and due time", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        const repository = new SectionRepository(db);
+        const section = repository.createSection({
+          name: "Biology",
+          nowMs: 1_000,
+        });
+        const rows = [
+          ["new-due", "active", 2_000, "new"],
+          ["review-due", "active", 2_000, "review"],
+          ["review-future", "active", 3_000, "review"],
+          ["trashed-due", "trashed", 1_000, "review"],
+        ] as const;
+
+        for (const [id, lifecycle, dueAtMs, memoryState] of rows) {
+          db.prepare(`
+            INSERT INTO learning_items
+              (id, section_id, lifecycle, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, 1000, 1000)
+          `).run(id, section.id, lifecycle);
+          db.prepare(`
+            INSERT INTO scheduler_states
+              (
+                learning_item_id, section_id, due_at_ms, memory_state,
+                step_index, stability, difficulty,
+                elapsed_days_at_last_review, scheduled_days,
+                last_review_at_ms, repetitions, lapses, revision,
+                algorithm_id, algorithm_version, adapter_version,
+                parameter_profile_id
+              )
+            VALUES
+              (
+                ?, ?, ?, ?, NULL, 0, 0, 0, 0, NULL, 0, 0, 0,
+                'FSRS-6', '6.0', 1, 'official-fsrs6-v1'
+              )
+          `).run(id, section.id, dueAtMs, memoryState);
+        }
+
+        expect(repository.listSections(2_000)[0]).toMatchObject({
+          counts: { total: 3, new: 1, dueNow: 2 },
+          nextDueAtMs: 3_000,
+        });
+        expect(repository.getSection(section.id, 3_000)).toMatchObject({
+          counts: { total: 3, new: 1, dueNow: 3 },
+          nextDueAtMs: null,
+        });
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   it("renames atomically with trimmed code-point names and monotonic revisions", async () => {
     await withTempDatabase((databasePath) => {
       const db = openDatabase(databasePath);

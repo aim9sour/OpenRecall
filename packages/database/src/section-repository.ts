@@ -23,6 +23,8 @@ interface SectionSummaryRow {
   readonly updated_at_ms: number;
   readonly total_count: number;
   readonly new_count: number;
+  readonly due_count: number;
+  readonly next_due_at_ms: number | null;
 }
 
 export class SectionNameError extends Error {
@@ -78,9 +80,9 @@ function mapSummary(row: SectionSummaryRow): SectionSummary {
     counts: {
       total: row.total_count,
       new: row.new_count,
-      dueNow: 0,
+      dueNow: row.due_count,
     },
-    nextDueAtMs: null,
+    nextDueAtMs: row.next_due_at_ms,
   };
 }
 
@@ -114,22 +116,39 @@ export class SectionRepository {
         sections.created_at_ms,
         sections.updated_at_ms,
         count(learning_items.id) AS total_count,
-        count(learning_items.id) AS new_count
+        count(learning_items.id) FILTER (
+          WHERE scheduler_states.memory_state = 'new'
+        ) AS new_count,
+        count(learning_items.id) FILTER (
+          WHERE scheduler_states.due_at_ms <= @nowMs
+        ) AS due_count,
+        min(scheduler_states.due_at_ms) FILTER (
+          WHERE scheduler_states.due_at_ms > @nowMs
+        ) AS next_due_at_ms
       FROM sections
       LEFT JOIN learning_items
         ON learning_items.section_id = sections.id
         AND learning_items.lifecycle = 'active'
+      LEFT JOIN scheduler_states
+        ON scheduler_states.learning_item_id = learning_items.id
+        AND scheduler_states.section_id = sections.id
     `;
 
-    this.#list = db.prepare<[], SectionSummaryRow>(`
+    this.#list = db.prepare<
+      { readonly nowMs: number },
+      SectionSummaryRow
+    >(`
       ${summarySelect}
       GROUP BY sections.id
       ORDER BY sections.updated_at_ms DESC, sections.id ASC
     `);
 
-    this.#get = db.prepare<[string], SectionSummaryRow>(`
+    this.#get = db.prepare<
+      { readonly nowMs: number; readonly sectionId: string },
+      SectionSummaryRow
+    >(`
       ${summarySelect}
-      WHERE sections.id = ?
+      WHERE sections.id = @sectionId
       GROUP BY sections.id
     `);
 
@@ -177,12 +196,12 @@ export class SectionRepository {
 
   listSections(nowMs: number): SectionSummary[] {
     validateNow(nowMs);
-    return this.#list.all().map(mapSummary);
+    return this.#list.all({ nowMs }).map(mapSummary);
   }
 
   getSection(sectionId: string, nowMs: number): SectionSummary | undefined {
     validateNow(nowMs);
-    const row = this.#get.get(sectionId);
+    const row = this.#get.get({ sectionId, nowMs });
     return row === undefined ? undefined : mapSummary(row);
   }
 
@@ -223,9 +242,11 @@ export class SectionRepository {
   }): void {
     validateNow(input.expectedUpdatedAtMs);
     const remove = this.#db.transaction(() => {
-      const row = this.#get.get(input.sectionId);
-      if (row === undefined) throw new SectionNotFoundError();
-      const current = mapSummary(row);
+      const current = this.getSection(
+        input.sectionId,
+        input.expectedUpdatedAtMs,
+      );
+      if (current === undefined) throw new SectionNotFoundError();
       if (current.updatedAtMs !== input.expectedUpdatedAtMs) {
         throw new SectionConflictError(current);
       }
