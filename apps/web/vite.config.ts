@@ -11,8 +11,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt",
       injectRegister: false,
+      selfDestroying: true,
       manifest: {
         name: "OpenRecall",
         short_name: "OpenRecall",
@@ -43,23 +43,6 @@ export default defineConfig({
             purpose: "maskable",
           },
         ],
-      },
-      workbox: {
-        cleanupOutdatedCaches: true,
-        clientsClaim: false,
-        globPatterns: ["**/*.{css,html,js,png,svg}"],
-        navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }: { readonly url: URL }) =>
-              url.pathname.startsWith("/api/"),
-            handler: "NetworkOnly",
-            method: "GET",
-          },
-        ],
-        skipWaiting: false,
-        sourcemap: false,
       },
     }),
   ],

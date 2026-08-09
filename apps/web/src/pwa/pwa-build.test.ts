@@ -40,7 +40,7 @@ afterAll(async () => {
 });
 
 describe("production PWA build", () => {
-  it("pre-caches only the local shell and immutable assets", async () => {
+  it("emits the manifest and a self-destroying compatibility worker", async () => {
     const manifest = JSON.parse(
       await readFile(
         resolve(outputDirectory, "manifest.webmanifest"),
@@ -63,36 +63,37 @@ describe("production PWA build", () => {
       resolve(outputDirectory, "sw.js"),
       "utf8",
     );
-    const precacheCall = serviceWorker.match(
-      /precacheAndRoute\((\[[\s\S]*?\]),\s*\{\}\)/,
-    )?.[1];
-    expect(precacheCall).toBeDefined();
-    expect(precacheCall).toMatch(/index\.html/);
-    expect(precacheCall).toMatch(
-      /assets\/index-[A-Za-z0-9_-]+\.js/,
+    expect(serviceWorker).toMatch(/registration\.unregister/);
+    expect(serviceWorker).toMatch(/caches\.keys/);
+    expect(serviceWorker).toMatch(/caches\.delete/);
+    expect(serviceWorker).not.toMatch(
+      /precacheAndRoute|NetworkOnly|SKIP_WAITING/,
     );
-    expect(precacheCall).toMatch(
-      /assets\/index-[A-Za-z0-9_-]+\.css/,
-    );
-    expect(precacheCall).not.toMatch(/["']\/api\//);
   });
 
-  it("keeps API and SSE requests network-only and updates prompt-based", async () => {
+  it("does not register a new worker from the application", async () => {
     const scripts = (
       await Promise.all(
-        (await readdir(outputDirectory))
+        (await readdir(outputDirectory, { recursive: true }))
           .filter((name) => name.endsWith(".js"))
           .map((name) =>
             readFile(resolve(outputDirectory, name), "utf8"),
           ),
       )
     ).join("\n");
-    expect(scripts).toMatch(/NetworkOnly/);
-    expect(scripts).toMatch(/api/);
-    expect(scripts).toMatch(/SKIP_WAITING/);
     expect(scripts).not.toMatch(
-      /addEventListener\(["']install["'][\s\S]{0,300}self\.skipWaiting/,
+      /navigator\.serviceWorker\.register|virtual:pwa-register/,
     );
+
+    for (const source of [
+      "src/main.tsx",
+      "src/router.tsx",
+      "src/app/AppShell.tsx",
+    ]) {
+      expect(await readFile(resolve(webRoot, source), "utf8")).not.toMatch(
+        /from ["'][^"']*\/pwa\//,
+      );
+    }
   });
 
   it("emits deterministic install icons at their declared dimensions", async () => {
