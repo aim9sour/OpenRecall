@@ -285,6 +285,7 @@ export const arabicLocale = {
     "import.status": "الحالة",
     "import.front": "السؤال",
     "import.back": "الإجابة",
+    "import.notes": "الملاحظات",
     "import.messages": "الرسائل",
     "import.selectCard": "تحديد البطاقة {{number}}",
     "import.status.valid": "صالحة",
