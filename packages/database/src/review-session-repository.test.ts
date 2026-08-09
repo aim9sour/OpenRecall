@@ -1,7 +1,10 @@
 import { withTempDatabase } from "@openrecall/test-support";
 import { describe, expect, it, vi } from "vitest";
 import { openDatabase } from "./open-database.js";
-import { ReviewSessionRepository } from "./review-session-repository.js";
+import {
+  REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL,
+  ReviewSessionRepository,
+} from "./review-session-repository.js";
 
 function insertFixture(db: ReturnType<typeof openDatabase>): void {
   db.exec(`
@@ -202,6 +205,28 @@ describe("ReviewSessionRepository.claimNext", () => {
         );
 
         expect(claimed?.entryId).toBe("entry-repeat");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("materializes completed items instead of correlating a scan for every queued row", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+
+      try {
+        insertFixture(db);
+        const plan = db
+          .prepare(`EXPLAIN QUERY PLAN ${REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL}`)
+          .all("session-1", "session-1") as Array<{ detail: string }>;
+        const details = plan.map(({ detail }) => detail).join("\n");
+
+        expect(details).toContain("MATERIALIZE completed_items");
+        expect(details).not.toContain("CORRELATED");
+        expect(details).toMatch(
+          /idx_queue_session_status|ux_session_pending_item/,
+        );
       } finally {
         db.close();
       }

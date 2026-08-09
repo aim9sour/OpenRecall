@@ -15,6 +15,16 @@ export interface SectionPageData {
 
 export function SectionPage({ api }: { readonly api: ApiClient }) {
   const { section } = useLoaderData() as SectionPageData;
+  return <SectionPageContent key={section.id} api={api} section={section} />;
+}
+
+function SectionPageContent({
+  api,
+  section,
+}: {
+  readonly api: ApiClient;
+  readonly section: SectionSummary;
+}) {
   const [currentSection, setCurrentSection] = useState(section);
   const navigate = useNavigate();
   const { t } = useI18n();

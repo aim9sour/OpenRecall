@@ -58,6 +58,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   );
   const claimInFlight = useRef<Promise<void> | null>(null);
   const claimGeneration = useRef(0);
+  const finishOperation = useRef(0);
   const busyOperation = useRef(0);
   const interactionBlocked = useRef(false);
   const dueDeadline = useRef<{
@@ -73,6 +74,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
 
   const handleSectionDeleted = useCallback(() => {
     claimGeneration.current += 1;
+    finishOperation.current += 1;
     busyOperation.current += 1;
     interactionBlocked.current = true;
     dueDeadline.current = null;
@@ -90,7 +92,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   useEffect(() => {
     claimGeneration.current += 1;
     setPage((current) =>
-      current.kind === "section-deleted" ? current : loaderState,
+      current.kind === "section-deleted" ||
+      (current.kind === "completed" && loaderState.kind !== "completed")
+        ? current
+        : loaderState,
     );
   }, [loaderState]);
 
@@ -138,7 +143,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     if (page.kind !== "question" || page.session.status !== "active") {
       return;
     }
-    const generation = claimGeneration.current;
+    let active = true;
     const entryId = page.card.entryId;
     void api
       .post<void>(
@@ -149,13 +154,14 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         },
       )
       .then(() => {
-        if (generation === claimGeneration.current) setShownEntryId(entryId);
+        if (active) setShownEntryId(entryId);
       })
       .catch(() => {
-        if (generation === claimGeneration.current) {
-          setAnnouncement(t("review.error"));
-        }
+        if (active) setAnnouncement(t("review.error"));
       });
+    return () => {
+      active = false;
+    };
   }, [api, page, t]);
 
   useEffect(() => {
@@ -392,7 +398,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     ) {
       return;
     }
-    const generation = ++claimGeneration.current;
+    claimGeneration.current += 1;
+    const finishGeneration = ++finishOperation.current;
     const operation = ++busyOperation.current;
     interactionBlocked.current = true;
     dueDeadline.current = null;
@@ -403,10 +410,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         {},
       )
       .then((state) => {
-        if (generation === claimGeneration.current) setPage(state);
+        if (finishGeneration === finishOperation.current) setPage(state);
       })
       .catch(() => {
-        if (generation === claimGeneration.current) {
+        if (finishGeneration === finishOperation.current) {
           interactionBlocked.current = false;
           setAnnouncement(t("review.error"));
           setClaimWakeRevision((revision) => revision + 1);

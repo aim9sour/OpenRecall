@@ -502,6 +502,77 @@ describe("ReviewPage NVDA interaction", () => {
     );
   });
 
+  it("keeps the current question revealable when finish fails during the shown acknowledgement", async () => {
+    let releaseShown!: () => void;
+    const shownGate = new Promise<void>((resolve) => {
+      releaseShown = resolve;
+    });
+    await renderReview(
+      "en",
+      questionState,
+      shownGate,
+      (path) =>
+        path.endsWith("/finish")
+          ? Promise.reject(new Error("temporary finish failure"))
+          : undefined,
+    );
+
+    const reveal = await screen.findByRole("button", { name: "Show answer" });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "The review could not be updated. Try again.",
+      ),
+    );
+    expect((reveal as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      releaseShown();
+      await shownGate;
+    });
+    await waitFor(() =>
+      expect((reveal as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  it("applies a successful finish after an active route revalidation", async () => {
+    let resolveFinish!: (state: ReviewPageState) => void;
+    const finishResponse = new Promise<ReviewPageState>((resolve) => {
+      resolveFinish = resolve;
+    });
+    const { router, setCurrentState } = await renderReview(
+      "en",
+      questionState,
+      undefined,
+      (path) => (path.endsWith("/finish") ? finishResponse : undefined),
+    );
+    await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+    setCurrentState({
+      ...questionState,
+      session: progress({ revision: 2, newlyJoined: 1 }),
+    });
+    await act(async () => {
+      await router.revalidate();
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "1 card joined this session.",
+      ),
+    );
+
+    await act(async () => {
+      resolveFinish(completedState);
+      await finishResponse;
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Review complete" }),
+    ).toBe(document.activeElement);
+  });
+
   it("focuses card content directly through reveal and the next rating", async () => {
     const user = userEvent.setup();
     await renderReview();

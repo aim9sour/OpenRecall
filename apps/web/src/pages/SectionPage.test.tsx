@@ -4,7 +4,7 @@ import type {
   StudyStatistics,
 } from "@openrecall/contracts";
 import { createI18n } from "@openrecall/i18n";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -51,6 +51,34 @@ const statistics: StudyStatistics = {
       learning: 0,
       review: 1,
       relearning: 0,
+    },
+  ],
+};
+
+const secondSection: SectionSummary = {
+  ...section,
+  id: "e1529999-233c-42f2-a96d-72de4dcc4321",
+  name: "Chemistry",
+  counts: { total: 2, new: 1, dueNow: 0 },
+};
+
+const secondStatistics: StudyStatistics = {
+  ...statistics,
+  stateCounts: {
+    ...statistics.stateCounts,
+    total: 2,
+    dueNow: 0,
+    new: 1,
+    review: 1,
+  },
+  sections: [
+    {
+      ...statistics.sections[0]!,
+      sectionId: secondSection.id,
+      name: secondSection.name,
+      total: 2,
+      dueNow: 0,
+      new: 1,
     },
   ],
 };
@@ -248,6 +276,15 @@ describe("SectionPage disclosures", () => {
       name: "Section management",
     });
     await user.click(managementButton);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Rename section" }),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: "Permanently delete section",
+      }),
+    ).not.toBeNull();
     const input = screen.getByRole("textbox", { name: "Section name" });
     await user.clear(input);
     await user.type(input, "Draft name");
@@ -296,5 +333,69 @@ describe("SectionPage disclosures", () => {
       confirmed: true,
       expectedUpdatedAtMs: renamed.updatedAtMs,
     });
+  });
+
+  it("resets disclosure state and ignores old panel responses after direct section navigation", async () => {
+    let releaseFirstStatistics!: (value: StudyStatistics) => void;
+    const firstStatistics = new Promise<StudyStatistics>((resolve) => {
+      releaseFirstStatistics = resolve;
+    });
+    const { router, user } = await renderSection({
+      get: async (path) => {
+        if (path === `/api/v1/sections/${section.id}`) return section;
+        if (path === `/api/v1/sections/${secondSection.id}`) {
+          return secondSection;
+        }
+        if (path === `/api/v1/sections/${section.id}/statistics`) {
+          return firstStatistics;
+        }
+        if (path === `/api/v1/sections/${secondSection.id}/statistics`) {
+          return secondStatistics;
+        }
+        throw new Error(`UNEXPECTED_GET:${path}`);
+      },
+    });
+
+    await screen.findByRole("heading", { level: 1, name: "Biology" });
+    await user.click(
+      screen.getByRole("button", { name: "Section statistics" }),
+    );
+    expect(screen.getByRole("status").textContent).toBe(
+      "Loading section statistics…",
+    );
+
+    await act(async () => {
+      await router.navigate(`/sections/${secondSection.id}`);
+    });
+    await screen.findByRole("heading", { level: 1, name: "Chemistry" });
+    const statisticsButton = screen.getByRole("button", {
+      name: "Section statistics",
+    });
+    expect(statisticsButton.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.getByRole("button", { name: "Section management" }).getAttribute(
+        "aria-expanded",
+      ),
+    ).toBe("false");
+
+    await user.click(statisticsButton);
+    await waitFor(() =>
+      expect(
+        screen.getByText("Total", {
+          exact: true,
+          selector: "dt",
+        }).parentElement?.textContent,
+      ).toContain("2"),
+    );
+    await act(async () => {
+      releaseFirstStatistics(statistics);
+      await firstStatistics;
+    });
+    expect(
+      screen.getByText("Total", {
+        exact: true,
+        selector: "dt",
+      }).parentElement?.textContent,
+    ).toContain("2");
   });
 });

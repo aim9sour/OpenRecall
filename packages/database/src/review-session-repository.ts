@@ -48,6 +48,34 @@ interface PresentationRow {
   readonly show_count: number;
 }
 
+export const REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL = `
+  WITH completed_items AS MATERIALIZED (
+    SELECT DISTINCT learning_item_id
+    FROM session_queue_entries
+    WHERE session_id = ?
+      AND status = 'completed'
+  )
+  SELECT
+    queue.id,
+    queue.learning_item_id,
+    coalesce(scheduler_states.revision, 0) AS state_revision
+  FROM session_queue_entries AS queue
+  JOIN completed_items
+    ON completed_items.learning_item_id = queue.learning_item_id
+  JOIN review_sessions
+    ON review_sessions.id = queue.session_id
+    AND review_sessions.status = 'active'
+  JOIN learning_items
+    ON learning_items.id = queue.learning_item_id
+    AND learning_items.lifecycle = 'active'
+  LEFT JOIN scheduler_states
+    ON scheduler_states.learning_item_id = queue.learning_item_id
+  WHERE queue.session_id = ?
+    AND queue.status = 'queued'
+  ORDER BY queue.enqueued_due_at_ms, queue.id
+  LIMIT 1
+`;
+
 function mapActiveView(row: ActiveViewRow): ReviewCardView {
   return {
     sessionId: row.session_id,
@@ -135,6 +163,10 @@ export class ReviewSessionRepository {
       ORDER BY queue.activated_at_ms, queue.id
       LIMIT 1
     `);
+    const selectRepeatedQueued = db.prepare<
+      [string, string],
+      QueuedEntryRow
+    >(REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL);
     const selectQueued = db.prepare<[string], QueuedEntryRow>(`
       SELECT
         queue.id,
@@ -151,16 +183,7 @@ export class ReviewSessionRepository {
         ON scheduler_states.learning_item_id = queue.learning_item_id
       WHERE queue.session_id = ?
         AND queue.status = 'queued'
-      ORDER BY
-        EXISTS (
-          SELECT 1
-          FROM session_queue_entries AS completed
-          WHERE completed.session_id = queue.session_id
-            AND completed.learning_item_id = queue.learning_item_id
-            AND completed.status = 'completed'
-        ) DESC,
-        queue.enqueued_due_at_ms,
-        queue.id
+      ORDER BY queue.enqueued_due_at_ms, queue.id
       LIMIT 1
     `);
     const selectPresentations = db.prepare<[string], PresentationRow>(`
@@ -204,7 +227,9 @@ export class ReviewSessionRepository {
           return mapActiveView(existing);
         }
 
-        const queued = selectQueued.get(sessionId);
+        const queued =
+          selectRepeatedQueued.get(sessionId, sessionId) ??
+          selectQueued.get(sessionId);
         if (queued === undefined) {
           return null;
         }
