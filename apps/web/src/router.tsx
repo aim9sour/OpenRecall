@@ -106,13 +106,10 @@ export function createRoutes({
           path: "sections/:sectionId",
           loader: async ({ params }): Promise<SectionPageData> => {
             const sectionId = encodeURIComponent(params["sectionId"] ?? "");
-            const [section, statistics] = await Promise.all([
-              api.get<SectionSummary>(`/api/v1/sections/${sectionId}`),
-              api.get<StudyStatistics>(
-                `/api/v1/sections/${sectionId}/statistics`,
-              ),
-            ]);
-            return { section, statistics };
+            const section = await api.get<SectionSummary>(
+              `/api/v1/sections/${sectionId}`,
+            );
+            return { section };
           },
           element: <SectionPage api={api} />,
         },

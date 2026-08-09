@@ -106,6 +106,7 @@ test("renames and permanently deletes sections, including an open review", async
   const renamedName = `قسم مُعاد ${suffix}`;
   await createSection(page, originalName);
 
+  await page.getByRole("button", { name: "إدارة القسم" }).click();
   await page.getByRole("textbox", { name: "اسم القسم" }).fill(renamedName);
   await page.getByRole("button", { name: "حفظ الاسم الجديد" }).click();
   await expect(page.getByRole("heading", { level: 1, name: renamedName })).toBeVisible();
@@ -116,6 +117,7 @@ test("renames and permanently deletes sections, including an open review", async
   await page.getByRole("link", { name: "العودة إلى الأقسام التعليمية" }).click();
   await expect(page.getByRole("link", { name: renamedName })).toBeVisible();
   await page.getByRole("link", { name: renamedName }).click();
+  await page.getByRole("button", { name: "إدارة القسم" }).click();
 
   const confirmation = page.getByRole("checkbox", {
     name: "أفهم أن هذا القسم سيُحذف نهائيًا",
@@ -135,9 +137,6 @@ test("renames and permanently deletes sections, including an open review", async
   await importOneCard(page);
   await page.getByRole("button", { name: "بدء المراجعة" }).click();
   await expect(page.locator('[data-review-content="question"]')).toBeFocused();
-  await page.getByRole("button", { name: "إنهاء المراجعة" }).click();
-  await page.getByRole("button", { name: "المتابعة لاحقًا" }).click();
-  await expect(page.getByRole("heading", { name: "المراجعة متوقفة مؤقتًا" })).toBeFocused();
   const reviewUrl = page.url();
 
   const secondPage = await context.newPage();
@@ -148,9 +147,12 @@ test("renames and permanently deletes sections, including an open review", async
     }
   });
   await secondPage.goto(reviewUrl);
-  await expect(secondPage.getByRole("heading", { name: "المراجعة متوقفة مؤقتًا" })).toBeFocused();
+  await expect(
+    secondPage.locator('[data-review-content="question"]'),
+  ).toBeFocused();
 
   await page.goto(`/sections/${reviewSectionId}`);
+  await page.getByRole("button", { name: "إدارة القسم" }).click();
   await page.getByRole("checkbox", {
     name: "أفهم أن هذا القسم سيُحذف نهائيًا",
   }).check();

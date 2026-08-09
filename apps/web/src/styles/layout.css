@@ -449,6 +449,27 @@ td {
   margin-block: var(--space-4);
 }
 
+.section-disclosure {
+  margin-block: var(--space-4);
+}
+
+.section-disclosure > h2 {
+  margin: 0;
+}
+
+.section-disclosure > h2 > button {
+  inline-size: 100%;
+  text-align: start;
+}
+
+.section-disclosure-panel {
+  padding: clamp(var(--space-4), 2vw, var(--space-5));
+  border: var(--border-width) solid var(--color-border);
+  border-block-start: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--color-surface);
+}
+
 @media (max-width: 48rem) {
   .app-header {
     grid-template-columns: 1fr;

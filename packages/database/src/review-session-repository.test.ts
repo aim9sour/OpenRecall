@@ -1,7 +1,10 @@
 import { withTempDatabase } from "@openrecall/test-support";
 import { describe, expect, it, vi } from "vitest";
 import { openDatabase } from "./open-database.js";
-import { ReviewSessionRepository } from "./review-session-repository.js";
+import {
+  REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL,
+  ReviewSessionRepository,
+} from "./review-session-repository.js";
 
 function insertFixture(db: ReturnType<typeof openDatabase>): void {
   db.exec(`
@@ -57,10 +60,11 @@ function insertQueueEntry(
     id: string;
     learningItemId: string;
     dueAtMs: number;
-    status?: "queued" | "active";
+    status?: "queued" | "active" | "completed";
     presentationId?: string;
   },
 ): void {
+  const status = input.status ?? "queued";
   db.prepare(
     `
       INSERT INTO session_queue_entries
@@ -72,7 +76,8 @@ function insertQueueEntry(
           enqueued_due_at_ms,
           enqueued_at_ms,
           activated_at_ms,
-          presentation_id
+          presentation_id,
+          completed_at_ms
         )
       VALUES
         (
@@ -83,16 +88,22 @@ function insertQueueEntry(
           @dueAtMs,
           3000,
           @activatedAtMs,
-          @presentationId
+          @presentationId,
+          @completedAtMs
         )
     `,
   ).run({
     id: input.id,
     learningItemId: input.learningItemId,
-    status: input.status ?? "queued",
+    status,
     dueAtMs: input.dueAtMs,
-    activatedAtMs: input.status === "active" ? 3500 : null,
-    presentationId: input.presentationId ?? null,
+    activatedAtMs:
+      status === "active" || status === "completed" ? 3500 : null,
+    presentationId:
+      status === "active" || status === "completed"
+        ? (input.presentationId ?? null)
+        : null,
+    completedAtMs: status === "completed" ? 3600 : null,
   });
 }
 
@@ -157,6 +168,65 @@ describe("ReviewSessionRepository.claimNext", () => {
             .pluck()
             .get(),
         ).toBe(1);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("claims a due session repetition before the ordinary backlog", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+
+      try {
+        insertFixture(db);
+        insertQueueEntry(db, {
+          id: "entry-completed",
+          learningItemId: "item-1",
+          dueAtMs: 1000,
+          status: "completed",
+          presentationId: "presentation-1a",
+        });
+        insertQueueEntry(db, {
+          id: "entry-normal",
+          learningItemId: "item-2",
+          dueAtMs: 1000,
+        });
+        insertQueueEntry(db, {
+          id: "entry-repeat",
+          learningItemId: "item-1",
+          dueAtMs: 4000,
+        });
+
+        const claimed = new ReviewSessionRepository(db).claimNext(
+          "session-1",
+          4000,
+          () => 0,
+        );
+
+        expect(claimed?.entryId).toBe("entry-repeat");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("materializes completed items instead of correlating a scan for every queued row", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+
+      try {
+        insertFixture(db);
+        const plan = db
+          .prepare(`EXPLAIN QUERY PLAN ${REVIEW_SESSION_SELECT_REPEATED_QUEUED_SQL}`)
+          .all("session-1", "session-1") as Array<{ detail: string }>;
+        const details = plan.map(({ detail }) => detail).join("\n");
+
+        expect(details).toContain("MATERIALIZE completed_items");
+        expect(details).not.toContain("CORRELATED");
+        expect(details).toMatch(
+          /idx_queue_session_status|ux_session_pending_item/,
+        );
       } finally {
         db.close();
       }

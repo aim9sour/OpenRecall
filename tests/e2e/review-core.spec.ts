@@ -5,7 +5,7 @@ import { resolveE2ePorts } from "./ports.js";
 
 const clockPath = e2eClockPath(resolveE2ePorts().api[0]);
 
-test("review core continuously rotates variants, resumes, and finishes with a summary", async ({
+test("review core continuously rotates variants and finishes directly with a summary", async ({
   page,
 }) => {
   await page.goto("/");
@@ -90,36 +90,6 @@ test("review core continuously rotates variants, resumes, and finishes with a su
   ).toBeFocused();
 
   await page.getByRole("button", { name: "إنهاء المراجعة" }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "هل تريد إنهاء جلسة المراجعة؟",
-  });
-  await expect(dialog).toBeVisible();
-  await page.getByRole("button", { name: "المتابعة لاحقًا" }).click();
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "المراجعة متوقفة مؤقتًا",
-    }),
-  ).toBeFocused();
-
-  await page.reload();
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "المراجعة متوقفة مؤقتًا",
-    }),
-  ).toBeFocused();
-  await page.getByRole("button", { name: "استئناف المراجعة" }).click();
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "لا توجد بطاقات مستحقة الآن",
-    }),
-  ).toBeFocused();
-
-  await page.getByRole("button", { name: "إنهاء المراجعة" }).click();
-  await page.getByRole("button", { name: "إنهاء الجلسة" }).click();
-
   await expect(
     page.getByRole("heading", { level: 1, name: "اكتملت المراجعة" }),
   ).toBeFocused();

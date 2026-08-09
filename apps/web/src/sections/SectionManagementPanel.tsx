@@ -171,7 +171,7 @@ export function SectionManagementPanel({
   return (
     <>
       <section aria-labelledby="section-rename-heading" className="panel">
-        <h2 id="section-rename-heading">{t("section.rename.heading")}</h2>
+        <h3 id="section-rename-heading">{t("section.rename.heading")}</h3>
         <ErrorSummary
           errors={renameErrors}
           focus={renameError !== ""}
@@ -204,7 +204,7 @@ export function SectionManagementPanel({
         aria-labelledby="section-delete-heading"
         className="panel danger-panel"
       >
-        <h2 id="section-delete-heading">{t("section.delete.heading")}</h2>
+        <h3 id="section-delete-heading">{t("section.delete.heading")}</h3>
         <p>{t("section.delete.warning")}</p>
         <ErrorSummary
           errors={deleteErrors}

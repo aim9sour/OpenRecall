@@ -1,12 +1,10 @@
 import type { SessionSummary as SessionSummaryValue } from "@openrecall/contracts";
 import { createI18n } from "@openrecall/i18n";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { createRef, useState } from "react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../app/I18nProvider.js";
-import { EndSessionDialog } from "./EndSessionDialog.js";
 import { SessionSummary } from "./SessionSummary.js";
 import { WaitingState } from "./WaitingState.js";
 
@@ -70,52 +68,6 @@ describe("WaitingState", () => {
       screen.getByRole("button", { name: "Resume review" }),
     );
     expect(onResume).toHaveBeenCalledOnce();
-  });
-});
-
-describe("EndSessionDialog", () => {
-  it("traps focus and restores the opener when cancelled", async () => {
-    const user = userEvent.setup();
-
-    function Harness() {
-      const [open, setOpen] = useState(false);
-      const openerRef = createRef<HTMLButtonElement>();
-      return (
-        <>
-          <button ref={openerRef} type="button" onClick={() => setOpen(true)}>
-            End review
-          </button>
-          {open && (
-            <EndSessionDialog
-              busy={false}
-              openerRef={openerRef}
-              onCancel={() => setOpen(false)}
-              onFinish={() => {}}
-              onPause={() => {}}
-            />
-          )}
-        </>
-      );
-    }
-
-    await renderEnglish(<Harness />);
-    const opener = screen.getByRole("button", { name: "End review" });
-    await user.click(opener);
-    const dialog = screen.getByRole("dialog", {
-      name: "End this review session?",
-    });
-    const cancel = screen.getByRole("button", { name: "Cancel" });
-    await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole("button", { name: "Continue later" }),
-      ),
-    );
-
-    await user.tab({ shift: true });
-    expect(document.activeElement).toBe(cancel);
-    await user.click(cancel);
-    expect(dialog.isConnected).toBe(false);
-    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 });
 

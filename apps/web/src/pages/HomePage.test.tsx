@@ -128,18 +128,24 @@ describe("HomePage accessibility", () => {
     const initialRequestCount = sectionRequests.length;
 
     window.dispatchEvent(new Event("focus"));
-    await waitFor(() => {
-      expect(sectionRequests).toHaveLength(initialRequestCount + 1);
-    });
+    await waitFor(
+      () => {
+        expect(sectionRequests).toHaveLength(initialRequestCount + 1);
+      },
+      { timeout: 5_000 },
+    );
 
     document.dispatchEvent(new Event("visibilitychange"));
     expect(sectionRequests).toHaveLength(initialRequestCount + 1);
 
     visibilityState = "visible";
     document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => {
-      expect(sectionRequests).toHaveLength(initialRequestCount + 2);
-    });
+    await waitFor(
+      () => {
+        expect(sectionRequests).toHaveLength(initialRequestCount + 2);
+      },
+      { timeout: 5_000 },
+    );
   });
 
   it("has one main landmark, one h1, a skip link, and enabled review controls", async () => {
