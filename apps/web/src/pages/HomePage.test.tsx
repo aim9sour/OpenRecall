@@ -1,10 +1,10 @@
 import type { ReviewPageState } from "@openrecall/contracts";
 import { createI18n } from "@openrecall/i18n";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import axe from "axe-core";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiClientError,
   type ApiClient,
@@ -42,6 +42,7 @@ const waitingReview: ReviewPageState = {
 async function renderHome(
   post: ApiClient["post"] = async <T,>() => ({}) as T,
   initialEntry: string | { readonly pathname: string; readonly state?: unknown } = "/",
+  get?: ApiClient["get"],
 ) {
   const i18n = await createI18n("en");
   const api: ApiClient = {
@@ -52,10 +53,10 @@ async function renderHome(
       locale: "en",
       localeUpdatedAtMs: 0,
     }),
-    get: async <T,>(path: string) =>
+    get: get ?? (async <T,>(path: string) =>
       (path.startsWith("/api/v1/review-sessions/")
         ? waitingReview
-        : sections) as T,
+        : sections) as T),
     patch: async <T,>() => ({}) as T,
     post,
     put: async <T,>() => ({}) as T,
@@ -69,7 +70,78 @@ async function renderHome(
   return { ...result, router };
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
 describe("HomePage accessibility", () => {
+  it("revalidates section summaries when the next card becomes due", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(1_000);
+    const sectionRequests: string[] = [];
+    let dueNow = 0;
+
+    await renderHome(undefined, "/", async <T,>(path: string) => {
+      if (path === "/api/v1/sections") {
+        sectionRequests.push(path);
+        return [
+          {
+            ...sections[0]!,
+            counts: { ...sections[0]!.counts, dueNow },
+            nextDueAtMs: dueNow === 0 ? 2_000 : null,
+          },
+        ] as T;
+      }
+      return waitingReview as T;
+    });
+
+    expect(
+      screen.getByText("Due now").parentElement?.querySelector("dd")
+        ?.textContent,
+    ).toBe("0");
+    dueNow = 1;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(
+      screen.getByText("Due now").parentElement?.querySelector("dd")
+        ?.textContent,
+    ).toBe("1");
+    expect(sectionRequests).toHaveLength(2);
+  });
+
+  it("revalidates on focus and only when the document becomes visible", async () => {
+    const sectionRequests: string[] = [];
+    let visibilityState: DocumentVisibilityState = "hidden";
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(
+      () => visibilityState,
+    );
+    await renderHome(undefined, "/", async <T,>(path: string) => {
+      if (path === "/api/v1/sections") {
+        sectionRequests.push(path);
+        return sections as T;
+      }
+      return waitingReview as T;
+    });
+    const initialRequestCount = sectionRequests.length;
+
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() => {
+      expect(sectionRequests).toHaveLength(initialRequestCount + 1);
+    });
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(sectionRequests).toHaveLength(initialRequestCount + 1);
+
+    visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => {
+      expect(sectionRequests).toHaveLength(initialRequestCount + 2);
+    });
+  });
+
   it("has one main landmark, one h1, a skip link, and enabled review controls", async () => {
     const { container } = await renderHome();
 

@@ -7,6 +7,7 @@ import {
   useLoaderData,
   useLocation,
   useNavigation,
+  useRevalidator,
 } from "react-router";
 import { useI18n } from "../app/I18nProvider.js";
 import type { ApiClient } from "../api/client.js";
@@ -21,7 +22,9 @@ export function HomePage({ api }: { readonly api: ApiClient }) {
   const actionData = useActionData() as CreateSectionActionData | undefined;
   const navigation = useNavigation();
   const location = useLocation();
+  const revalidator = useRevalidator();
   const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const triggeredDueAtMsRef = useRef<number | null>(null);
   const { t } = useI18n();
   const navigationState: unknown = location.state;
   const announceDeletion =
@@ -35,6 +38,56 @@ export function HomePage({ api }: { readonly api: ApiClient }) {
       errorSummaryRef.current?.focus();
     }
   }, [actionData]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void revalidator.revalidate();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const nextDueAtMs = sections.reduce<number | null>(
+      (earliest, section) =>
+        section.nextDueAtMs !== null &&
+        (earliest === null || section.nextDueAtMs < earliest)
+          ? section.nextDueAtMs
+          : earliest,
+      null,
+    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (
+      nextDueAtMs !== null &&
+      nextDueAtMs !== triggeredDueAtMsRef.current
+    ) {
+      const maximumTimeoutMs = 2_147_483_647;
+      const deadline =
+        performance.now() + Math.max(0, nextDueAtMs - Date.now());
+      const waitUntilDeadline = () => {
+        const remainingMs = deadline - performance.now();
+        if (remainingMs <= 0) {
+          triggeredDueAtMsRef.current = nextDueAtMs;
+          refresh();
+          return;
+        }
+        timeoutId = setTimeout(
+          waitUntilDeadline,
+          Math.min(maximumTimeoutMs, remainingMs),
+        );
+      };
+      waitUntilDeadline();
+    }
+
+    return () => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisibilityChange,
+      );
+    };
+  }, [revalidator, sections]);
 
   return (
     <>
