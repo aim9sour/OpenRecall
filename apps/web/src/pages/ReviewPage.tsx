@@ -5,7 +5,6 @@ import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { RatingButtons } from "../review/RatingButtons.js";
 import { SessionProgress } from "../review/SessionProgress.js";
-import { EndSessionDialog } from "../review/EndSessionDialog.js";
 import { SessionSummary } from "../review/SessionSummary.js";
 import { WaitingState } from "../review/WaitingState.js";
 import { useReviewEvents } from "../review/use-review-events.js";
@@ -30,12 +29,6 @@ function sectionIdOf(state: ReviewPageState): string {
     : state.session.sectionId;
 }
 
-function reviewContentKey(state: ReviewPageState): string {
-  return state.kind === "question" || state.kind === "answer"
-    ? `${state.kind}:${state.card.entryId}`
-    : state.kind;
-}
-
 export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const loaderState = useLoaderData() as ReviewPageState;
   const { t } = useI18n();
@@ -51,7 +44,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const [page, setPage] = useState<ReviewDisplayState>(loaderState);
   const [busy, setBusy] = useState(false);
   const [shownEntryId, setShownEntryId] = useState<string | null>(null);
-  const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [claimWakeRevision, setClaimWakeRevision] = useState(0);
   const [announcement, setAnnouncement] = useState(
     initialNoticeKey === null ? "" : t(initialNoticeKey),
@@ -72,9 +64,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     readonly key: string;
     readonly atPerformanceMs: number;
   } | null>(null);
-  const dialogOpenedContentKey = useRef<string | null>(null);
-  const dialogGeneration = useRef(0);
-  const dialogWasOpen = useRef(false);
   const sessionId = sessionIdOf(loaderState);
   const sectionId = sectionIdOf(loaderState);
   const activeReview =
@@ -85,10 +74,8 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const handleSectionDeleted = useCallback(() => {
     claimGeneration.current += 1;
     busyOperation.current += 1;
-    dialogGeneration.current += 1;
     interactionBlocked.current = true;
     dueDeadline.current = null;
-    setEndDialogOpen(false);
     setBusy(false);
     setPage({ kind: "section-deleted", sectionId });
   }, [sectionId]);
@@ -127,23 +114,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
       deletedHeadingRef.current?.focus();
       return;
     }
-    if (endDialogOpen) {
-      dialogWasOpen.current = true;
-      return;
-    }
-    if (dialogWasOpen.current) {
-      dialogWasOpen.current = false;
-      if (
-        (page.kind === "question" || page.kind === "answer") &&
-        page.session.status === "paused"
-      ) {
-        pausedHeadingRef.current?.focus();
-        return;
-      }
-      if (dialogOpenedContentKey.current === reviewContentKey(page)) {
-        return;
-      }
-    }
     if (
       (page.kind === "question" || page.kind === "answer") &&
       page.session.status === "paused"
@@ -162,7 +132,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     page.kind === "question" || page.kind === "answer"
       ? page.session.status
       : "",
-    endDialogOpen,
   ]);
 
   useEffect(() => {
@@ -385,41 +354,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     [api, busy, page, t],
   );
 
-  const pause = (): void => {
-    if (
-      page.kind === "completed" ||
-      page.kind === "section-deleted" ||
-      busy
-    ) {
-      return;
-    }
-    const generation = claimGeneration.current;
-    const operation = ++busyOperation.current;
-    const openedDialog = dialogGeneration.current;
-    setBusy(true);
-    void api
-      .post<ReviewPageState>(
-        `/api/v1/review-sessions/${encodeURIComponent(page.session.id)}/pause`,
-        {},
-      )
-      .then((state) => {
-        if (generation === claimGeneration.current) {
-          setPage(state);
-        }
-        if (openedDialog === dialogGeneration.current) {
-          setEndDialogOpen(false);
-        }
-      })
-      .catch(() => {
-        if (generation === claimGeneration.current) {
-          setAnnouncement(t("review.error"));
-        }
-      })
-      .finally(() => {
-        if (operation === busyOperation.current) setBusy(false);
-      });
-  };
-
   const resume = (): void => {
     if (
       page.kind === "completed" ||
@@ -458,9 +392,10 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     ) {
       return;
     }
-    const generation = claimGeneration.current;
+    const generation = ++claimGeneration.current;
     const operation = ++busyOperation.current;
-    const openedDialog = dialogGeneration.current;
+    interactionBlocked.current = true;
+    dueDeadline.current = null;
     setBusy(true);
     void api
       .post<ReviewPageState>(
@@ -468,16 +403,13 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
         {},
       )
       .then((state) => {
-        if (generation === claimGeneration.current) {
-          setPage(state);
-        }
-        if (openedDialog === dialogGeneration.current) {
-          setEndDialogOpen(false);
-        }
+        if (generation === claimGeneration.current) setPage(state);
       })
       .catch(() => {
         if (generation === claimGeneration.current) {
+          interactionBlocked.current = false;
           setAnnouncement(t("review.error"));
+          setClaimWakeRevision((revision) => revision + 1);
         }
       })
       .finally(() => {
@@ -491,27 +423,6 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
     onRate: rate,
     onReveal: reveal,
   });
-
-  const openEndDialog = (): void => {
-    if (page.kind === "completed" || page.kind === "section-deleted") return;
-    dialogGeneration.current += 1;
-    dialogOpenedContentKey.current = reviewContentKey(page);
-    claimGeneration.current += 1;
-    interactionBlocked.current = true;
-    setEndDialogOpen(true);
-  };
-
-  const cancelEndDialog = (): void => {
-    if (page.kind === "section-deleted") return;
-    interactionBlocked.current = false;
-    setEndDialogOpen(false);
-    if (
-      dueDeadline.current !== null &&
-      dueDeadline.current.atPerformanceMs <= window.performance.now()
-    ) {
-      setClaimWakeRevision((revision) => revision + 1);
-    }
-  };
 
   return (
     <div data-openrecall-review-active={activeReview ? "true" : "false"}>
@@ -603,7 +514,7 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
           endButtonRef={endButtonRef}
           nextDueAtMs={page.nextDueAtMs}
           paused={page.session.status === "paused"}
-          onEnd={openEndDialog}
+          onEnd={finish}
           onResume={resume}
         />
       )}
@@ -631,27 +542,13 @@ export function ReviewPage({ api }: { readonly api: ApiClient }) {
             ref={endButtonRef}
             type="button"
             disabled={busy}
-            onClick={openEndDialog}
+            onClick={finish}
           >
             {t("review.end")}
           </button>
         </p>
       )}
 
-      {endDialogOpen &&
-        page.kind !== "completed" &&
-        page.kind !== "section-deleted" && (
-        <EndSessionDialog
-          busy={busy}
-          openerRef={endButtonRef}
-          restoreOpener={
-            dialogOpenedContentKey.current === reviewContentKey(page)
-          }
-          onCancel={cancelEndDialog}
-          onFinish={finish}
-          onPause={pause}
-        />
-      )}
     </div>
   );
 }

@@ -323,11 +323,6 @@ export const englishLocale = {
     "review.noFutureDue": "No future review is scheduled.",
     "review.nextDue": "Next review:",
     "review.resume": "Resume review",
-    "review.endDialogTitle": "End this review session?",
-    "review.endDialogDescription":
-      "Continue later pauses the session. Finish session closes it and shows the final summary.",
-    "review.continueLater": "Continue later",
-    "review.finish": "Finish session",
     "review.cancel": "Cancel",
     "review.summary.events": "Review events",
     "review.summary.unique": "Unique cards",

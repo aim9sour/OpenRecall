@@ -320,11 +320,6 @@ export const arabicLocale = {
     "review.noFutureDue": "لا توجد مراجعة مستقبلية مجدولة.",
     "review.nextDue": "المراجعة التالية:",
     "review.resume": "استئناف المراجعة",
-    "review.endDialogTitle": "هل تريد إنهاء جلسة المراجعة؟",
-    "review.endDialogDescription":
-      "المتابعة لاحقًا توقف الجلسة مؤقتًا. إنهاء الجلسة يغلقها ويعرض الملخص النهائي.",
-    "review.continueLater": "المتابعة لاحقًا",
-    "review.finish": "إنهاء الجلسة",
     "review.cancel": "إلغاء",
     "review.summary.events": "أحداث المراجعة",
     "review.summary.unique": "البطاقات الفريدة",
