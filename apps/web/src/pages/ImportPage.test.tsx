@@ -104,7 +104,7 @@ describe("ImportPage", () => {
           {
             front: "2 < 3",
             back: "True & literal",
-            notes: "<em>Primary note & context</em>",
+            notes: "Primary note: 2 < 3 & context",
             variants: [
               {
                 front: "Alternative",
@@ -130,7 +130,7 @@ describe("ImportPage", () => {
     expect(literalCell.querySelector("*")).toBeNull();
     expect(screen.getByRole("columnheader", { name: "Notes" })).not.toBeNull();
 
-    const primaryNotes = screen.getByText("<em>Primary note & context</em>");
+    const primaryNotes = screen.getByText("Primary note: 2 < 3 & context");
     expect(primaryNotes.getAttribute("dir")).toBe("auto");
     expect(primaryNotes.querySelector("*")).toBeNull();
     expect(screen.queryByText("Variant-only note")).toBeNull();
