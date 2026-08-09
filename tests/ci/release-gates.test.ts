@@ -178,6 +178,19 @@ describe("lockfile and install-script gate", () => {
     expect(lockfile).not.toContain("sharp@0.33.5:");
   });
 
+  it("excludes the transitive versions covered by current high-severity advisories", async () => {
+    const lockfile = await readFile(
+      join(repositoryRoot, "pnpm-lock.yaml"),
+      "utf8",
+    );
+
+    expect(lockfile).not.toContain("fast-uri@3.1.4:");
+    expect(lockfile).not.toContain("fast-uri@4.1.1:");
+    expect(lockfile).not.toContain("brace-expansion@2.1.3:");
+    expect(lockfile).not.toContain("brace-expansion@5.0.8:");
+    expect(lockfile).not.toContain("nanoid@3.3.16:");
+  });
+
   it("rejects version ranges and any extra dependency build permission", async () => {
     const root = await temporaryRoot();
     await write(
