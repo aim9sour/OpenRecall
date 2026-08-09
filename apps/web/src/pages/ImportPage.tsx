@@ -20,7 +20,11 @@ function asCards(content: unknown): readonly unknown[] {
   return Array.isArray(content) ? content : [content];
 }
 
-function cardText(content: unknown, index: number, field: "front" | "back") {
+function cardText(
+  content: unknown,
+  index: number,
+  field: "front" | "back" | "notes",
+) {
   const card = asCards(content)[index];
   if (typeof card !== "object" || card === null || Array.isArray(card)) {
     return "";
@@ -155,6 +159,7 @@ export function ImportPage({ api }: { readonly api: ApiClient }) {
                 <th scope="col">{t("import.status")}</th>
                 <th scope="col">{t("import.front")}</th>
                 <th scope="col">{t("import.back")}</th>
+                <th scope="col">{t("import.notes")}</th>
                 <th scope="col">{t("import.messages")}</th>
               </tr></thead>
               <tbody>
@@ -175,6 +180,7 @@ export function ImportPage({ api }: { readonly api: ApiClient }) {
                     <td>{t(`import.status.${row.status}`)}</td>
                     <td dir="auto">{cardText(content, row.index, "front")}</td>
                     <td dir="auto">{cardText(content, row.index, "back")}</td>
+                    <td dir="auto">{cardText(content, row.index, "notes")}</td>
                     <td><ul>{[...row.issues, ...row.warnings].map((message) => (
                       <li key={`${message.path}-${message.messageKey}`}>
                         {message.path}: {t(message.messageKey)}

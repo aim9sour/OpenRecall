@@ -8,6 +8,8 @@ licensed under Apache-2.0 and follows
 
 ### Changed
 
+- Import previews now show each card's primary optional notes beside its
+  question and answer before selection.
 - Section statistics, cards, and management are now collapsed by default and
   load their heavy content only when opened.
 - End review now finishes the session immediately instead of opening a

@@ -231,6 +231,7 @@ export const COMMON_MESSAGE_KEYS = [
   "import.status",
   "import.front",
   "import.back",
+  "import.notes",
   "import.messages",
   "import.selectCard",
   "import.status.valid",

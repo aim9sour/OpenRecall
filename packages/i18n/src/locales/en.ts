@@ -288,6 +288,7 @@ export const englishLocale = {
     "import.status": "Status",
     "import.front": "Question",
     "import.back": "Answer",
+    "import.notes": "Notes",
     "import.messages": "Messages",
     "import.selectCard": "Select card {{number}}",
     "import.status.valid": "Valid",

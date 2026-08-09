@@ -63,13 +63,19 @@ describe("ImportPage", () => {
           return {
             previewId: "preview",
             digest: "a".repeat(64),
-            total: 1,
-            valid: 1,
+            total: 2,
+            valid: 2,
             duplicate: 0,
             invalid: 0,
             rows: [
               {
                 index: 0,
+                status: "valid",
+                issues: [],
+                warnings: [],
+              },
+              {
+                index: 1,
                 status: "valid",
                 issues: [],
                 warnings: [],
@@ -94,12 +100,24 @@ describe("ImportPage", () => {
     expect(input.getAttribute("accept")).toBe(".json,application/json");
     const file = new File(
       [
-        JSON.stringify({
-          front: "2 < 3",
-          back: "True & literal",
-          notes: null,
-          variants: [{ front: "Alternative", back: "True" }],
-        }),
+        JSON.stringify([
+          {
+            front: "2 < 3",
+            back: "True & literal",
+            notes: "Primary note: 2 < 3 & context",
+            variants: [
+              {
+                front: "Alternative",
+                back: "True",
+                notes: "Variant-only note",
+              },
+            ],
+          },
+          {
+            front: "Question without notes",
+            back: "Answer without notes",
+          },
+        ]),
       ],
       "cards.json",
       { type: "application/json" },
@@ -110,17 +128,26 @@ describe("ImportPage", () => {
     const literalCell = await screen.findByText("2 < 3");
     expect(literalCell.getAttribute("dir")).toBe("auto");
     expect(literalCell.querySelector("*")).toBeNull();
-    const checkbox = screen.getByRole("checkbox", {
-      name: "Select card 1",
-    }) as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    expect(screen.getByRole("columnheader", { name: "Notes" })).not.toBeNull();
 
-    await user.click(checkbox);
+    const primaryNotes = screen.getByText("Primary note: 2 < 3 & context");
+    expect(primaryNotes.getAttribute("dir")).toBe("auto");
+    expect(primaryNotes.querySelector("*")).toBeNull();
+    expect(screen.queryByText("Variant-only note")).toBeNull();
+
+    const noNotesRow = screen.getByText("Question without notes").closest("tr");
+    expect(noNotesRow).not.toBeNull();
+    expect(noNotesRow?.querySelectorAll("td")[4]?.textContent).toBe("");
+
+    const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    expect(checkboxes.map((checkbox) => checkbox.checked)).toEqual([true, true]);
+
+    for (const checkbox of checkboxes) await user.click(checkbox);
     expect(
       (screen.getByRole("button", { name: "Import cards" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    await user.click(checkbox);
+    for (const checkbox of checkboxes) await user.click(checkbox);
     await user.click(screen.getByRole("button", { name: "Import cards" }));
 
     await waitFor(() => expect(posts).toHaveLength(2));
