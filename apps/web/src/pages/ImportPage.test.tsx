@@ -1,4 +1,5 @@
 import { createI18n } from "@openrecall/i18n";
+import type { SectionSummary, StudyStatistics } from "@openrecall/contracts";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -18,14 +19,43 @@ describe("ImportPage", () => {
         locale: "en",
         localeUpdatedAtMs: 0,
       }),
-      get: async <T,>() =>
-        ({
+      get: async <T,>(path: string) => {
+        const section: SectionSummary = {
           id: "d9428888-122b-41e1-985c-61cd3cbb3210",
           name: "Biology",
           createdAtMs: 1,
+          updatedAtMs: 1,
           counts: { total: 1, new: 1, dueNow: 0 },
           nextDueAtMs: null,
-        }) as T,
+        };
+        if (path.endsWith("/statistics")) {
+          return {
+            summary: {
+              reviewEvents: 0,
+              uniqueItems: 0,
+              ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0 },
+              actualRecall: null,
+              meanPredictedRetrievability: null,
+              retrievabilityExcluded: 0,
+              studyDurationMs: 0,
+              durationExcluded: 0,
+            },
+            metrics: [],
+            dailyActivity: [],
+            workloadForecast: [],
+            stateCounts: {
+              total: 1,
+              dueNow: 0,
+              new: 1,
+              learning: 0,
+              review: 0,
+              relearning: 0,
+            },
+            sections: [],
+          } satisfies StudyStatistics as T;
+        }
+        return section as T;
+      },
       patch: async <T,>() => ({}) as T,
       post: async <T,>(path: string, body: unknown) => {
         posts.push({ path, body });
@@ -94,6 +124,9 @@ describe("ImportPage", () => {
     await user.click(screen.getByRole("button", { name: "Import cards" }));
 
     await waitFor(() => expect(posts).toHaveLength(2));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Biology" }),
+    ).not.toBeNull();
     expect(container.querySelector("main")).not.toBeNull();
   });
 });

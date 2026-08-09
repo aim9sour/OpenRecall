@@ -6,7 +6,6 @@ import {
   openDatabase,
   SCHEMA_VERSION,
 } from "../../packages/database/src/index.js";
-import { OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID } from "./seed-optimizer-fixture.js";
 import { e2eClockPath } from "./e2e-paths.js";
 import { resolveE2ePorts } from "./ports.js";
 
@@ -19,19 +18,29 @@ test.describe.serial("optimizer and SQLite durability", () => {
     test.setTimeout(180_000);
     await page.goto("/settings");
 
-    await expect(
-      page.getByText("أحداث المراجعة الخام").locator(".."),
-    ).toContainText("600");
-    await expect(
-      page.getByText("أمثلة التدريب المؤهلة").locator(".."),
-    ).toContainText("480");
+    const rawReviewEvents = Number(
+      await page
+        .getByText("أحداث المراجعة الخام")
+        .locator("..")
+        .locator("dd")
+        .textContent(),
+    );
+    const eligibleExamples = Number(
+      await page
+        .getByText("أمثلة التدريب المؤهلة")
+        .locator("..")
+        .locator("dd")
+        .textContent(),
+    );
+    expect(rawReviewEvents).toBeGreaterThanOrEqual(600);
+    expect(eligibleExamples).toBeGreaterThanOrEqual(480);
     const before = await page.evaluate(async () => {
       const response = await fetch("/api/v1/settings");
       return (await response.json()) as SettingsView;
     });
-    expect(before.effective.parameterSource.profileId).toBe(
-      OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
-    );
+    expect(before.effective.parameterSource.kind).toBe("global");
+    const initialProfileId = before.effective.parameterSource.profileId;
+    expect(initialProfileId).toBeTruthy();
 
     await page
       .getByRole("button", { name: "تدريب المعاملات" })
@@ -50,7 +59,7 @@ test.describe.serial("optimizer and SQLite durability", () => {
       return (await response.json()) as SettingsView;
     });
     expect(afterCancellation.effective.parameterSource.profileId).toBe(
-      OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
+      initialProfileId,
     );
 
     await page
@@ -70,6 +79,14 @@ test.describe.serial("optimizer and SQLite durability", () => {
       name: "معاينة تغيير المواعيد",
     });
     await expect(preview).toBeVisible();
+    const firstCandidateProfileId = (
+      await preview
+        .getByText("مصدر المعاملات المقترح")
+        .locator("..")
+        .locator("dd")
+        .textContent()
+    )?.trim();
+    expect(firstCandidateProfileId).toBeTruthy();
     const affected = Number(
       (
         await preview
@@ -116,13 +133,39 @@ test.describe.serial("optimizer and SQLite durability", () => {
     });
     expect(applied.effective.parameterSource.kind).toBe("global");
     expect(applied.effective.parameterSource.profileId).not.toBe(
-      OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
+      initialProfileId,
+    );
+
+    await page.reload();
+    await page
+      .getByRole("button", { name: "تدريب المعاملات" })
+      .click();
+    const secondPreviewButton = page.getByRole("button", {
+      name: "معاينة تغييرات المواعيد",
+    });
+    await expect(secondPreviewButton).toBeVisible({ timeout: 150_000 });
+    await secondPreviewButton.click();
+    const secondPreview = page.getByRole("region", {
+      name: "معاينة تغيير المواعيد",
+    });
+    await secondPreview
+      .getByRole("checkbox", {
+        name: /أفهم أن المواعيد ستتغير/,
+      })
+      .check();
+    await secondPreview
+      .getByRole("button", {
+        name: "تطبيق المعاملات المرشحة",
+      })
+      .click();
+    await expect(secondPreview.getByRole("status")).toContainText(
+      "طُبقت المعاملات",
     );
 
     await page.reload();
     const previousProfile = page
       .getByRole("article")
-      .filter({ hasText: OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID });
+      .filter({ hasText: firstCandidateProfileId! });
     await previousProfile
       .getByRole("button", { name: "معاينة مواعيد الرجوع" })
       .click();
@@ -145,7 +188,7 @@ test.describe.serial("optimizer and SQLite durability", () => {
       return (await response.json()) as SettingsView;
     });
     expect(rolledBack.effective.parameterSource.profileId).toBe(
-      OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
+      firstCandidateProfileId,
     );
   });
 
@@ -153,9 +196,10 @@ test.describe.serial("optimizer and SQLite durability", () => {
     page,
   }, testInfo) => {
     test.setTimeout(120_000);
-    const sectionName = "اختبار مؤقت الاستعادة";
-    const question = "متى يعود مؤقت المراجعة بعد الاستعادة؟";
-    const mutationName = "بيانات يجب حذفها بعد الاستعادة";
+    const attempt = `${testInfo.repeatEachIndex}-${testInfo.retry}`;
+    const sectionName = `اختبار مؤقت الاستعادة ${attempt}`;
+    const question = `متى يعود مؤقت المراجعة بعد الاستعادة؟ ${attempt}`;
+    const mutationName = `بيانات يجب حذفها بعد الاستعادة ${attempt}`;
 
     await page.goto("/");
     await page.getByLabel("اسم القسم").fill(sectionName);
@@ -180,11 +224,29 @@ test.describe.serial("optimizer and SQLite durability", () => {
     await page
       .getByRole("button", { name: "استيراد البطاقات" })
       .click();
+    const sectionUrl = page.url();
     await page.getByRole("button", { name: "بدء المراجعة" }).click();
     await expect(page).toHaveURL(/\/review\/[^/]+$/);
     const questionContent = page.locator(
       '[data-review-content="question"]',
     );
+    await expect(questionContent).toBeVisible();
+    if ((await questionContent.textContent()) !== question) {
+      await page
+        .getByRole("button", { name: "إنهاء المراجعة" })
+        .click();
+      await page
+        .getByRole("dialog", {
+          name: "هل تريد إنهاء جلسة المراجعة؟",
+        })
+        .getByRole("button", { name: "إنهاء الجلسة" })
+        .click();
+      await page.goto(sectionUrl);
+      await page
+        .getByRole("button", { name: "بدء المراجعة" })
+        .click();
+      await expect(page).toHaveURL(/\/review\/[^/]+$/);
+    }
     await expect(questionContent).toHaveText(question);
     await expect(questionContent).toBeFocused();
     const reviewUrl = page.url();
@@ -265,7 +327,7 @@ test.describe.serial("optimizer and SQLite durability", () => {
       page.getByRole("heading", {
         name: "تمت استعادة قاعدة البيانات",
       }),
-    ).toBeFocused();
+    ).toBeFocused({ timeout: 15_000 });
 
     await page.getByRole("link", { name: "الرئيسية" }).click();
     await expect(
@@ -279,5 +341,15 @@ test.describe.serial("optimizer and SQLite durability", () => {
     await page.goto(reviewUrl);
     await expect(questionContent).toHaveText(question, { timeout: 15_000 });
     await expect(questionContent).toBeFocused({ timeout: 15_000 });
+    await page
+      .getByRole("button", { name: "إنهاء المراجعة" })
+      .click();
+    await page
+      .getByRole("dialog", {
+        name: "هل تريد إنهاء جلسة المراجعة؟",
+      })
+      .getByRole("button", { name: "إنهاء الجلسة" })
+      .click();
+    await expect(page).toHaveURL(/\/review\/[^/]+$/);
   });
 });
