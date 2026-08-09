@@ -21,10 +21,9 @@ const text = {
     good: /جيد/,
     waiting: "لا توجد بطاقات مستحقة الآن",
     endReview: "إنهاء المراجعة",
-    endDialog: "هل تريد إنهاء جلسة المراجعة؟",
-    finish: "إنهاء الجلسة",
     completed: "اكتملت المراجعة",
     backSection: "العودة إلى القسم",
+    cards: "البطاقات",
     edit: "تحرير البطاقة",
     primary: "الصياغة الأساسية",
     question: "السؤال",
@@ -65,10 +64,9 @@ const text = {
     good: /Good/,
     waiting: "No cards are due now",
     endReview: "End review",
-    endDialog: "End this review session?",
-    finish: "Finish session",
     completed: "Review complete",
     backSection: "Back to section",
+    cards: "Cards",
     edit: "Edit card",
     primary: "Primary presentation",
     question: "Question",
@@ -188,13 +186,10 @@ test("management and statistics preserve history, isolate deletion, and reflow",
   ).toBeFocused();
   await page.getByRole("button", { name: t.endReview }).click();
   await expect(
-    page.getByRole("dialog", { name: t.endDialog }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: t.finish }).click();
-  await expect(
     page.getByRole("heading", { level: 1, name: t.completed }),
   ).toBeFocused();
   await page.getByRole("link", { name: t.backSection }).click();
+  await page.getByRole("button", { name: t.cards }).click();
 
   const beforeEditResponse = await page.request.get(
     `/api/v1/cards/${firstCard.id}/statistics`,

@@ -344,12 +344,9 @@ test.describe.serial("optimizer and SQLite durability", () => {
     await page
       .getByRole("button", { name: "إنهاء المراجعة" })
       .click();
-    await page
-      .getByRole("dialog", {
-        name: "هل تريد إنهاء جلسة المراجعة؟",
-      })
-      .getByRole("button", { name: "إنهاء الجلسة" })
-      .click();
+    await expect(
+      page.getByRole("heading", { name: "اكتملت المراجعة" }),
+    ).toBeFocused();
     await expect(page).toHaveURL(/\/review\/[^/]+$/);
   });
 });

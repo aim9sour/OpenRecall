@@ -31,6 +31,7 @@ test("foundation content creates a section and imports one card with variants", 
   await page.getByRole("button", { name: "استيراد البطاقات" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "الأحياء" })).toBeFocused();
+  await page.getByRole("button", { name: "إحصاءات القسم" }).click();
   await expect(
     page.locator("dt").filter({ hasText: "الإجمالي" }).locator(".."),
   ).toContainText("1");
