@@ -522,9 +522,11 @@ describe("Windows launch boundary", () => {
       expect(guide).toContain("OPENRECALL_PORT_OCCUPIED");
       expect(guide).toMatch(/OpenRecall-nodejs[\\/]Data/u);
       expect(guide).toMatch(/backups/u);
-      expect(guide).toMatch(/Chrome/u);
-      expect(guide).toMatch(/PWA/u);
+      expect(guide).toContain("OpenRecall-v1.0.1-windows-x64.zip");
+      expect(guide).not.toMatch(/Chrome|PWA/u);
       expect(guide).toMatch(/Ctrl\+C/u);
     }
+    expect(english).toContain("default browser");
+    expect(arabic).toContain("متصفحك الافتراضي");
   });
 });
