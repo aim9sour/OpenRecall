@@ -361,5 +361,8 @@ describe("Windows release artifact contracts", () => {
     expect(powerShell).toContain('Join-Path $PSScriptRoot "Data"');
     expect(powerShell).toContain('Join-Path $PSScriptRoot "runtime\\node.exe"');
     expect(powerShell).toContain("OPENRECALL_LAUNCHER_NO_BROWSER");
+    expect(powerShell).not.toMatch(/chrome\.exe|Google\\Chrome/iu);
+    expect(powerShell).toContain("Start-Process -FilePath $origin");
+    expect(powerShell).toContain("OPENRECALL_LAUNCHER_BROWSER_MARKER");
   });
 });

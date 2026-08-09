@@ -26,16 +26,18 @@ function Test-DirectoryWritable {
 }
 
 function Open-OpenRecallBrowser {
-  $chromeCandidates = @(
-    $(if ($env:ProgramFiles) { Join-Path $env:ProgramFiles "Google\Chrome\Application\chrome.exe" }),
-    $(if (${env:ProgramFiles(x86)}) { Join-Path ${env:ProgramFiles(x86)} "Google\Chrome\Application\chrome.exe" }),
-    $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "Google\Chrome\Application\chrome.exe" })
-  ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) }
-  if ($chromeCandidates.Count -gt 0) {
-    Start-Process -FilePath $chromeCandidates[0] -ArgumentList @("--new-window", $origin) | Out-Null
+  if ($env:OPENRECALL_LAUNCHER_BROWSER_MARKER) {
+    if (-not [IO.Path]::IsPathRooted($env:OPENRECALL_LAUNCHER_BROWSER_MARKER)) {
+      throw "OPENRECALL_LAUNCHER_BROWSER_MARKER_INVALID"
+    }
+    [IO.File]::WriteAllText(
+      $env:OPENRECALL_LAUNCHER_BROWSER_MARKER,
+      $origin,
+      [Text.UTF8Encoding]::new($false)
+    )
     return
   }
-  Start-Process $origin | Out-Null
+  Start-Process -FilePath $origin -ErrorAction Stop | Out-Null
 }
 
 $nodePath = Join-Path $PSScriptRoot "runtime\node.exe"
@@ -103,7 +105,17 @@ if (-not $ready) {
 
 [Console]::Out.WriteLine("OPENRECALL_LAUNCHER_READY $origin")
 if ($env:OPENRECALL_LAUNCHER_NO_BROWSER -ne "1") {
-  Open-OpenRecallBrowser
+  try {
+    Open-OpenRecallBrowser
+  }
+  catch {
+    New-Item -ItemType File -Force -Path $env:OPENRECALL_LAUNCHER_STOP_FILE | Out-Null
+    $hostProcess.WaitForExit(10000) | Out-Null
+    if ($createdStopFile) {
+      Remove-Item -LiteralPath $env:OPENRECALL_LAUNCHER_STOP_FILE -Force -ErrorAction SilentlyContinue
+    }
+    Fail-WithCode "OPENRECALL_BROWSER_OPEN_FAILED"
+  }
 }
 
 $hostProcess.WaitForExit()
