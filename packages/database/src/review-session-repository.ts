@@ -151,7 +151,16 @@ export class ReviewSessionRepository {
         ON scheduler_states.learning_item_id = queue.learning_item_id
       WHERE queue.session_id = ?
         AND queue.status = 'queued'
-      ORDER BY queue.enqueued_due_at_ms, queue.id
+      ORDER BY
+        EXISTS (
+          SELECT 1
+          FROM session_queue_entries AS completed
+          WHERE completed.session_id = queue.session_id
+            AND completed.learning_item_id = queue.learning_item_id
+            AND completed.status = 'completed'
+        ) DESC,
+        queue.enqueued_due_at_ms,
+        queue.id
       LIMIT 1
     `);
     const selectPresentations = db.prepare<[string], PresentationRow>(`
