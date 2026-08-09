@@ -161,6 +161,7 @@ export function registerReviewRoutes(
           request.body.sectionId,
           nowMs,
         );
+        options.sessions.claimNext(snapshot.id, nowMs);
         options.wake.rearm();
         publish(snapshot);
         const state = pageState(snapshot.id, nowMs, snapshot.newlyJoined);
