@@ -31,6 +31,22 @@ function sectionIdOf(state: ReviewPageState): string {
 
 export function ReviewPage({ api }: { readonly api: ApiClient }) {
   const loaderState = useLoaderData() as ReviewPageState;
+  return (
+    <ReviewPageContent
+      key={sessionIdOf(loaderState)}
+      api={api}
+      loaderState={loaderState}
+    />
+  );
+}
+
+function ReviewPageContent({
+  api,
+  loaderState,
+}: {
+  readonly api: ApiClient;
+  readonly loaderState: ReviewPageState;
+}) {
   const { t } = useI18n();
   const location = useLocation();
   const navigationState: unknown = location.state;

@@ -9,6 +9,7 @@ import type { ApiClient } from "../api/client.js";
 import { createRoutes } from "../router.js";
 
 const SESSION_ID = "c9f65aa8-122b-41e1-985c-61cd3cbb3210";
+const SECOND_SESSION_ID = "d0a76bb9-233c-42f2-a96d-72de4dcc4321";
 const SECTION_ID = "d9428888-122b-41e1-985c-61cd3cbb3210";
 const ENTRY_ID = "e9f65aa8-122b-41e1-985c-61cd3cbb3210";
 const ITEM_ID = "a8f65aa8-122b-41e1-985c-61cd3cbb3210";
@@ -95,6 +96,16 @@ const nextQuestionState: ReviewPageState = {
     completedAppearances: 1,
     newlyJoined: 2,
   }),
+};
+
+const secondSessionQuestionState: ReviewPageState = {
+  kind: "question",
+  card: {
+    ...questionState.card,
+    entryId: "a0a76bb9-233c-42f2-a96d-72de4dcc4321",
+    front: "Which session is active?",
+  },
+  session: progress({ id: SECOND_SESSION_ID }),
 };
 
 const waitingForDueState: ReviewPageState = {
@@ -570,6 +581,44 @@ describe("ReviewPage NVDA interaction", () => {
     });
     expect(
       await screen.findByRole("heading", { name: "Review complete" }),
+    ).toBe(document.activeElement);
+  });
+
+  it("ignores an old finish response after navigating to another review session", async () => {
+    let resolveFinish!: (state: ReviewPageState) => void;
+    const finishResponse = new Promise<ReviewPageState>((resolve) => {
+      resolveFinish = resolve;
+    });
+    const { router, setCurrentState } = await renderReview(
+      "en",
+      questionState,
+      undefined,
+      (path) => (path.endsWith("/finish") ? finishResponse : undefined),
+    );
+    await screen.findByText("What is active recall?", {
+      selector: '[data-review-content="question"]',
+    });
+    fireEvent.click(screen.getByRole("button", { name: "End review" }));
+
+    setCurrentState(secondSessionQuestionState);
+    await act(async () => {
+      await router.navigate(`/review/${SECOND_SESSION_ID}`);
+    });
+    expect(
+      await screen.findByText("Which session is active?", {
+        selector: '[data-review-content="question"]',
+      }),
+    ).toBe(document.activeElement);
+
+    await act(async () => {
+      resolveFinish(completedState);
+      await finishResponse;
+    });
+    expect(screen.queryByRole("heading", { name: "Review complete" })).toBeNull();
+    expect(
+      screen.getByText("Which session is active?", {
+        selector: '[data-review-content="question"]',
+      }),
     ).toBe(document.activeElement);
   });
 
