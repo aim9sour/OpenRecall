@@ -78,19 +78,19 @@ describe("Windows release artifact contracts", () => {
     const output = join(repositoryRoot, "release-output");
     expect(
       parseWindowsPackageArguments(
-        ["--version", "1.0.0", "--output", output],
+        ["--version", "1.0.1", "--output", output],
         repositoryRoot,
       ),
-    ).toEqual({ output: resolve(output), version: "1.0.0" });
+    ).toEqual({ output: resolve(output), version: "1.0.1" });
     expect(
-      parseWindowsPackageArguments(["--version", "1.0.0"], repositoryRoot),
+      parseWindowsPackageArguments(["--version", "1.0.1"], repositoryRoot),
     ).toEqual({
       output: resolve(repositoryRoot, "release-output"),
-      version: "1.0.0",
+      version: "1.0.1",
     });
     for (const args of [
       ["--output", output],
-      ["--version", "1.0.0", "--output", output, "--unknown"],
+      ["--version", "1.0.1", "--output", output, "--unknown"],
     ]) {
       expect(() =>
         parseWindowsPackageArguments(args, repositoryRoot),
@@ -99,7 +99,7 @@ describe("Windows release artifact contracts", () => {
   });
 
   it("accepts only one absolute Windows package smoke target", () => {
-    const archive = join(repositoryRoot, "release-output", "OpenRecall-v1.0.0-windows-x64.zip");
+    const archive = join(repositoryRoot, "release-output", "OpenRecall-v1.0.1-windows-x64.zip");
     expect(parseWindowsSmokeArguments(["--archive", archive])).toEqual({
       archive: resolve(archive),
     });
@@ -184,9 +184,9 @@ describe("Windows release artifact contracts", () => {
   );
 
   it("derives stable Windows x64 names from a strict semantic version", () => {
-    expect(releaseArtifactNames("1.0.0")).toEqual({
-      archive: "OpenRecall-v1.0.0-windows-x64.zip",
-      checksum: "OpenRecall-v1.0.0-windows-x64.zip.sha256",
+    expect(releaseArtifactNames("1.0.1")).toEqual({
+      archive: "OpenRecall-v1.0.1-windows-x64.zip",
+      checksum: "OpenRecall-v1.0.1-windows-x64.zip.sha256",
     });
     for (const invalid of ["v1.0.0", "1.0", "1.0.0-beta.1", "../1.0.0"]) {
       expect(() => releaseArtifactNames(invalid)).toThrow(

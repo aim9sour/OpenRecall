@@ -17,7 +17,7 @@ concurrency:
 
 env:
   PNPM_VERSION: 11.17.0
-  ARCHIVE_NAME: OpenRecall-v1.0.0-windows-x64.zip
+  ARCHIVE_NAME: OpenRecall-v1.0.1-windows-x64.zip
 
 jobs:
   release:
@@ -70,7 +70,7 @@ jobs:
       - name: Upload temporary workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: OpenRecall-v1.0.0-windows-x64
+          name: OpenRecall-v1.0.1-windows-x64
           path: |
             release-output/${{ env.ARCHIVE_NAME }}
             release-output/${{ env.ARCHIVE_NAME }}.sha256
@@ -86,7 +86,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall 1.0.0" --notes-file docs/releases/v1.0.0.md
+          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall 1.0.1" --notes-file docs/releases/v1.0.1.md
       - name: Upload release assets
         if: github.ref_type == 'tag'
         env:

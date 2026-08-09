@@ -8,6 +8,20 @@ licensed under Apache-2.0 and follows
 
 No changes yet.
 
+## [1.0.1] - 2026-08-09
+
+### Fixed
+
+- Windows launchers now wait for a healthy local server and then open the
+  Windows default browser, without browser-specific executable discovery.
+- Section dashboards now derive new, due-now, and next-due values from the
+  active scheduler records and refresh when the next due time arrives.
+- Starting a non-empty review session now returns the first question directly,
+  eliminating a temporary and misleading no-cards state.
+- The browser-cached PWA update path is retired. Existing `v1.0.0` service
+  workers perform a one-time cache cleanup and unregister; new profiles do not
+  register a worker.
+
 ## [1.0.0] - 2026-08-01
 
 ### Fixed

@@ -6,7 +6,7 @@ no account or cloud service.
 ## Recommended: release ZIP
 
 1. Open the [latest release](https://github.com/aim9sour/OpenRecall/releases/latest).
-2. Download `OpenRecall-v1.0.0-windows-x64.zip` and extract the complete ZIP to
+2. Download `OpenRecall-v1.0.1-windows-x64.zip` and extract the complete ZIP to
    a writable folder. Do not run files from inside the compressed preview.
 3. Double-click one launcher:
    - `OpenRecall.cmd` uses normal mode.
@@ -16,8 +16,8 @@ The ZIP includes a verified Node.js runtime, so release users do not install
 Node, pnpm, dependencies, or an application service. Neither launcher requests
 administrator privileges or downloads anything.
 
-Chrome opens at `http://127.0.0.1:3210` when detected; otherwise Windows opens
-the default browser. If another program owns port 3210, OpenRecall reports
+The launcher waits for `http://127.0.0.1:3210` to become healthy, then Windows
+opens your default browser. If another program owns port 3210, OpenRecall reports
 `OPENRECALL_PORT_OCCUPIED` instead of choosing an unexpected port.
 
 ## Choose a data mode
@@ -80,8 +80,9 @@ Wait for `OPENRECALL_READY`, then open `http://127.0.0.1:3210`. The source
 launcher `scripts\start-openrecall.cmd` performs version checks; it is separate
 from the self-contained release launcher.
 
-## Optional Chrome PWA
+## Updating OpenRecall
 
-Chrome can install the open page as a PWA window. Offline caching contains the
-application shell only—never API responses or card text. Updates require an
-explicit action and do not reload an active review automatically.
+OpenRecall does not update itself through a browser cache. Download and extract
+the newer release ZIP when you choose to upgrade. Normal-mode data remains in
+Local App Data. For portable mode, stop OpenRecall and preserve the existing
+`Data` folder when replacing application files.
