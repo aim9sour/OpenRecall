@@ -172,6 +172,8 @@ export const COMMON_MESSAGE_KEYS = [
   "section.name",
   "section.startReview",
   "section.statistics",
+  "section.statistics.loading",
+  "section.statistics.loadError",
   "section.backHome",
   "stats.total",
   "stats.new",

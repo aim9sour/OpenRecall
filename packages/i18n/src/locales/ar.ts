@@ -219,6 +219,8 @@ export const arabicLocale = {
     "section.name": "اسم القسم",
     "section.startReview": "بدء المراجعة",
     "section.statistics": "إحصاءات القسم",
+    "section.statistics.loading": "جارٍ تحميل إحصاءات القسم…",
+    "section.statistics.loadError": "تعذّر تحميل إحصاءات القسم.",
     "section.backHome": "العودة إلى الأقسام التعليمية",
     "stats.total": "الإجمالي",
     "stats.new": "الجديدة",

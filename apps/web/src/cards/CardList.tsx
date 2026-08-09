@@ -61,8 +61,7 @@ export function CardList({
   };
 
   return (
-    <section aria-labelledby="cards-heading">
-      <h2 id="cards-heading">{t("card.listTitle")}</h2>
+    <div>
       <form
         role="search"
         onSubmit={(event) => {
@@ -199,6 +198,6 @@ export function CardList({
           }}
         />
       )}
-    </section>
+    </div>
   );
 }

@@ -223,6 +223,8 @@ export const englishLocale = {
     "section.name": "Section name",
     "section.startReview": "Start review",
     "section.statistics": "Section statistics",
+    "section.statistics.loading": "Loading section statistics…",
+    "section.statistics.loadError": "Section statistics could not be loaded.",
     "section.backHome": "Back to learning sections",
     "stats.total": "Total",
     "stats.new": "New",
