@@ -2,7 +2,7 @@
 
 Date: 2026-08-10
 
-Status: Approved design, pending written-spec review
+Status: Approved for implementation
 
 ## Objective
 
@@ -428,9 +428,25 @@ The result view shows:
 - usable and excluded data counts;
 - per-group sample counts and the upstream 100-sample recommendation
   threshold;
-- current and proposed steps using localized minute/hour formatting;
+- current and proposed steps using localized second/minute/hour formatting;
 - partial recommendations separately;
 - the legitimate states of statistics-only and no recommendation.
+
+The binding returns integer seconds while OpenRecall's current scheduler
+settings store whole minutes. Conversion is explicit and conservative rather
+than hidden:
+
+- a recommendation of at least 60 seconds is converted with
+  `floor(seconds / 60)`, so OpenRecall never schedules later than the upstream
+  recommendation because of rounding;
+- converted values are sorted and deduplicated to preserve the scheduler's
+  strictly increasing minute-list invariant;
+- the preview shows both the exact upstream duration and the whole-minute value
+  that will be saved whenever they differ;
+- a recommendation below 60 seconds is displayed but cannot be applied
+  automatically because it is below OpenRecall's supported step resolution;
+- this feature does not widen the persisted scheduler-settings schema from
+  minutes to seconds.
 
 There are explicit actions to apply learning steps, apply relearning steps, or
 apply both when available. Every action opens a final old-versus-new preview.
