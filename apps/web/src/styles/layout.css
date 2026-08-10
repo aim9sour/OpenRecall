@@ -385,6 +385,25 @@ dialog.dialog-panel::backdrop {
   font-weight: 400;
 }
 
+.step-recommendation-grid,
+.step-statistics-groups {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-4);
+}
+
+.step-recommendation-values,
+.step-statistics-groups > section {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.step-recommendation-values h4,
+.step-statistics-groups h4 {
+  margin-block-start: 0;
+}
+
 .filter-form h2 {
   margin-block: 0;
 }

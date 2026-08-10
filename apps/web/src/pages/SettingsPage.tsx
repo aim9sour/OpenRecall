@@ -23,6 +23,7 @@ import { DisclosureSection } from "../components/DisclosureSection.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { OptimizerTrainingSettingsForm } from "../settings/OptimizerTrainingSettingsForm.js";
 import { TechnicalSettingsPanel } from "../settings/TechnicalSettingsPanel.js";
+import { StepRecommendationPanel } from "../settings/StepRecommendationPanel.js";
 
 export interface SettingsPageData {
   readonly localePreference: LocalePreferenceView;
@@ -80,6 +81,12 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const handleDirtyChange = useCallback((panelId: string, dirty: boolean) => {
     setDirtyPanels((current) => current[panelId] === dirty ? current : { ...current, [panelId]: dirty });
   }, []);
+  const refreshSchedulerView = useCallback(async () => {
+    const path = selectedSectionId === ""
+      ? "/api/v1/settings"
+      : `/api/v1/settings?sectionId=${encodeURIComponent(selectedSectionId)}`;
+    setView(await api.get<SettingsView>(path));
+  }, [api, selectedSectionId]);
 
   return (
     <>
@@ -115,6 +122,14 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
         onDirtyChange={handleDirtyChange}
         onViewChange={setView}
         view={view}
+      />
+      <StepRecommendationPanel
+        api={api}
+        currentSettings={view.effective.settings}
+        onSettingsChanged={refreshSchedulerView}
+        scope={selectedSectionId === ""
+          ? { scopeType: "global", sectionId: null }
+          : { scopeType: "section", sectionId: selectedSectionId }}
       />
       <DisclosureSection heading={t("settings.optimizer.trainingTitle")}>
         {optimizerView === null ? (
