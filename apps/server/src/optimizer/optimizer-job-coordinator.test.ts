@@ -41,7 +41,7 @@ describe("OptimizerJobCoordinator", () => {
     let cancelled = false;
     const releaseJob = coordinator.acquire({
       id: "training-a",
-      kind: "training",
+      kind: "step-recommendation",
       scope: { scopeType: "section", sectionId: "section-a" },
       cancel() { cancelled = true; },
       settled: work.promise,

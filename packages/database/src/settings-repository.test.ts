@@ -112,4 +112,60 @@ describe("SettingsRepository", () => {
       }
     });
   });
+
+  it("saves recommended steps at the exact scope revision while preserving other controls", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        db.prepare(
+          "INSERT INTO sections (id, name, created_at_ms, updated_at_ms) VALUES ('section-1', 'Biology', 0, 0)",
+        ).run();
+        const repository = new SettingsRepository(db);
+        const global = repository.getGlobalSettings()!;
+        const savedGlobal = repository.saveRecommendedSteps({
+          scope: { scopeType: "global", sectionId: null },
+          expectedUpdatedAtMs: global.updatedAtMs,
+          settings: {
+            ...global.settings,
+            learningStepsMinutes: [1, 96],
+          },
+          nowMs: 10,
+        });
+        expect(savedGlobal.settings).toEqual({
+          ...DEFAULT_SCHEDULER_SETTINGS,
+          learningStepsMinutes: [1, 96],
+        });
+        expect(() => repository.saveRecommendedSteps({
+          scope: { scopeType: "global", sectionId: null },
+          expectedUpdatedAtMs: global.updatedAtMs,
+          settings: global.settings,
+          nowMs: 11,
+        })).toThrow("SETTINGS_EDIT_CONFLICT");
+
+        const savedSection = repository.saveRecommendedSteps({
+          scope: { scopeType: "section", sectionId: "section-1" },
+          expectedUpdatedAtMs: null,
+          settings: {
+            ...savedGlobal.settings,
+            relearningStepsMinutes: [2, 30],
+          },
+          nowMs: 12,
+        });
+        expect(savedSection).toMatchObject({
+          scopeType: "section",
+          sectionId: "section-1",
+          settings: {
+            requestedRetention: DEFAULT_SCHEDULER_SETTINGS.requestedRetention,
+            maximumIntervalDays: DEFAULT_SCHEDULER_SETTINGS.maximumIntervalDays,
+            enableFuzz: DEFAULT_SCHEDULER_SETTINGS.enableFuzz,
+            enableShortTerm: DEFAULT_SCHEDULER_SETTINGS.enableShortTerm,
+            learningStepsMinutes: [1, 96],
+            relearningStepsMinutes: [2, 30],
+          },
+        });
+      } finally {
+        db.close();
+      }
+    });
+  });
 });

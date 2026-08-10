@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   AppearancePreferences,
+  OptimizerScope,
   SchedulerManifest,
   SchedulerSettings,
   ThemePreference,
@@ -297,6 +298,23 @@ export class SettingsRepository {
     return this.#save({
       ...input,
       scopeType: "section",
+    });
+  }
+
+  saveRecommendedSteps(input: {
+    readonly scope: OptimizerScope;
+    readonly expectedUpdatedAtMs: number | null;
+    readonly settings: SchedulerSettings;
+    readonly nowMs: number;
+  }): SchedulerSettingsCandidate {
+    const settings = validateCurrentSchedulerSettings(input.settings);
+    return this.#save({
+      scopeType: input.scope.scopeType,
+      sectionId: input.scope.sectionId,
+      expectedUpdatedAtMs: input.expectedUpdatedAtMs,
+      adapterVersion: CURRENT_SCHEDULER_SETTINGS_MANIFEST.adapterVersion,
+      settings,
+      nowMs: input.nowMs,
     });
   }
 
