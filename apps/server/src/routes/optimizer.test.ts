@@ -332,4 +332,239 @@ describe("optimizer routes", () => {
       }
     });
   });
+
+  it("starts, reads, cancels, applies, and restores step recommendations with stable errors", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      const fingerprint = "a".repeat(64);
+      const revisionToken = "b".repeat(64);
+      const exclusions = {
+        invalidCardId: 0,
+        invalidTimestamp: 0,
+        invalidRating: 0,
+        invalidState: 0,
+        missingDuration: 0,
+        nonIncreasingOrder: 0,
+      };
+      const snapshot = {
+        schedulerSettings: {
+          requestedRetention: 0.9,
+          maximumIntervalDays: 36_500,
+          enableFuzz: false,
+          enableShortTerm: true,
+          learningStepsMinutes: [1, 10],
+          relearningStepsMinutes: [10],
+        },
+        weights: Array.from({ length: 21 }, () => 0.1),
+        parameterProfileId: "official-fsrs6-v1",
+        selectedScopeRevisionMs: 0,
+        effectiveSettingsSource: {
+          kind: "global" as const,
+          settingsId: "scheduler-settings-global",
+          updatedAtMs: 0,
+        },
+        packageVersion: "0.5.0" as const,
+        algorithmVersion: "6.0" as const,
+        adapterVersion: 1,
+        schemaVersion: 1 as const,
+        rawReviewCount: 200,
+        validReviewCount: 200,
+        validSequenceCount: 100,
+        excludedSequenceCount: 0,
+        exclusions,
+        sourceReviewCutoffMs: 5_000,
+        sourceFingerprint: fingerprint,
+      };
+      const emptyStats = {
+        again: null,
+        hard: null,
+        good: null,
+        againThenGood: null,
+        goodThenAgain: null,
+        relearning: null,
+      };
+      const running = {
+        id: "e8f65aa8-122b-41e1-985c-61cd3cbb3210",
+        scope: { scopeType: "global" as const, sectionId: null },
+        status: "running" as const,
+        sourceReviewCutoffMs: 5_000,
+        sourceFingerprint: fingerprint,
+        revisionToken,
+        inputSnapshot: snapshot,
+        result: null,
+        errorCode: null,
+        appliedParts: null,
+        priorSteps: null,
+        appliedSteps: null,
+        appliedAtMs: null,
+        restoredAtMs: null,
+        createdAtMs: 1_000,
+        startedAtMs: 1_000,
+        finishedAtMs: null,
+      };
+      const succeeded = {
+        ...running,
+        status: "succeeded" as const,
+        result: {
+          learning: {
+            rawSeconds: [80],
+            applicableMinutes: [1],
+            belowResolutionSeconds: [],
+          },
+          relearning: {
+            rawSeconds: [],
+            applicableMinutes: [],
+            belowResolutionSeconds: [],
+          },
+          statistics: emptyStats,
+          rawReviewCount: 200,
+          validReviewCount: 200,
+          validSequenceCount: 100,
+          excludedSequenceCount: 0,
+          exclusions,
+        },
+        finishedAtMs: 2_000,
+      };
+      const applied = {
+        ...succeeded,
+        revisionToken: "c".repeat(64),
+        appliedParts: ["learning" as const],
+        priorSteps: { learning: [1, 10], relearning: [10] },
+        appliedSteps: { learning: [1], relearning: [10] },
+        appliedAtMs: 3_000,
+      };
+      const restored = {
+        ...applied,
+        revisionToken: "d".repeat(64),
+        restoredAtMs: 4_000,
+      };
+      const steps = {
+        start: vi.fn(() => running),
+        get: vi.fn((runId: string) => runId === running.id ? running : null),
+        cancel: vi.fn((runId: string) => runId === running.id),
+        apply: vi.fn(async () => applied),
+        restore: vi.fn(async () => restored),
+        recoverInterruptedRuns: vi.fn(() => 0),
+        whenIdle: vi.fn(async () => undefined),
+        dispose: vi.fn(),
+      };
+      const server = await buildServer({
+        config,
+        database: db,
+        stepRecommendationService: steps,
+      });
+      const headers = await mutationHeaders(server);
+
+      try {
+        const started = await server.inject({
+          method: "POST",
+          url: "/api/v1/optimizer/step-recommendations",
+          headers,
+          payload: { scope: { scopeType: "global", sectionId: null } },
+        });
+        expect(started.statusCode).toBe(202);
+        expect(started.json()).toEqual(running);
+
+        const read = await server.inject({
+          method: "GET",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}`,
+          headers: testRequestHeaders(),
+        });
+        expect(read.statusCode).toBe(200);
+        const cancelled = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/cancel`,
+          headers,
+        });
+        expect(cancelled.statusCode).toBe(202);
+        expect(steps.cancel).toHaveBeenCalledWith(running.id);
+
+        const application = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/apply`,
+          headers,
+          payload: { parts: ["learning"], revisionToken },
+        });
+        expect(application.statusCode).toBe(200);
+        expect(application.json()).toEqual(applied);
+        const restoration = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/restore`,
+          headers,
+          payload: { revisionToken: applied.revisionToken },
+        });
+        expect(restoration.statusCode).toBe(200);
+        expect(restoration.json()).toEqual(restored);
+
+        steps.apply.mockRejectedValueOnce(new Error("STEP_RECOMMENDATION_STALE"));
+        const stale = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/apply`,
+          headers,
+          payload: { parts: ["learning"], revisionToken },
+        });
+        expect(stale.statusCode).toBe(409);
+        expect(stale.json()).toEqual({
+          code: "STEP_RECOMMENDATION_STALE",
+          messageKey: "optimizer.steps.stale",
+        });
+        steps.apply.mockRejectedValueOnce(new Error("STEP_RECOMMENDATION_NOT_APPLICABLE"));
+        const notApplicable = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/apply`,
+          headers,
+          payload: { parts: ["learning"], revisionToken },
+        });
+        expect(notApplicable.statusCode).toBe(409);
+        expect(notApplicable.json()).toEqual({
+          code: "STEP_RECOMMENDATION_NOT_APPLICABLE",
+          messageKey: "optimizer.steps.notApplicable",
+        });
+        steps.restore.mockRejectedValueOnce(new Error("STEP_RECOMMENDATION_RESTORE_STALE"));
+        const restoreStale = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/restore`,
+          headers,
+          payload: { revisionToken: applied.revisionToken },
+        });
+        expect(restoreStale.statusCode).toBe(409);
+        expect(restoreStale.json()).toEqual({
+          code: "STEP_RECOMMENDATION_RESTORE_STALE",
+          messageKey: "optimizer.steps.restoreStale",
+        });
+
+        steps.start.mockImplementationOnce(() => {
+          throw new Error("OPTIMIZER_RUN_CONFLICT");
+        });
+        const conflict = await server.inject({
+          method: "POST",
+          url: "/api/v1/optimizer/step-recommendations",
+          headers,
+          payload: { scope: { scopeType: "global", sectionId: null } },
+        });
+        expect(conflict.statusCode).toBe(409);
+        expect(conflict.json()).toEqual({
+          code: "OPTIMIZER_RUN_CONFLICT",
+          messageKey: "optimizer.runConflict",
+        });
+
+        const invalid = await server.inject({
+          method: "POST",
+          url: `/api/v1/optimizer/step-recommendations/${running.id}/apply`,
+          headers,
+          payload: { parts: ["weights"], revisionToken: "short" },
+        });
+        expect(invalid.statusCode).toBe(400);
+        const missing = await server.inject({
+          method: "GET",
+          url: "/api/v1/optimizer/step-recommendations/f8f65aa8-122b-41e1-985c-61cd3cbb3210",
+          headers: testRequestHeaders(),
+        });
+        expect(missing.statusCode).toBe(404);
+        expect(missing.body).not.toMatch(/SQLITE|native|private/i);
+      } finally {
+        await server.close();
+      }
+    });
+  });
 });

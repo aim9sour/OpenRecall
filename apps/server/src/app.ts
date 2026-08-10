@@ -49,6 +49,10 @@ import {
   ProfileApplicationService,
   type ProfileApplicationServiceApi,
 } from "./optimizer/profile-application-service.js";
+import {
+  StepRecommendationService,
+  type StepRecommendationServiceApi,
+} from "./optimizer/step-recommendation-service.js";
 import { registerApplicationPreferenceRoutes } from "./routes/application-preferences.js";
 import { registerBootstrapRoute } from "./routes/bootstrap.js";
 import { registerBackupRoutes } from "./routes/backup.js";
@@ -88,6 +92,7 @@ export interface BuildServerOptions {
   readonly database?: ConstructorParameters<typeof SectionRepository>[0];
   readonly nowMs?: () => number;
   readonly optimizerService?: OptimizerRunServiceApi;
+  readonly stepRecommendationService?: StepRecommendationServiceApi;
   readonly backupService?: BackupService;
   readonly profileApplicationService?: ProfileApplicationServiceApi;
   readonly restoreService?: RestoreServiceApi;
@@ -177,6 +182,7 @@ export async function buildServer(
     let repositoryImplementation!: SectionRepository;
     let settingsImplementation!: SettingsRepository;
     let optimizerImplementation!: OptimizerRunServiceApi;
+    let stepRecommendationImplementation!: StepRecommendationServiceApi;
     let optimizerSettingsImplementation!: OptimizerSettingsRepository;
     let queueImplementation!: ReviewQueueRepository;
     let sessionsImplementation!: ReviewSessionRepository;
@@ -198,6 +204,9 @@ export async function buildServer(
     const settings = dynamicService(() => settingsImplementation);
     const optimizer = dynamicService(
       () => optimizerImplementation,
+    );
+    const stepRecommendations = dynamicService(
+      () => stepRecommendationImplementation,
     );
     const optimizerSettings = dynamicService(
       () => optimizerSettingsImplementation,
@@ -251,6 +260,12 @@ export async function buildServer(
           coordinator: optimizerCoordinator,
           optimizerSettings: optimizerSettingsImplementation,
         });
+      stepRecommendationImplementation =
+        options.stepRecommendationService ??
+        new StepRecommendationService(database, {
+          nowMs: options.nowMs ?? Date.now,
+          coordinator: optimizerCoordinator,
+        });
       queueImplementation = new ReviewQueueRepository(database);
       sessionsImplementation = new ReviewSessionRepository(database);
       ratingsImplementation = new RatingTransaction(database, {
@@ -291,6 +306,7 @@ export async function buildServer(
     rebuildServices();
     optimizerRecoveryByServer.set(server, () => {
       optimizerImplementation.recoverInterruptedRuns?.();
+      stepRecommendationImplementation.recoverInterruptedRuns();
     });
     dueWake = new DueWakeService(queue, reviewEvents, {
       now: options.nowMs ?? Date.now,
@@ -329,7 +345,11 @@ export async function buildServer(
             dueWake.stop();
             reviewEvents.closeAll();
             optimizerImplementation.dispose();
-            await optimizerImplementation.whenIdle();
+            stepRecommendationImplementation.dispose();
+            await Promise.all([
+              optimizerImplementation.whenIdle(),
+              stepRecommendationImplementation.whenIdle(),
+            ]);
             if (database.open) database.close();
           },
           async open(databasePath) {
@@ -379,6 +399,7 @@ export async function buildServer(
     });
     registerOptimizerRoutes(server, {
       optimizer,
+      steps: stepRecommendations,
       profiles,
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
@@ -407,7 +428,11 @@ export async function buildServer(
       stopDatabaseServicesPromise ??= (async () => {
         dueWake.stop();
         optimizerImplementation.dispose();
-        await optimizerImplementation.whenIdle();
+        stepRecommendationImplementation.dispose();
+        await Promise.all([
+          optimizerImplementation.whenIdle(),
+          stepRecommendationImplementation.whenIdle(),
+        ]);
       })();
       return stopDatabaseServicesPromise;
     };

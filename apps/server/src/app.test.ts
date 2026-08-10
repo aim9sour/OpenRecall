@@ -3,11 +3,19 @@ import {
   TEST_AUTHORITY,
   TEST_ORIGIN,
   testRequestHeaders,
+  withTempDatabase,
 } from "@openrecall/test-support";
-import { SCHEMA_VERSION } from "@openrecall/database";
+import {
+  SCHEMA_VERSION,
+  StepRecommendationRepository,
+  openDatabase,
+} from "@openrecall/database";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildServer } from "./app.js";
+import {
+  buildServer,
+  recoverInterruptedOptimizerRuns,
+} from "./app.js";
 import { loadConfig } from "./config.js";
 import { MaintenanceMode } from "./durability/maintenance-mode.js";
 
@@ -181,6 +189,100 @@ describe("server boundary security", () => {
       messageKey: "error.notFound",
     });
     expect(response.body).not.toContain("private-content-in-path");
+  });
+});
+
+describe("optimizer recovery wiring", () => {
+  it("recovers interrupted training and step-analysis runs together", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const database = openDatabase(databasePath);
+      database.prepare(`
+        INSERT INTO optimizer_runs (
+          id, scope_type, section_id, status, raw_review_count,
+          eligible_example_count, source_review_cutoff_ms,
+          package_version, algorithm_version, progress,
+          created_at_ms, started_at_ms
+        ) VALUES (
+          'a8f65aa8-122b-41e1-985c-61cd3cbb3210',
+          'global', NULL, 'running', 0, 0, NULL,
+          '0.5.0', '6.0', 0, 1000, 1000
+        )
+      `).run();
+      const fingerprint = "a".repeat(64);
+      new StepRecommendationRepository(database).insertRunning({
+        id: "b8f65aa8-122b-41e1-985c-61cd3cbb3210",
+        scope: { scopeType: "global", sectionId: null },
+        inputSnapshot: {
+          schedulerSettings: {
+            requestedRetention: 0.9,
+            maximumIntervalDays: 36_500,
+            enableFuzz: false,
+            enableShortTerm: true,
+            learningStepsMinutes: [1, 10],
+            relearningStepsMinutes: [10],
+          },
+          weights: Array.from({ length: 21 }, () => 0.1),
+          parameterProfileId: "official-fsrs6-v1",
+          selectedScopeRevisionMs: 0,
+          effectiveSettingsSource: {
+            kind: "global",
+            settingsId: "scheduler-settings-global",
+            updatedAtMs: 0,
+          },
+          packageVersion: "0.5.0",
+          algorithmVersion: "6.0",
+          adapterVersion: 1,
+          schemaVersion: 1,
+          rawReviewCount: 0,
+          validReviewCount: 0,
+          validSequenceCount: 0,
+          excludedSequenceCount: 0,
+          exclusions: {
+            invalidCardId: 0,
+            invalidTimestamp: 0,
+            invalidRating: 0,
+            invalidState: 0,
+            missingDuration: 0,
+            nonIncreasingOrder: 0,
+          },
+          sourceReviewCutoffMs: null,
+          sourceFingerprint: fingerprint,
+        },
+        sourceReviewCutoffMs: null,
+        sourceFingerprint: fingerprint,
+        createdAtMs: 1_000,
+        startedAtMs: 1_000,
+      });
+      const server = await buildServer({
+        config: {
+          authority: TEST_AUTHORITY,
+          dataDirectory: "unused-with-injected-database",
+          host: "127.0.0.1",
+          locale: "en",
+          port: 3_210,
+          publicOrigin: TEST_ORIGIN,
+        },
+        database,
+        nowMs: () => 2_000,
+      });
+      try {
+        recoverInterruptedOptimizerRuns(server);
+        expect(database.prepare(
+          "SELECT status, error_code FROM optimizer_runs WHERE id = 'a8f65aa8-122b-41e1-985c-61cd3cbb3210'",
+        ).get()).toEqual({
+          status: "failed",
+          error_code: "OPTIMIZER_PROCESS_INTERRUPTED",
+        });
+        expect(database.prepare(
+          "SELECT status, error_code FROM step_recommendation_runs WHERE id = 'b8f65aa8-122b-41e1-985c-61cd3cbb3210'",
+        ).get()).toEqual({
+          status: "failed",
+          error_code: "STEP_RECOMMENDATION_INTERRUPTED",
+        });
+      } finally {
+        await server.close();
+      }
+    });
   });
 });
 

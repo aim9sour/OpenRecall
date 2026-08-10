@@ -10,11 +10,18 @@ import {
   OptimizerScopeSchema,
   OptimizerTrainingPreflightRequestSchema,
   OptimizerTrainingPreflightSchema,
+  StepRecommendationApplySchema,
+  StepRecommendationRestoreSchema,
+  StepRecommendationRunSchema,
+  StepRecommendationStartSchema,
   UuidSchema,
   type OptimizerScope,
   type OptimizerScopeQuery,
   type OptimizerProfileApply,
   type OptimizerTrainingPreflightRequest,
+  type StepRecommendationApply,
+  type StepRecommendationRestore,
+  type StepRecommendationStart,
 } from "@openrecall/contracts";
 import type { SectionRepository } from "@openrecall/database";
 import type { FastifyInstance, FastifyReply } from "fastify";
@@ -24,6 +31,7 @@ import {
   type OptimizerRunServiceApi,
 } from "../optimizer/optimizer-run-service.js";
 import type { ProfileApplicationServiceApi } from "../optimizer/profile-application-service.js";
+import type { StepRecommendationServiceApi } from "../optimizer/step-recommendation-service.js";
 
 const RunParamsSchema = Type.Object(
   { runId: UuidSchema },
@@ -98,10 +106,55 @@ function profileError(reply: FastifyReply, error: unknown) {
   throw error;
 }
 
+function stepRecommendationError(
+  reply: FastifyReply,
+  error: unknown,
+) {
+  const code = error instanceof Error ? error.message : "";
+  if (
+    code === "STEP_RECOMMENDATION_NOT_FOUND" ||
+    code === "STEP_RECOMMENDATION_SECTION_NOT_FOUND"
+  ) {
+    return reply.code(404).send({
+      code,
+      messageKey:
+        code === "STEP_RECOMMENDATION_NOT_FOUND"
+          ? "optimizer.steps.runNotFound"
+          : "error.sectionNotFound",
+    });
+  }
+  if (code === "STEP_RECOMMENDATION_INPUT_INVALID") {
+    return reply.code(400).send({
+      code,
+      messageKey: "error.validation",
+    });
+  }
+  const messageKeyByCode = {
+    STEP_RECOMMENDATION_STALE: "optimizer.steps.stale",
+    STEP_RECOMMENDATION_NOT_APPLICABLE:
+      "optimizer.steps.notApplicable",
+    STEP_RECOMMENDATION_RESTORE_STALE:
+      "optimizer.steps.restoreStale",
+    STEP_RECOMMENDATION_CONFLICT: "optimizer.steps.conflict",
+    OPTIMIZER_RUN_CONFLICT: "optimizer.runConflict",
+    OPTIMIZER_SECTION_DELETION_IN_PROGRESS:
+      "optimizer.runConflict",
+  } as const;
+  if (code in messageKeyByCode) {
+    return reply.code(409).send({
+      code,
+      messageKey:
+        messageKeyByCode[code as keyof typeof messageKeyByCode],
+    });
+  }
+  throw error;
+}
+
 export function registerOptimizerRoutes(
   server: FastifyInstance,
   options: {
     readonly optimizer: OptimizerRunServiceApi;
+    readonly steps: StepRecommendationServiceApi;
     readonly profiles: ProfileApplicationServiceApi;
     readonly sections: SectionRepository;
     readonly nowMs: () => number;
@@ -253,6 +306,141 @@ export function registerOptimizerRoutes(
       return reply.code(202).send(
         options.optimizer.getRun(request.params.runId) ?? run,
       );
+    },
+  );
+
+  server.post<{ Body: StepRecommendationStart }>(
+    "/api/v1/optimizer/step-recommendations",
+    {
+      schema: {
+        body: StepRecommendationStartSchema,
+        response: {
+          202: StepRecommendationRunSchema,
+          400: ApiErrorSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!sectionExists(request.body.scope, reply)) return;
+      try {
+        return reply.code(202).send(
+          options.steps.start(request.body.scope),
+        );
+      } catch (error) {
+        return stepRecommendationError(reply, error);
+      }
+    },
+  );
+
+  server.get<{ Params: RunParams }>(
+    "/api/v1/optimizer/step-recommendations/:runId",
+    {
+      schema: {
+        params: RunParamsSchema,
+        response: {
+          200: StepRecommendationRunSchema,
+          404: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const run = options.steps.get(request.params.runId);
+      return run === null
+        ? reply.code(404).send({
+            code: "STEP_RECOMMENDATION_NOT_FOUND",
+            messageKey: "optimizer.steps.runNotFound",
+          })
+        : reply.code(200).send(run);
+    },
+  );
+
+  server.post<{ Params: RunParams }>(
+    "/api/v1/optimizer/step-recommendations/:runId/cancel",
+    {
+      schema: {
+        params: RunParamsSchema,
+        response: {
+          202: StepRecommendationRunSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const run = options.steps.get(request.params.runId);
+      if (run === null) {
+        return reply.code(404).send({
+          code: "STEP_RECOMMENDATION_NOT_FOUND",
+          messageKey: "optimizer.steps.runNotFound",
+        });
+      }
+      if (!options.steps.cancel(request.params.runId)) {
+        return reply.code(409).send({
+          code: "STEP_RECOMMENDATION_NOT_RUNNING",
+          messageKey: "optimizer.steps.notRunning",
+        });
+      }
+      return reply.code(202).send(
+        options.steps.get(request.params.runId) ?? run,
+      );
+    },
+  );
+
+  server.post<{
+    Params: RunParams;
+    Body: StepRecommendationApply;
+  }>(
+    "/api/v1/optimizer/step-recommendations/:runId/apply",
+    {
+      schema: {
+        params: RunParamsSchema,
+        body: StepRecommendationApplySchema,
+        response: {
+          200: StepRecommendationRunSchema,
+          400: ApiErrorSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(200).send(
+          await options.steps.apply(request.params.runId, request.body),
+        );
+      } catch (error) {
+        return stepRecommendationError(reply, error);
+      }
+    },
+  );
+
+  server.post<{
+    Params: RunParams;
+    Body: StepRecommendationRestore;
+  }>(
+    "/api/v1/optimizer/step-recommendations/:runId/restore",
+    {
+      schema: {
+        params: RunParamsSchema,
+        body: StepRecommendationRestoreSchema,
+        response: {
+          200: StepRecommendationRunSchema,
+          400: ApiErrorSchema,
+          404: ApiErrorSchema,
+          409: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(200).send(
+          await options.steps.restore(request.params.runId, request.body),
+        );
+      } catch (error) {
+        return stepRecommendationError(reply, error);
+      }
     },
   );
 
