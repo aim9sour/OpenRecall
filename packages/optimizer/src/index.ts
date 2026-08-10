@@ -16,6 +16,11 @@ export {
   fingerprintOptimizerReviews,
 } from "./build-training-set.js";
 export {
+  convertRecommendedSeconds,
+  encodeStepRecommendationCsv,
+  prepareStepRecommendationInput,
+} from "./prepare-step-recommendation.js";
+export {
   trainOptimizer,
   type TrainOptimizerInput,
 } from "./optimizer-client.js";
@@ -27,6 +32,9 @@ export type {
   OptimizerExample,
   OptimizerReview,
   OptimizerScope,
+  PreparedStepRecommendationInput,
   StoredOptimizerReview,
+  StoredStepReview,
   TrainingSetSummary,
+  ValidatedStepReview,
 } from "./types.js";

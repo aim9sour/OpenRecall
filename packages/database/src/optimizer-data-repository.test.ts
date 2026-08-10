@@ -42,6 +42,8 @@ function insertReview(
     readonly rating: number;
     readonly deltaDays: number;
     readonly ratedAtMs: number;
+    readonly reviewDurationMs?: number | null;
+    readonly priorStateJson?: string;
   },
 ): void {
   const suffix = input.id;
@@ -76,7 +78,7 @@ function insertReview(
       VALUES
         (
           ?, ?, ?, ?, ?, ?, 'Q', 'A', ?,
-          ?, ?, ?, 0, ?, '{}', '{}',
+          ?, ?, ?, ?, ?, ?, '{}',
           'FSRS-6', '6.0', 1, 'official-fsrs6-v1',
           'UTC', 0, '{}', ?
         )
@@ -92,7 +94,9 @@ function insertReview(
     input.ratedAtMs,
     input.ratedAtMs,
     input.ratedAtMs,
+    input.reviewDurationMs === undefined ? 0 : input.reviewDurationMs,
     input.deltaDays,
+    input.priorStateJson ?? JSON.stringify({ memoryState: "new" }),
     input.ratedAtMs + 1,
   );
 }
@@ -208,6 +212,64 @@ describe("OptimizerDataRepository", () => {
             sectionId: "section-a",
           }),
         ).toThrow("OPTIMIZER_REVIEW_DELTA_INVALID");
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  it("returns complete raw step history without parsing or discarding invalid rows", async () => {
+    await withTempDatabase((databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        seed(db);
+        db.pragma("ignore_check_constraints = ON");
+        insertReview(db, {
+          id: "log-b",
+          itemId: "item-a",
+          sectionId: "section-a",
+          rating: 9,
+          deltaDays: 0,
+          ratedAtMs: 100,
+          reviewDurationMs: null,
+          priorStateJson: "{",
+        });
+        insertReview(db, {
+          id: "log-a",
+          itemId: "item-a",
+          sectionId: "section-a",
+          rating: 3,
+          deltaDays: 0,
+          ratedAtMs: 100,
+          reviewDurationMs: 321,
+          priorStateJson: JSON.stringify({ memoryState: "learning" }),
+        });
+
+        const rows = new OptimizerDataRepository(db).listStepReviewHistory({
+          scopeType: "section",
+          sectionId: "section-a",
+        });
+
+        expect(rows).toEqual([
+          {
+            reviewLogId: "log-a",
+            learningItemId: "item-a",
+            sectionId: "section-a",
+            rating: 3,
+            ratedAtMs: 100,
+            reviewDurationMs: 321,
+            priorStateJson: JSON.stringify({ memoryState: "learning" }),
+          },
+          {
+            reviewLogId: "log-b",
+            learningItemId: "item-a",
+            sectionId: "section-a",
+            rating: 9,
+            ratedAtMs: 100,
+            reviewDurationMs: null,
+            priorStateJson: "{",
+          },
+        ]);
       } finally {
         db.close();
       }

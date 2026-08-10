@@ -30,6 +30,43 @@ export interface StoredOptimizerReview {
   readonly ratedAtMs: number;
 }
 
+export interface StoredStepReview {
+  readonly reviewLogId: string;
+  readonly learningItemId: string;
+  readonly sectionId: string;
+  readonly rating: number;
+  readonly ratedAtMs: number;
+  readonly reviewDurationMs: number | null;
+  readonly priorStateJson: string;
+}
+
+export interface ValidatedStepReview {
+  readonly reviewLogId: string;
+  readonly cardId: string;
+  readonly reviewTimeMs: number;
+  readonly rating: Rating;
+  readonly state: 0 | 1 | 2 | 3;
+  readonly reviewDurationMs: number;
+}
+
+export interface PreparedStepRecommendationInput {
+  readonly sourceFingerprint: string;
+  readonly sourceReviewCutoffMs: number | null;
+  readonly rawReviewCount: number;
+  readonly validReviewCount: number;
+  readonly validSequenceCount: number;
+  readonly excludedSequenceCount: number;
+  readonly exclusions: {
+    readonly invalidCardId: number;
+    readonly invalidTimestamp: number;
+    readonly invalidRating: number;
+    readonly invalidState: number;
+    readonly missingDuration: number;
+    readonly nonIncreasingOrder: number;
+  };
+  readonly validRows: readonly ValidatedStepReview[];
+}
+
 export type OptimizerScope =
   | {
       readonly scopeType: "global";
