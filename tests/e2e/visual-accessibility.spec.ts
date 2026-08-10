@@ -34,7 +34,10 @@ async function expectPageFitsViewport(
           };
         })
         .filter(
-          ({ left, right }) => left < -1 || right > clientWidth + 1,
+          ({ left, right, scrollWidth, clientWidth: elementClientWidth }) =>
+            left < -1 ||
+            right > clientWidth + 1 ||
+            scrollWidth > elementClientWidth + 1,
         )
         .slice(0, 12),
     };
@@ -60,6 +63,7 @@ async function openSettingsDisclosures(page: Page): Promise<void> {
   for (const name of [
     /(?:إعدادات تدريب المحسّن المتقدمة|Advanced optimizer training settings)/,
     /(?:معلومات النموذج التقنية|Technical model information)/,
+    /(?:اقتراح خطوات التعلم|Learning-step recommendations)/,
   ]) {
     const disclosure = page.getByRole("button", { name });
     await expect(disclosure).toHaveAttribute("aria-expanded", "false");
@@ -68,6 +72,40 @@ async function openSettingsDisclosures(page: Page): Promise<void> {
     await expectNoSeriousAccessibilityViolations(page);
   }
 }
+
+test("learning-step results stay navigable without bloating live announcements", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.endsWith("-xa"));
+  await page.goto("/settings");
+  const disclosure = page.getByRole("button", {
+    name: /(?:اقتراح خطوات التعلم|Learning-step recommendations)/,
+  });
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await disclosure.click();
+  const analyze = page.getByRole("button", {
+    name: /(?:تحليل خطوات التعلم|Analyze learning steps)/,
+  });
+  await expect(analyze).toBeFocused();
+  await expectNoSeriousAccessibilityViolations(page);
+  await analyze.click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: /(?:نتائج التحليل|Analysis results)/,
+    }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("step-live")).toContainText(
+    /(?:اكتمل تحليل خطوات التعلم|Learning-step analysis complete)/,
+  );
+  await expect(page.getByTestId("step-live")).not.toContainText(
+    /(?:المراجعات المصدرية|Source reviews|٨٤٢|842)/,
+  );
+  await expect(
+    page.getByText(/(?:المراجعات المصدرية|Source reviews)/),
+  ).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page);
+});
 
 async function ensureReviewRoute(page: Page): Promise<string> {
   await page.goto("/");

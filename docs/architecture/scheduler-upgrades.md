@@ -55,6 +55,41 @@ per-section overrides are durable SQLite data. Training runs retain an immutable
 snapshot of the effective scheduler settings, optimizer configuration,
 parameter source, derived values, counts, cutoff, and source fingerprint.
 
+## Optimal-step analysis boundary
+
+Optimal-step analysis uses the installed binding's official CSV contract:
+`card_id`, `review_time`, `review_rating`, `review_state`, and
+`review_duration`. Times and durations are milliseconds. OpenRecall reads the
+source rows from SQLite in a canonical order, rejects an entire card sequence
+when any row is invalid, fingerprints every source row (including excluded
+rows), and creates the CSV bytes only inside worker memory. It never persists a
+CSV file.
+
+The current `@open-spaced-repetition/binding@0.5.0` behavior is an explicit
+versioned boundary:
+
+- a rating group needs at least 100 usable samples before it can produce a
+  recommendation; smaller groups may still provide statistics;
+- the upstream step cutoff is 12 hours;
+- the binding can return at most two learning steps and one relearning step;
+- OpenRecall passes the full active FSRS parameter array, so the binding derives
+  the decay value from parameter index 20 instead of using a second independent
+  decay setting;
+- official recommendations are seconds, while released scheduler settings store
+  whole minutes. OpenRecall shows both values, floors recommendations of at
+  least 60 seconds to whole minutes, deduplicates them, and never applies a
+  sub-minute recommendation automatically.
+
+Applying learning steps, relearning steps, or both requires an exact preview,
+an explicit confirmation, a matching source fingerprint/revision token, and one
+atomic SQLite transaction. It changes only scheduler settings; existing card
+states and due dates are not rewritten. A future move to seconds-resolution
+settings requires a separate approved design, contract and schema migration; it
+must not be introduced as an incidental binding upgrade.
+
+The authoritative upstream implementation for this boundary is
+[`packages/binding/src/steps.rs`](https://github.com/open-spaced-repetition/ts-fsrs/blob/948e3cd/packages/binding/src/steps.rs).
+
 ## Required upgrade review
 
 Do not change either FSRS package until all of the following are complete:

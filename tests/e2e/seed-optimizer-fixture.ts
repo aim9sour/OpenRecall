@@ -19,8 +19,12 @@ export const OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID =
 const SESSION_ID = "00000000-0000-4000-8000-000000000200";
 const ITEM_COUNT = 120;
 const REVIEWS_PER_ITEM = 5;
+const STEP_ITEM_COUNT = 121;
 const DAY_MS = 86_400_000;
 const CREATED_AT_MS = Date.UTC(2023, 0, 1, 12);
+const STEP_DELAYS_SECONDS = [120, 600, 1_800, 3_600] as const;
+const STEP_RECALLS_PER_GROUP = [29, 27, 21, 12] as const;
+const MALFORMED_SEQUENCE_ITEM_INDEX = STEP_ITEM_COUNT - 1;
 
 export function seedOptimizerFixture(
   db: ApplicationDatabase,
@@ -205,6 +209,7 @@ export function seedOptimizerFixture(
         const stateJson = JSON.stringify({
           schemaVersion: 1,
           revision: reviewIndex,
+          memoryState: "relearning",
         });
         insertLog.run(
           `fixture-log-${itemIndex}-${reviewIndex}`,
@@ -254,6 +259,118 @@ export function seedOptimizerFixture(
         OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
       );
       reviewCutoffMs = Math.max(reviewCutoffMs, ratedAtMs);
+    }
+
+    for (let itemIndex = 0; itemIndex < STEP_ITEM_COUNT; itemIndex += 1) {
+      const identifierSuffix = itemIndex.toString().padStart(12, "0");
+      const itemId = `40000000-0000-4000-8000-${identifierSuffix}`;
+      const presentationId =
+        `50000000-0000-4000-8000-${identifierSuffix}`;
+      const queueEntryId =
+        `60000000-0000-4000-8000-${identifierSuffix}`;
+      const front = `Step fixture question ${itemIndex + 1}`;
+      const back = `Step fixture answer ${itemIndex + 1}`;
+      const stepGroup = Math.min(
+        Math.floor(itemIndex / 30),
+        STEP_DELAYS_SECONDS.length - 1,
+      );
+      const secondRatedAtMs =
+        CREATED_AT_MS + STEP_DELAYS_SECONDS[stepGroup]! * 1_000;
+      const secondRating = itemIndex % 30 < STEP_RECALLS_PER_GROUP[stepGroup]!
+        ? 3
+        : 1;
+
+      insertItem.run(
+        itemId,
+        OPTIMIZER_FIXTURE_SECTION_ID,
+        CREATED_AT_MS,
+        CREATED_AT_MS,
+      );
+      insertPresentation.run(
+        presentationId,
+        itemId,
+        front,
+        back,
+        front.toLocaleLowerCase("en-US"),
+        back.toLocaleLowerCase("en-US"),
+      );
+      insertQueueEntry.run(
+        queueEntryId,
+        SESSION_ID,
+        itemId,
+        CREATED_AT_MS,
+        CREATED_AT_MS,
+        CREATED_AT_MS,
+        presentationId,
+        CREATED_AT_MS,
+        CREATED_AT_MS,
+        CREATED_AT_MS + 365 * DAY_MS,
+      );
+
+      for (const [reviewIndex, ratedAtMs, rating, memoryState] of [
+        [0, CREATED_AT_MS, 1, "new"],
+        [
+          1,
+          secondRatedAtMs,
+          secondRating,
+          itemIndex === MALFORMED_SEQUENCE_ITEM_INDEX
+            ? "legacy"
+            : "learning",
+        ],
+      ] as const) {
+        const stateJson = JSON.stringify({
+          schemaVersion: 1,
+          revision: reviewIndex,
+          memoryState,
+        });
+        insertLog.run(
+          `step-fixture-log-${itemIndex}-${reviewIndex}`,
+          SESSION_ID,
+          queueEntryId,
+          itemId,
+          OPTIMIZER_FIXTURE_SECTION_ID,
+          presentationId,
+          front,
+          back,
+          rating,
+          ratedAtMs - 4_000,
+          ratedAtMs - 2_000,
+          ratedAtMs,
+          0,
+          stateJson,
+          JSON.stringify({
+            schemaVersion: 1,
+            revision: reviewIndex + 1,
+          }),
+          SCHEDULER_ALGORITHM_ID,
+          SCHEDULER_ALGORITHM_VERSION,
+          SCHEDULER_ADAPTER_VERSION,
+          OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
+          settingsJson,
+          secondRatedAtMs + 30 * DAY_MS,
+        );
+      }
+      insertExposure.run(
+        presentationId,
+        CREATED_AT_MS,
+        secondRatedAtMs,
+        2,
+        SESSION_ID,
+        itemId,
+      );
+      insertState.run(
+        itemId,
+        OPTIMIZER_FIXTURE_SECTION_ID,
+        secondRatedAtMs + 30 * DAY_MS,
+        secondRatedAtMs,
+        2,
+        2,
+        SCHEDULER_ALGORITHM_ID,
+        SCHEDULER_ALGORITHM_VERSION,
+        SCHEDULER_ADAPTER_VERSION,
+        OPTIMIZER_FIXTURE_ACTIVE_PROFILE_ID,
+      );
+      reviewCutoffMs = Math.max(reviewCutoffMs, secondRatedAtMs);
     }
 
     db.prepare(

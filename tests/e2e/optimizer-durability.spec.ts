@@ -1,4 +1,9 @@
-import { copyFile, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  readFile,
+  readdir,
+  writeFile,
+} from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import type { SettingsView } from "@openrecall/contracts";
@@ -6,12 +11,167 @@ import {
   openDatabase,
   SCHEMA_VERSION,
 } from "../../packages/database/src/index.js";
-import { e2eClockPath } from "./e2e-paths.js";
+import {
+  e2eClockPath,
+  e2eDataDirectoryPath,
+} from "./e2e-paths.js";
 import { resolveE2ePorts } from "./ports.js";
 
-const clockPath = e2eClockPath(resolveE2ePorts().api[4]);
+const optimizerApiPort = resolveE2ePorts().api[4];
+const clockPath = e2eClockPath(optimizerApiPort);
+const dataDirectoryPath = e2eDataDirectoryPath(optimizerApiPort);
+
+async function optimizerDatabasePath(): Promise<string> {
+  const directory = (await readFile(dataDirectoryPath, "utf8")).trim();
+  return resolve(directory, "openrecall.sqlite3");
+}
+
+function readDueDates(databasePath: string): readonly unknown[] {
+  const database = openDatabase(databasePath);
+  try {
+    return database.prepare(`
+      SELECT learning_item_id, due_at_ms, revision
+      FROM scheduler_states
+      ORDER BY learning_item_id
+    `).all();
+  } finally {
+    database.close();
+  }
+}
 
 test.describe.serial("optimizer and SQLite durability", () => {
+  test("analyzes official learning steps, applies without rescheduling, restores, and rejects stale results", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const databasePath = await optimizerDatabasePath();
+    const dataDirectory = resolve(databasePath, "..");
+    const dueBefore = readDueDates(databasePath);
+    await page.goto("/settings");
+    const settingsBefore = await page.evaluate(async () => {
+      const response = await fetch("/api/v1/settings");
+      return (await response.json()) as SettingsView;
+    });
+    const disclosure = page.getByRole("button", {
+      name: "اقتراح خطوات التعلم",
+    });
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    await disclosure.click();
+    const analyze = page.getByRole("button", {
+      name: "تحليل خطوات التعلم",
+    });
+    await expect(analyze).toBeFocused();
+    await analyze.click();
+
+    const results = page.getByRole("heading", {
+      name: "نتائج التحليل",
+    }).locator("..");
+    await expect(results).toBeVisible({ timeout: 30_000 });
+    const arabicNumber = new Intl.NumberFormat("ar");
+    for (const [label, count] of [
+      ["المراجعات المصدرية", 842],
+      ["المراجعات الصالحة", 840],
+      ["تسلسلات البطاقات الصالحة", 240],
+      ["تسلسلات البطاقات المستبعدة", 1],
+    ] as const) {
+      await expect(
+        results.getByText(label).locator("..").locator("dd"),
+      ).toHaveText(arabicNumber.format(count));
+    }
+    const officialValue = results
+      .getByText("الاقتراح الرسمي")
+      .locator("..")
+      .locator("dd");
+    await expect(officialValue).toContainText("3 دقائق");
+    await expect(officialValue).toContainText("6 ثوانٍ");
+    await expect(
+      results
+        .getByText("القيمة التي يستطيع أوبن ريكول حفظها")
+        .locator("..")
+        .locator("dd"),
+    ).toHaveText("3 دقائق");
+
+    const dataFiles = await readdir(dataDirectory, { recursive: true });
+    expect(dataFiles.filter((name) => name.toLowerCase().endsWith(".csv")))
+      .toEqual([]);
+
+    await page.getByRole("button", {
+      name: "تطبيق خطوات التعلم",
+      exact: true,
+    }).click();
+    const applyDialog = page.getByRole("dialog", {
+      name: "هل تريد تطبيق خطوات التعلم المقترحة؟",
+    });
+    await expect(applyDialog).toContainText("دقيقة واحدة و10 دقائق");
+    await expect(applyDialog).toContainText("3 دقائق");
+    await applyDialog
+      .getByRole("button", { name: "تأكيد تطبيق خطوات التعلم" })
+      .click();
+    await expect(page.getByTestId("step-live")).toContainText(
+      "تم تطبيق خطوات التعلم.",
+    );
+
+    const settingsApplied = await page.evaluate(async () => {
+      const response = await fetch("/api/v1/settings");
+      return (await response.json()) as SettingsView;
+    });
+    expect(settingsApplied.effective.settings.learningStepsMinutes).toEqual([3]);
+    expect(readDueDates(databasePath)).toEqual(dueBefore);
+
+    await page
+      .getByRole("button", { name: "استعادة خطوات التعلم السابقة" })
+      .click();
+    await page
+      .getByRole("dialog", {
+        name: "هل تريد استعادة خطوات التعلم السابقة؟",
+      })
+      .getByRole("button", { name: "تأكيد استعادة خطوات التعلم" })
+      .click();
+    await expect(page.getByTestId("step-live")).toContainText(
+      "تمت استعادة خطوات التعلم السابقة.",
+    );
+    const settingsRestored = await page.evaluate(async () => {
+      const response = await fetch("/api/v1/settings");
+      return (await response.json()) as SettingsView;
+    });
+    expect(settingsRestored.effective.settings.learningStepsMinutes).toEqual(
+      settingsBefore.effective.settings.learningStepsMinutes,
+    );
+
+    await page
+      .getByRole("button", { name: "تحليل خطوات التعلم" })
+      .click();
+    await expect(results).toBeVisible({ timeout: 30_000 });
+    const mutationDatabase = openDatabase(databasePath);
+    try {
+      const mutation = mutationDatabase.prepare(`
+        UPDATE review_logs
+        SET review_duration_ms = review_duration_ms + 1
+        WHERE id = 'fixture-log-0-0'
+      `).run();
+      expect(mutation.changes).toBe(1);
+    } finally {
+      mutationDatabase.close();
+    }
+    await page.getByRole("button", {
+      name: "تطبيق خطوات التعلم",
+      exact: true,
+    }).click();
+    await page
+      .getByRole("dialog", {
+        name: "هل تريد تطبيق خطوات التعلم المقترحة؟",
+      })
+      .getByRole("button", { name: "تأكيد تطبيق خطوات التعلم" })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
+      "تغيرت بيانات المراجعة أو الإعدادات",
+    );
+    await expect(
+      page.getByRole("button", { name: "تحليل خطوات التعلم مجددًا" }),
+    ).toBeVisible();
+    await expect(results).toBeVisible();
+  });
+
   test("cancels and completes a real optimizer worker, applies a preview, and rolls back", async ({
     page,
   }) => {

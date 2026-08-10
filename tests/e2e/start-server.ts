@@ -11,7 +11,10 @@ import { buildServer } from "../../apps/server/src/app.js";
 import type { DueWakeService } from "../../apps/server/src/review/due-wake-service.js";
 import { openDatabase } from "../../packages/database/src/index.js";
 import { seedOptimizerFixture } from "./seed-optimizer-fixture.js";
-import { e2eClockPath } from "./e2e-paths.js";
+import {
+  e2eClockPath,
+  e2eDataDirectoryPath,
+} from "./e2e-paths.js";
 import { resolveE2ePorts } from "./ports.js";
 
 const INITIAL_NOW_MS = Date.UTC(2025, 0, 1, 12);
@@ -30,6 +33,7 @@ const locale =
       ? "en"
       : "ar";
 const clockPath = e2eClockPath(serverPort);
+const dataDirectoryPath = e2eDataDirectoryPath(serverPort);
 writeFileSync(clockPath, String(INITIAL_NOW_MS), "utf8");
 let currentNowMs = INITIAL_NOW_MS;
 
@@ -41,6 +45,7 @@ function refreshClock(): void {
 }
 
 const directory = await mkdtemp(join(tmpdir(), "openrecall-e2e-"));
+writeFileSync(dataDirectoryPath, directory, "utf8");
 const database = openDatabase(join(directory, "openrecall.sqlite3"));
 seedOptimizerFixture(database);
 let dueWake: Pick<DueWakeService, "rearm"> | undefined;
@@ -70,6 +75,7 @@ async function stop(): Promise<void> {
   await server.close();
   await rm(directory, { force: true, recursive: true });
   await rm(clockPath, { force: true });
+  await rm(dataDirectoryPath, { force: true });
 }
 
 process.once("SIGINT", () => void stop().finally(() => process.exit(0)));
