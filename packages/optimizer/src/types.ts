@@ -1,3 +1,7 @@
+import type {
+  StepRatingStatistics,
+  StepRecommendationValues,
+} from "@openrecall/contracts";
 import type { Rating } from "@openrecall/scheduler";
 
 export interface OptimizerReview {
@@ -65,6 +69,19 @@ export interface PreparedStepRecommendationInput {
     readonly nonIncreasingOrder: number;
   };
   readonly validRows: readonly ValidatedStepReview[];
+}
+
+export interface ComputedStepRecommendation {
+  readonly learning: StepRecommendationValues;
+  readonly relearning: StepRecommendationValues;
+  readonly statistics: {
+    readonly again: StepRatingStatistics | null;
+    readonly hard: StepRatingStatistics | null;
+    readonly good: StepRatingStatistics | null;
+    readonly againThenGood: StepRatingStatistics | null;
+    readonly goodThenAgain: StepRatingStatistics | null;
+    readonly relearning: StepRatingStatistics | null;
+  };
 }
 
 export type OptimizerScope =

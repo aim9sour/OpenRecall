@@ -25,11 +25,18 @@ export {
   type TrainOptimizerInput,
 } from "./optimizer-client.js";
 export {
+  computeStepRecommendation,
+  type ComputeStepRecommendationInput,
+  type StepRecommendationWorkerData,
+  type StepRecommendationWorkerLike,
+} from "./step-recommendation-client.js";
+export {
   validateOptimizerOutput,
   type OptimizerResult,
 } from "./validate-output.js";
 export type {
   OptimizerExample,
+  ComputedStepRecommendation,
   OptimizerReview,
   OptimizerScope,
   PreparedStepRecommendationInput,

@@ -129,4 +129,19 @@ describe("optimizer binding upgrade boundary", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("keeps the production computeOptimalSteps call inside the isolated worker", async () => {
+    const sourceFiles = await sourceFilesUnder(join(optimizerRoot, "src"));
+    const callers: string[] = [];
+    for (const sourceFile of sourceFiles) {
+      if (sourceFile.endsWith(".test.ts")) continue;
+      const source = await readFile(sourceFile, "utf8");
+      if (/\bcomputeOptimalSteps\s*\(/u.test(source)) {
+        callers.push(relative(repositoryRoot, sourceFile).replaceAll("\\", "/"));
+      }
+    }
+    expect(callers).toEqual([
+      "packages/optimizer/src/step-recommendation-worker.ts",
+    ]);
+  });
 });
