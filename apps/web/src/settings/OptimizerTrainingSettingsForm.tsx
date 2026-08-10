@@ -12,12 +12,27 @@ function same(left: OptimizerTrainingSettings, right: OptimizerTrainingSettings)
   return left.numEpochs === right.numEpochs && left.batchSize === right.batchSize && left.maxSeqLen === right.maxSeqLen;
 }
 
-export function OptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChange, view }: {
+interface OptimizerTrainingSettingsFormProps {
   readonly api: ApiClient;
   readonly onDirtyChange?: (panelId: string, dirty: boolean) => void;
   readonly onViewChange: (view: OptimizerSettingsView) => void;
   readonly view: OptimizerSettingsView;
-}) {
+}
+
+export function OptimizerTrainingSettingsForm(
+  props: OptimizerTrainingSettingsFormProps,
+) {
+  const { t } = useI18n();
+  if (
+    props.view.manifest.adapterVersion !== 2 ||
+    props.view.manifest.schemaVersion !== 1
+  ) {
+    return <p role="alert">{t("settings.optimizer.manifestInvalid")}</p>;
+  }
+  return <SupportedOptimizerTrainingSettingsForm {...props} />;
+}
+
+function SupportedOptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChange, view }: OptimizerTrainingSettingsFormProps) {
   const { t } = useI18n();
   const baseline = useMemo(() => view.savedOverride?.settings ?? view.effective.settings, [view]);
   const [draft, setDraft] = useState<OptimizerTrainingSettings>(baseline);

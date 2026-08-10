@@ -100,6 +100,8 @@ export const arabicLocale = {
     "settings.optimizer.inherited": "يرث هذا القسم إعدادات تدريب المحسّن العامة.",
     "settings.optimizer.refreshPreflight": "تحديث معاينة التدريب",
     "settings.optimizer.preflightError": "تعذر تحميل معاينة التدريب.",
+    "settings.optimizer.manifestInvalid":
+      "بيان إعدادات المحسّن غير متوافق مع هذه الصفحة. بقيت بقية الإعدادات متاحة.",
     "settings.optimizer.restoreOfficial": "حفظ إعدادات المحسّن الرسمية",
     "settings.optimizer.useGeneral": "استخدام إعدادات المحسّن العامة",
     "settings.optimizer.otherwiseEligible": "المؤهلة قبل مرشح طول التسلسل",

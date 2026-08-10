@@ -24,9 +24,52 @@ The optimizer binding is a public beta. Its option named `timeout` is a progress
 polling interval, not a deadline. OpenRecall therefore runs it in a worker and
 uses its cooperative progress channel for cancellation.
 
+## User-facing capability matrix
+
+OpenRecall exposes only controls that have a stable, useful product meaning.
+Every value is validated again at the API boundary; the UI manifest is not a
+security boundary.
+
+| Upstream capability | OpenRecall treatment | Reason |
+| --- | --- | --- |
+| requested retention | editable, `0.80`–`0.95` | meaningful scheduling target |
+| maximum interval | editable, `1`–`36500` days | meaningful safety cap |
+| fuzz | editable switch | user-visible scheduling behavior |
+| short-term scheduling | editable switch | user-visible learning behavior |
+| learning/relearning steps | editable increasing whole minutes below one day | exact short-term delays |
+| optimizer epochs | choices `3`, `5`, `7`, `10` | bounded time/quality tradeoff |
+| optimizer batch size | choices `128`, `256`, `512`, `1024` | bounded memory/training tradeoff |
+| maximum review-sequence length | choices `64`, `128`, `256`, `512` | explicit whole-history inclusion policy |
+| seed, learning rate, gamma | official values, read-only | reproducibility and no useful safe tuning contract |
+| weights | managed parameter profiles, never edited directly | trained/official atomic model state |
+| `enableShortTerm`, `numRelearningSteps` optimizer inputs | derived from effective scheduler settings | one authoritative behavior source |
+| progress and polling timeout | internal | job orchestration, not model tuning |
+| CSV conversion and evaluation helpers | internal tools | implementation boundary, not persisted preferences |
+| WASI loaders and binding constructors | internal | runtime plumbing |
+| SM-2 migration helpers | excluded | OpenRecall does not store an SM-2 model |
+
+Histories longer than the selected maximum are excluded intact and counted in
+preflight; they are never silently truncated. General settings and explicit
+per-section overrides are durable SQLite data. Training runs retain an immutable
+snapshot of the effective scheduler settings, optimizer configuration,
+parameter source, derived values, counts, cutoff, and source fingerprint.
+
 ## Required upgrade review
 
 Do not change either FSRS package until all of the following are complete:
+
+```bash
+pnpm view ts-fsrs version dist-tags --json
+pnpm view @open-spaced-repetition/binding version dist-tags --json
+pnpm exec vitest run packages/scheduler/src/upgrade-boundary.test.ts packages/optimizer/src/upgrade-boundary.test.ts
+```
+
+Release work may select only the stable `latest` versions; beta dist-tags are
+research inputs and are never selected for a release. The compile-time upgrade
+boundary classifies every upstream field. If upstream adds, removes, or renames
+a field, CI must fail until that field is explicitly classified as editable,
+read-only, derived, managed, internal, a tool, or excluded and the manifest,
+adapter, tests, and documentation are updated together.
 
 1. Confirm that the candidate is a stable release in the upstream scheduler and
    optimizer projects. Read the complete upstream changelogs and release notes,

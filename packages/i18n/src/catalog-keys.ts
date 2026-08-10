@@ -77,6 +77,7 @@ export const COMMON_MESSAGE_KEYS = [
   "settings.optimizer.inherited",
   "settings.optimizer.refreshPreflight",
   "settings.optimizer.preflightError",
+  "settings.optimizer.manifestInvalid",
   "settings.optimizer.restoreOfficial",
   "settings.optimizer.useGeneral",
   "settings.optimizer.otherwiseEligible",

@@ -18,15 +18,30 @@ test.describe.serial("optimizer and SQLite durability", () => {
     test.setTimeout(180_000);
     await page.goto("/settings");
 
+    const optimizerSettings = page.getByRole("button", {
+      name: "إعدادات تدريب المحسّن المتقدمة",
+    });
+    await expect(optimizerSettings).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByLabel("دورات التدريب")).toHaveCount(0);
+    await optimizerSettings.click();
+    await expect(optimizerSettings).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByLabel("دورات التدريب")).toHaveValue("5");
+    await expect(
+      page.getByText("المستبعدة بسبب طول التسلسل"),
+    ).toBeVisible();
+
+    const trainingPanel = page.getByRole("region", {
+      name: "تدريب معاملات FSRS",
+    });
     const rawReviewEvents = Number(
-      await page
+      await trainingPanel
         .getByText("أحداث المراجعة الخام")
         .locator("..")
         .locator("dd")
         .textContent(),
     );
     const eligibleExamples = Number(
-      await page
+      await trainingPanel
         .getByText("أمثلة التدريب المؤهلة")
         .locator("..")
         .locator("dd")

@@ -37,6 +37,26 @@ const view: OptimizerSettingsView = {
 };
 
 describe("OptimizerTrainingSettingsForm", () => {
+  it("isolates an unsupported optimizer manifest without rendering controls", async () => {
+    const incompatibleView = {
+      ...view,
+      manifest: { ...view.manifest, schemaVersion: 2 },
+    } as unknown as OptimizerSettingsView;
+    const api = {
+      bootstrap: async () => ({ apiVersion: 1 as const, csrfToken: "x", databaseRevision: 1, locale: "en" as const, localeUpdatedAtMs: 0 }),
+      get: async <T,>() => ({}) as T,
+      patch: async <T,>() => ({}) as T,
+      post: async <T,>() => ({}) as T,
+      put: async <T,>() => ({}) as T,
+      delete: async <T,>() => ({}) as T,
+    } satisfies ApiClient;
+
+    render(<I18nProvider i18n={await createI18n("en")}><OptimizerTrainingSettingsForm api={api} onViewChange={() => undefined} view={incompatibleView} /></I18nProvider>);
+
+    expect(screen.getByRole("alert").textContent).toContain("incompatible");
+    expect(screen.queryByLabelText("Training epochs")).toBeNull();
+  });
+
   it("renders manifest choices, previews exclusions, and saves a canonical draft", async () => {
     const user = userEvent.setup();
     const putCalls: Array<[string, unknown]> = [];

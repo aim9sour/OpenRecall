@@ -56,6 +56,19 @@ async function expectNoSeriousAccessibilityViolations(
   ).toEqual([]);
 }
 
+async function openSettingsDisclosures(page: Page): Promise<void> {
+  for (const name of [
+    /(?:إعدادات تدريب المحسّن المتقدمة|Advanced optimizer training settings)/,
+    /(?:معلومات النموذج التقنية|Technical model information)/,
+  ]) {
+    const disclosure = page.getByRole("button", { name });
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    await disclosure.click();
+    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await expectNoSeriousAccessibilityViolations(page);
+  }
+}
+
 async function ensureReviewRoute(page: Page): Promise<string> {
   await page.goto("/");
   const sessionId = await page.evaluate(async (sectionId) => {
@@ -103,6 +116,10 @@ test("visual accessibility covers every route, locale, theme, and reflow mode", 
       await expect(page.locator("main h1").first()).toBeVisible();
       await expectPageFitsViewport(page, route, viewport.width);
       await expectNoSeriousAccessibilityViolations(page);
+      if (route === "/settings" && !testInfo.project.name.endsWith("-xa")) {
+        await openSettingsDisclosures(page);
+        await expectPageFitsViewport(page, route, viewport.width);
+      }
     }
   }
 

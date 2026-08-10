@@ -103,6 +103,8 @@ export const englishLocale = {
     "settings.optimizer.inherited": "This section inherits the general optimizer training settings.",
     "settings.optimizer.refreshPreflight": "Refresh training preview",
     "settings.optimizer.preflightError": "The training preview could not be loaded.",
+    "settings.optimizer.manifestInvalid":
+      "The optimizer settings manifest is incompatible with this page. Other settings remain available.",
     "settings.optimizer.restoreOfficial": "Save official optimizer defaults",
     "settings.optimizer.useGeneral": "Use general optimizer settings",
     "settings.optimizer.otherwiseEligible": "Eligible before sequence filter",
