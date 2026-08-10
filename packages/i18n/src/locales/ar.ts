@@ -296,13 +296,10 @@ export const arabicLocale = {
     "optimizer.steps.duration.seconds": "{{count}} ثوانٍ",
     "optimizer.steps.duration.minute": "دقيقة واحدة",
     "optimizer.steps.duration.minutes": "{{count}} دقائق",
-    "optimizer.steps.duration.minutesSeconds": "{{minutes}} و{{seconds}}",
     "optimizer.steps.duration.hour": "ساعة واحدة",
     "optimizer.steps.duration.hours": "{{count}} ساعات",
-    "optimizer.steps.duration.hoursMinutes": "{{hours}} و{{minutes}}",
     "optimizer.steps.duration.day": "يوم واحد",
     "optimizer.steps.duration.days": "{{count}} أيام",
-    "optimizer.steps.duration.daysHours": "{{days}} و{{hours}}",
     "backup.title": "نسخة SQLite الاحتياطية",
     "backup.description":
       "نزّل لقطة SQLite واحدة متحققًا منها تحتوي على كل بيانات OpenRecall.",

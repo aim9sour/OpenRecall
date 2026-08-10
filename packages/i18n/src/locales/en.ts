@@ -299,13 +299,10 @@ export const englishLocale = {
     "optimizer.steps.duration.seconds": "{{count}} seconds",
     "optimizer.steps.duration.minute": "{{count}} minute",
     "optimizer.steps.duration.minutes": "{{count}} minutes",
-    "optimizer.steps.duration.minutesSeconds": "{{minutes}} {{seconds}}",
     "optimizer.steps.duration.hour": "{{count}} hour",
     "optimizer.steps.duration.hours": "{{count}} hours",
-    "optimizer.steps.duration.hoursMinutes": "{{hours}} {{minutes}}",
     "optimizer.steps.duration.day": "{{count}} day",
     "optimizer.steps.duration.days": "{{count}} days",
-    "optimizer.steps.duration.daysHours": "{{days}} {{hours}}",
     "backup.title": "SQLite backup",
     "backup.description":
       "Download one validated SQLite snapshot containing all OpenRecall data.",
