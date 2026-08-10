@@ -9,6 +9,7 @@ import {
   CardStatisticsRepository,
   createBackupService,
   openDatabase,
+  OptimizerSettingsRepository,
   type BackupService,
   ProfileApplicationRepository,
   RatingTransaction,
@@ -43,6 +44,7 @@ import {
   OptimizerRunService,
   type OptimizerRunServiceApi,
 } from "./optimizer/optimizer-run-service.js";
+import { OptimizerJobCoordinator } from "./optimizer/optimizer-job-coordinator.js";
 import {
   ProfileApplicationService,
   type ProfileApplicationServiceApi,
@@ -175,6 +177,7 @@ export async function buildServer(
     let repositoryImplementation!: SectionRepository;
     let settingsImplementation!: SettingsRepository;
     let optimizerImplementation!: OptimizerRunServiceApi;
+    let optimizerSettingsImplementation!: OptimizerSettingsRepository;
     let queueImplementation!: ReviewQueueRepository;
     let sessionsImplementation!: ReviewSessionRepository;
     let ratingsImplementation!: RatingTransaction;
@@ -195,6 +198,9 @@ export async function buildServer(
     const settings = dynamicService(() => settingsImplementation);
     const optimizer = dynamicService(
       () => optimizerImplementation,
+    );
+    const optimizerSettings = dynamicService(
+      () => optimizerSettingsImplementation,
     );
     const queue = dynamicService(() => queueImplementation);
     const sessions = dynamicService(() => sessionsImplementation);
@@ -236,10 +242,14 @@ export async function buildServer(
         applicationPreferencesImplementation.getLocale();
       repositoryImplementation = new SectionRepository(database);
       settingsImplementation = new SettingsRepository(database);
+      optimizerSettingsImplementation = new OptimizerSettingsRepository(database);
+      const optimizerCoordinator = new OptimizerJobCoordinator();
       optimizerImplementation =
         options.optimizerService ??
         new OptimizerRunService(database, {
           nowMs: options.nowMs ?? Date.now,
+          coordinator: optimizerCoordinator,
+          optimizerSettings: optimizerSettingsImplementation,
         });
       queueImplementation = new ReviewQueueRepository(database);
       sessionsImplementation = new ReviewSessionRepository(database);
@@ -362,6 +372,8 @@ export async function buildServer(
     });
     registerSettingsRoutes(server, {
       settings,
+      optimizerSettings,
+      optimizer,
       sections: repository,
       nowMs: options.nowMs ?? Date.now,
     });

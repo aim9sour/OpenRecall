@@ -38,6 +38,63 @@ async function mutationHeaders(
 }
 
 describe("settings routes", () => {
+  it("edits optimizer training choices by scope and exposes technical defaults", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      const section = new SectionRepository(db).createSection({ name: "Biology", nowMs: 10 });
+      const server = await buildServer({ config, database: db, nowMs: () => 2_000 });
+      const headers = await mutationHeaders(server);
+      try {
+        const initial = await server.inject({
+          method: "GET",
+          url: `/api/v1/settings/optimizer?sectionId=${section.id}`,
+          headers: testRequestHeaders(),
+        });
+        expect(initial.statusCode).toBe(200);
+        expect(initial.json()).toMatchObject({
+          defaults: { numEpochs: 5, batchSize: 512, maxSeqLen: 256 },
+          savedOverride: null,
+          effective: { source: { kind: "global" } },
+        });
+        const saved = await server.inject({
+          method: "PUT",
+          url: `/api/v1/settings/optimizer/sections/${section.id}`,
+          headers,
+          payload: { settings: { numEpochs: 7, batchSize: 256, maxSeqLen: 128 } },
+        });
+        expect(saved.statusCode, saved.body).toBe(200);
+        expect(saved.json()).toMatchObject({
+          savedOverride: { settings: { numEpochs: 7, batchSize: 256, maxSeqLen: 128 } },
+          effective: { source: { kind: "section" } },
+        });
+        const invalid = await server.inject({
+          method: "PUT",
+          url: "/api/v1/settings/optimizer/global",
+          headers,
+          payload: {
+            expectedUpdatedAtMs: 0,
+            settings: { numEpochs: 100, batchSize: 512, maxSeqLen: 256 },
+          },
+        });
+        expect(invalid.statusCode).toBe(400);
+        const technical = await server.inject({
+          method: "GET",
+          url: `/api/v1/settings/technical?sectionId=${section.id}`,
+          headers: testRequestHeaders(),
+        });
+        expect(technical.statusCode, technical.body).toBe(200);
+        expect(technical.json()).toMatchObject({
+          manifest: { upstreamVersion: "0.5.0", algorithmVersion: "6.0" },
+          officialTrainingConfig: { seed: 2023, learningRate: 0.04, gamma: 1 },
+          parameterSource: { kind: "official" },
+          activeProfile: { metricLogLoss: null, metricRmseBins: null },
+        });
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
   it("persists a global appearance preference with optimistic concurrency", async () => {
     await withTempDatabase(async (databasePath) => {
       const db = openDatabase(databasePath);

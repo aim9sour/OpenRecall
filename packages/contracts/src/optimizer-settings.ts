@@ -1,6 +1,10 @@
 import { Type, type Static } from "typebox";
-import { OptimizerScopeSchema } from "./optimizer.js";
 import { EpochMillisecondsSchema, UuidSchema } from "./sections.js";
+
+const OptimizerSettingsScopeTargetSchema = Type.Union([
+  Type.Object({ scopeType: Type.Literal("global"), sectionId: Type.Null() }, { additionalProperties: false }),
+  Type.Object({ scopeType: Type.Literal("section"), sectionId: UuidSchema }, { additionalProperties: false }),
+]);
 
 const NumEpochsSchema = Type.Union([
   Type.Literal(3), Type.Literal(5), Type.Literal(7), Type.Literal(10),
@@ -133,7 +137,7 @@ export const OptimizerSettingsViewSchema = Type.Object(
   {
     manifest: OptimizerTrainingManifestSchema,
     defaults: OptimizerTrainingSettingsSchema,
-    selectedScope: OptimizerScopeSchema,
+    selectedScope: OptimizerSettingsScopeTargetSchema,
     savedOverride: Type.Union([OptimizerTrainingSettingsScopeSchema, Type.Null()]),
     effective: Type.Object(
       {
@@ -148,7 +152,7 @@ export const OptimizerSettingsViewSchema = Type.Object(
 
 export const OptimizerTrainingPreflightRequestSchema = Type.Object(
   {
-    scope: OptimizerScopeSchema,
+    scope: OptimizerSettingsScopeTargetSchema,
     settings: OptimizerTrainingSettingsSchema,
   },
   { additionalProperties: false },
@@ -169,6 +173,7 @@ export const OptimizerTrainingPreflightSchema = Type.Object(
 
 export const OptimizerRunInputSnapshotSchema = Type.Object(
   {
+    kind: Type.Literal("current"),
     trainingConfig: OptimizerTrainingConfigSchema,
     enableShortTerm: Type.Boolean(),
     numRelearningSteps: Type.Integer({ minimum: 0, maximum: 64 }),
@@ -208,6 +213,14 @@ export const OptimizerTechnicalInfoSchema = Type.Object(
   {
     manifest: OptimizerTrainingManifestSchema,
     officialTrainingConfig: OptimizerTrainingConfigSchema,
+    parameterSource: Type.Object(
+      {
+        kind: Type.Union([Type.Literal("official"), Type.Literal("global"), Type.Literal("section")]),
+        profileId: Type.String({ minLength: 1, maxLength: 200 }),
+        eligibleExampleCount: Type.Integer({ minimum: 0 }),
+      },
+      { additionalProperties: false },
+    ),
     activeProfile: TechnicalProfileSchema,
   },
   { additionalProperties: false },

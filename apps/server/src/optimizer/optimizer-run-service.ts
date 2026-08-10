@@ -2,24 +2,35 @@ import { randomUUID } from "node:crypto";
 import type {
   OptimizerEligibility,
   OptimizerRun,
+  OptimizerRunInputSnapshot,
   OptimizerRunStatus,
+  OptimizerTechnicalInfo,
+  OptimizerTrainingPreflight,
+  OptimizerTrainingSettings,
 } from "@openrecall/contracts";
+import { OptimizerRunInputSnapshotSchema } from "@openrecall/contracts";
 import {
   CURRENT_SCHEDULER_SETTINGS_MANIFEST,
   OptimizerDataRepository,
+  OptimizerSettingsRepository,
   SettingsRepository,
   type OptimizerEligibilityCounts,
 } from "@openrecall/database";
 import { MINIMUM_ELIGIBLE_EXAMPLES } from "@openrecall/domain";
 import {
   buildTrainingSet,
+  OFFICIAL_OPTIMIZER_TRAINING_CONFIG,
   OPTIMIZER_BINDING_VERSION,
+  OPTIMIZER_TRAINING_MANIFEST,
+  resolveOptimizerTrainingConfig,
   trainOptimizer,
   type OptimizerResult,
   type OptimizerScope,
   type TrainOptimizerInput,
   type TrainingSetSummary,
 } from "@openrecall/optimizer";
+import { Value } from "typebox/value";
+import { OptimizerJobCoordinator } from "./optimizer-job-coordinator.js";
 
 type ApplicationDatabase = ConstructorParameters<
   typeof SettingsRepository
@@ -43,6 +54,9 @@ interface OptimizerRunRow {
   readonly created_at_ms: number;
   readonly started_at_ms: number | null;
   readonly finished_at_ms: number | null;
+  readonly input_snapshot_json: string | null;
+  readonly max_sequence_excluded_count: number;
+  readonly source_review_fingerprint: string | null;
 }
 
 export type OptimizerTrainer = (
@@ -53,11 +67,14 @@ interface OptimizerRunDependencies {
   readonly nowMs?: () => number;
   readonly loadTrainingSet?: (
     scope: OptimizerScope,
+    maxSeqLen: number,
   ) => TrainingSetSummary;
   readonly loadEligibility?: (
     scope: OptimizerScope,
   ) => OptimizerEligibilityCounts;
   readonly train?: OptimizerTrainer;
+  readonly coordinator?: OptimizerJobCoordinator;
+  readonly optimizerSettings?: OptimizerSettingsRepository;
 }
 
 export class OptimizerEligibilityError extends Error {
@@ -72,6 +89,27 @@ export class OptimizerEligibilityError extends Error {
 }
 
 function mapRun(row: OptimizerRunRow): OptimizerRun {
+  let inputSnapshot: OptimizerRun["inputSnapshot"];
+  if (row.input_snapshot_json === null) {
+    inputSnapshot = {
+      kind: "legacy-official",
+      trainingConfig: OFFICIAL_OPTIMIZER_TRAINING_CONFIG,
+      settingsSource: null,
+      enableShortTerm: null,
+      numRelearningSteps: null,
+    };
+  } else {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.input_snapshot_json);
+    } catch {
+      throw new Error("OPTIMIZER_RUN_SNAPSHOT_PERSISTED_INVALID");
+    }
+    if (!Value.Check(OptimizerRunInputSnapshotSchema, parsed)) {
+      throw new Error("OPTIMIZER_RUN_SNAPSHOT_PERSISTED_INVALID");
+    }
+    inputSnapshot = parsed;
+  }
   return {
     id: row.id,
     scopeType: row.scope_type,
@@ -90,6 +128,7 @@ function mapRun(row: OptimizerRunRow): OptimizerRun {
     createdAtMs: row.created_at_ms,
     startedAtMs: row.started_at_ms,
     finishedAtMs: row.finished_at_ms,
+    inputSnapshot,
   };
 }
 
@@ -109,6 +148,8 @@ function stableFailureCode(error: unknown): string {
 export interface OptimizerRunServiceApi {
   recoverInterruptedRuns?(): void;
   getEligibility(scope: OptimizerScope): OptimizerEligibility;
+  preflight?(scope: OptimizerScope, settings: OptimizerTrainingSettings): OptimizerTrainingPreflight;
+  getTechnicalInfo?(scope: OptimizerScope): OptimizerTechnicalInfo;
   startRun(scope: OptimizerScope): OptimizerRun;
   getRun(runId: string): OptimizerRun | null;
   cancelRun(runId: string): boolean;
@@ -122,13 +163,15 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
   readonly #nowMs: () => number;
   readonly #loadTrainingSet: (
     scope: OptimizerScope,
+    maxSeqLen: number,
   ) => TrainingSetSummary;
   readonly #loadEligibility: (
     scope: OptimizerScope,
   ) => OptimizerEligibilityCounts;
   readonly #train: OptimizerTrainer;
   readonly #settings: SettingsRepository;
-  readonly #sectionDeletionGateCounts = new Map<string, number>();
+  readonly #optimizerSettings: OptimizerSettingsRepository;
+  readonly #coordinator: OptimizerJobCoordinator;
   #active:
     | {
         readonly id: string;
@@ -145,22 +188,25 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
     this.#db = db;
     this.#nowMs = dependencies.nowMs ?? Date.now;
     this.#settings = new SettingsRepository(db);
+    this.#optimizerSettings = dependencies.optimizerSettings ?? new OptimizerSettingsRepository(db);
+    this.#coordinator = dependencies.coordinator ?? new OptimizerJobCoordinator();
     const data = new OptimizerDataRepository(db);
     this.#loadTrainingSet =
       dependencies.loadTrainingSet ??
-      ((scope) => buildTrainingSet(data.listReviewHistory(scope)));
+      ((scope, maxSeqLen) => buildTrainingSet(data.listReviewHistory(scope), { maxSeqLen }));
     this.#loadEligibility =
       dependencies.loadEligibility ??
-      (dependencies.loadTrainingSet === undefined
-        ? (scope) => data.getEligibilityCounts(scope)
-        : (scope) => {
-            const summary = dependencies.loadTrainingSet!(scope);
-            return {
-              rawReviewCount: summary.rawReviewCount,
-              eligibleExampleCount: summary.eligibleExampleCount,
-              sourceReviewCutoffMs: summary.sourceReviewCutoffMs,
-            };
-          });
+      ((scope) => {
+        const settings = this.#optimizerSettings.resolveEffective(
+          scope.scopeType === "section" ? scope.sectionId : null,
+        ).settings;
+        const summary = this.#loadTrainingSet(scope, settings.maxSeqLen);
+        return {
+          rawReviewCount: summary.rawReviewCount,
+          eligibleExampleCount: summary.eligibleExampleCount,
+          sourceReviewCutoffMs: summary.sourceReviewCutoffMs,
+        };
+      });
     this.#train = dependencies.train ?? trainOptimizer;
   }
 
@@ -203,19 +249,69 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
     };
   }
 
+  preflight(
+    scope: OptimizerScope,
+    settings: OptimizerTrainingSettings,
+  ): OptimizerTrainingPreflight {
+    const summary = this.#loadTrainingSet(scope, settings.maxSeqLen);
+    return {
+      rawReviewCount: summary.rawReviewCount,
+      otherwiseEligibleExampleCount: summary.preFilterEligibleExampleCount,
+      excludedByMaxSeqLenCount: summary.maxSequenceExcludedCount,
+      eligibleExampleCount: summary.eligibleExampleCount,
+      minimumEligibleExamples: MINIMUM_ELIGIBLE_EXAMPLES,
+      sourceReviewCutoffMs: summary.sourceReviewCutoffMs,
+      canTrain: summary.eligibleExampleCount >= MINIMUM_ELIGIBLE_EXAMPLES,
+    };
+  }
+
+  getTechnicalInfo(scope: OptimizerScope): OptimizerTechnicalInfo {
+    const sectionId = scope.scopeType === "section"
+      ? scope.sectionId
+      : "__global_optimizer_scope__";
+    const effective = this.#settings.resolveEffective(sectionId);
+    const profile = this.#db.prepare<[string], {
+      id: string;
+      scope_type: "official" | "global" | "section";
+      eligible_example_count: number;
+      review_cutoff_ms: number | null;
+      created_at_ms: number;
+    }>(`
+      SELECT id, scope_type, eligible_example_count, review_cutoff_ms, created_at_ms
+      FROM parameter_profiles WHERE id = ?
+    `).get(effective.parameterSource.profileId);
+    if (profile === undefined) throw new Error("PARAMETER_PROFILE_PERSISTED_INVALID");
+    const producingRun = this.#db.prepare<[string], {
+      package_version: string;
+      metric_log_loss: number | null;
+      metric_rmse_bins: number | null;
+    }>(`
+      SELECT package_version, metric_log_loss, metric_rmse_bins
+      FROM optimizer_runs
+      WHERE result_profile_id = ? AND status = 'succeeded'
+      ORDER BY finished_at_ms DESC, id DESC LIMIT 1
+    `).get(profile.id);
+    return {
+      manifest: OPTIMIZER_TRAINING_MANIFEST,
+      officialTrainingConfig: OFFICIAL_OPTIMIZER_TRAINING_CONFIG,
+      parameterSource: effective.parameterSource,
+      activeProfile: {
+        profileId: profile.id,
+        sourceKind: profile.scope_type,
+        eligibleExampleCount: profile.eligible_example_count,
+        reviewCutoffMs: profile.review_cutoff_ms,
+        createdAtMs: profile.scope_type === "official" ? null : profile.created_at_ms,
+        packageVersion: producingRun?.package_version ?? null,
+        metricLogLoss: producingRun?.metric_log_loss ?? null,
+        metricRmseBins: producingRun?.metric_rmse_bins ?? null,
+      },
+    };
+  }
+
   startRun(scope: OptimizerScope): OptimizerRun {
-    if (
-      (scope.scopeType === "global" &&
-        this.#sectionDeletionGateCounts.size > 0) ||
-      (scope.scopeType === "section" &&
-        this.#sectionDeletionGateCounts.has(scope.sectionId))
-    ) {
-      throw new Error("OPTIMIZER_SECTION_DELETION_IN_PROGRESS");
-    }
-    if (this.#active !== null) {
-      throw new Error("OPTIMIZER_RUN_CONFLICT");
-    }
-    const summary = this.#loadTrainingSet(scope);
+    const selectedSectionId = scope.scopeType === "section" ? scope.sectionId : null;
+    const optimizerEffective = this.#optimizerSettings.resolveEffective(selectedSectionId);
+    const summary = this.#loadTrainingSet(scope, optimizerEffective.settings.maxSeqLen);
     if (
       summary.eligibleExampleCount < MINIMUM_ELIGIBLE_EXAMPLES
     ) {
@@ -230,8 +326,37 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
         ? scope.sectionId
         : "__global_optimizer_scope__",
     );
+    const snapshot: OptimizerRunInputSnapshot = {
+      kind: "current",
+      trainingConfig: resolveOptimizerTrainingConfig(optimizerEffective.settings),
+      enableShortTerm: effective.settings.enableShortTerm,
+      numRelearningSteps: effective.settings.relearningStepsMinutes.length,
+      settingsSource: optimizerEffective.source,
+      schedulerSettingsId: effective.settingsSource.settingsId,
+      parameterProfileId: effective.parameterSource.profileId,
+      packageVersion: OPTIMIZER_BINDING_VERSION,
+      fsrsCoreVersion: OPTIMIZER_TRAINING_MANIFEST.fsrsCoreVersion,
+      algorithmVersion: OPTIMIZER_TRAINING_MANIFEST.algorithmVersion,
+      adapterVersion: OPTIMIZER_TRAINING_MANIFEST.adapterVersion,
+      schemaVersion: OPTIMIZER_TRAINING_MANIFEST.schemaVersion,
+      rawReviewCount: summary.rawReviewCount,
+      otherwiseEligibleExampleCount: summary.preFilterEligibleExampleCount,
+      excludedByMaxSeqLenCount: summary.maxSequenceExcludedCount,
+      eligibleExampleCount: summary.eligibleExampleCount,
+      sourceReviewCutoffMs: summary.sourceReviewCutoffMs,
+      sourceReviewFingerprint: summary.sourceReviewFingerprint,
+    };
+    let promise!: Promise<void>;
+    const releaseJob = this.#coordinator.acquire({
+      id,
+      kind: "training",
+      scope,
+      cancel: () => controller.abort(),
+      get settled() { return promise; },
+    });
 
-    this.#db.transaction(() => {
+    try {
+      this.#db.transaction(() => {
       this.#db
         .prepare(
           `
@@ -240,9 +365,10 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
                 id, scope_type, section_id, status, raw_review_count,
                 eligible_example_count, source_review_cutoff_ms,
                 package_version, algorithm_version, progress,
-                created_at_ms
+                created_at_ms, input_snapshot_json,
+                max_sequence_excluded_count, source_review_fingerprint
               )
-            VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, 0, ?)
+            VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
           `,
         )
         .run(
@@ -255,6 +381,9 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
           OPTIMIZER_BINDING_VERSION,
           CURRENT_SCHEDULER_SETTINGS_MANIFEST.algorithmVersion,
           nowMs,
+          JSON.stringify(snapshot),
+          summary.maxSequenceExcludedCount,
+          summary.sourceReviewFingerprint,
         );
       this.#db
         .prepare(
@@ -265,21 +394,25 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
           `,
         )
         .run(nowMs, id);
-    })();
+      })();
+    } catch (error) {
+      releaseJob();
+      throw error;
+    }
 
-    const promise = Promise.resolve()
+    promise = Promise.resolve()
       .then(() =>
         this.#execute(
           id,
           scope,
           summary,
-          effective.settings.enableShortTerm,
-          effective.settings.relearningStepsMinutes.length,
+          snapshot,
           controller,
         ),
       )
       .finally(() => {
         if (this.#active?.id === id) this.#active = null;
+        releaseJob();
       });
     this.#active = { id, scope, controller, promise };
     const run = this.getRun(id);
@@ -291,8 +424,7 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
     id: string,
     scope: OptimizerScope,
     summary: TrainingSetSummary,
-    enableShortTerm: boolean,
-    numRelearningSteps: number,
+    snapshot: OptimizerRunInputSnapshot,
     controller: AbortController,
   ): Promise<void> {
     let lastPersistedAtMs = Number.NEGATIVE_INFINITY;
@@ -300,8 +432,9 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
     try {
       const result = await this.#train({
         examples: summary.examples,
-        enableShortTerm,
-        numRelearningSteps,
+        enableShortTerm: snapshot.enableShortTerm,
+        numRelearningSteps: snapshot.numRelearningSteps,
+        trainingConfig: snapshot.trainingConfig,
         signal: controller.signal,
         onProgress: (fraction) => {
           if (
@@ -421,7 +554,9 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
             eligible_example_count, source_review_cutoff_ms,
             package_version, algorithm_version, progress,
             result_profile_id, metric_log_loss, metric_rmse_bins,
-            error_code, created_at_ms, started_at_ms, finished_at_ms
+            error_code, created_at_ms, started_at_ms, finished_at_ms,
+            input_snapshot_json, max_sequence_excluded_count,
+            source_review_fingerprint
           FROM optimizer_runs
           WHERE id = ?
         `,
@@ -439,46 +574,14 @@ export class OptimizerRunService implements OptimizerRunServiceApi {
   async quiesceForSectionDeletion(
     sectionId: string,
   ): Promise<() => void> {
-    if (sectionId.trim().length === 0) {
-      throw new Error("OPTIMIZER_SECTION_ID_INVALID");
-    }
-    this.#sectionDeletionGateCounts.set(
-      sectionId,
-      (this.#sectionDeletionGateCounts.get(sectionId) ?? 0) + 1,
-    );
-    let released = false;
-    const release = () => {
-      if (released) return;
-      released = true;
-      const count = this.#sectionDeletionGateCounts.get(sectionId);
-      if (count === undefined || count <= 1) {
-        this.#sectionDeletionGateCounts.delete(sectionId);
-      } else {
-        this.#sectionDeletionGateCounts.set(sectionId, count - 1);
-      }
-    };
-    const active = this.#active;
-    try {
-      if (
-        active !== null &&
-        (active.scope.scopeType === "global" ||
-          active.scope.sectionId === sectionId)
-      ) {
-        active.controller.abort();
-        await active.promise;
-      }
-    } catch (error) {
-      release();
-      throw error;
-    }
-    return release;
+    return this.#coordinator.quiesceForSectionDeletion(sectionId);
   }
 
   async whenIdle(): Promise<void> {
-    await this.#active?.promise;
+    await this.#coordinator.whenIdle();
   }
 
   dispose(): void {
-    this.#active?.controller.abort();
+    this.#coordinator.cancelActive();
   }
 }

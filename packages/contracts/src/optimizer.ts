@@ -1,5 +1,6 @@
 import { Type, type Static } from "typebox";
 import { EpochMillisecondsSchema, UuidSchema } from "./sections.js";
+import { OptimizerRunInputSnapshotSchema } from "./optimizer-settings.js";
 
 export const OptimizerScopeSchema = Type.Union([
   Type.Object(
@@ -37,6 +38,32 @@ export const OptimizerRunStatusSchema = Type.Union([
   Type.Literal("succeeded"),
 ]);
 
+export const LegacyOptimizerRunInputSnapshotSchema = Type.Object(
+  {
+    kind: Type.Literal("legacy-official"),
+    trainingConfig: Type.Object(
+      {
+        numEpochs: Type.Literal(5),
+        batchSize: Type.Literal(512),
+        seed: Type.Literal(2023),
+        maxSeqLen: Type.Literal(256),
+        learningRate: Type.Literal(0.04),
+        gamma: Type.Literal(1),
+      },
+      { additionalProperties: false },
+    ),
+    settingsSource: Type.Null(),
+    enableShortTerm: Type.Null(),
+    numRelearningSteps: Type.Null(),
+  },
+  { additionalProperties: false },
+);
+
+export const OptimizerRunSnapshotSchema = Type.Union([
+  OptimizerRunInputSnapshotSchema,
+  LegacyOptimizerRunInputSnapshotSchema,
+]);
+
 export const OptimizerRunSchema = Type.Object(
   {
     id: UuidSchema,
@@ -68,6 +95,7 @@ export const OptimizerRunSchema = Type.Object(
       Type.String({ minLength: 1, maxLength: 100 }),
       Type.Null(),
     ]),
+    inputSnapshot: OptimizerRunSnapshotSchema,
     createdAtMs: EpochMillisecondsSchema,
     startedAtMs: Type.Union([
       EpochMillisecondsSchema,
@@ -238,6 +266,7 @@ export type OptimizerRunStatus = Static<
   typeof OptimizerRunStatusSchema
 >;
 export type OptimizerRun = Static<typeof OptimizerRunSchema>;
+export type OptimizerRunSnapshot = Static<typeof OptimizerRunSnapshotSchema>;
 export type OptimizerEligibility = Static<
   typeof OptimizerEligibilitySchema
 >;

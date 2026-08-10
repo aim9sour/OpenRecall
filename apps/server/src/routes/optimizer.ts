@@ -8,10 +8,13 @@ import {
   OptimizerRunSchema,
   OptimizerScopeQuerySchema,
   OptimizerScopeSchema,
+  OptimizerTrainingPreflightRequestSchema,
+  OptimizerTrainingPreflightSchema,
   UuidSchema,
   type OptimizerScope,
   type OptimizerScopeQuery,
   type OptimizerProfileApply,
+  type OptimizerTrainingPreflightRequest,
 } from "@openrecall/contracts";
 import type { SectionRepository } from "@openrecall/database";
 import type { FastifyInstance, FastifyReply } from "fastify";
@@ -170,6 +173,29 @@ export function registerOptimizerRoutes(
       } catch (error) {
         return optimizerError(reply, error);
       }
+    },
+  );
+
+  server.post<{ Body: OptimizerTrainingPreflightRequest }>(
+    "/api/v1/optimizer/preflight",
+    {
+      schema: {
+        body: OptimizerTrainingPreflightRequestSchema,
+        response: {
+          200: OptimizerTrainingPreflightSchema,
+          400: ApiErrorSchema,
+          404: ApiErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!sectionExists(request.body.scope, reply)) return;
+      if (options.optimizer.preflight === undefined) {
+        throw new Error("OPTIMIZER_PREFLIGHT_UNAVAILABLE");
+      }
+      return reply.code(200).send(
+        options.optimizer.preflight(request.body.scope, request.body.settings),
+      );
     },
   );
 

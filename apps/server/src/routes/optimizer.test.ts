@@ -62,6 +62,20 @@ describe("optimizer routes", () => {
         createdAtMs: 1_000,
         startedAtMs: 1_000,
         finishedAtMs: null,
+        inputSnapshot: {
+          kind: "legacy-official",
+          trainingConfig: {
+            numEpochs: 5,
+            batchSize: 512,
+            seed: 2023,
+            maxSeqLen: 256,
+            learningRate: 0.04,
+            gamma: 1,
+          },
+          settingsSource: null,
+          enableShortTerm: null,
+          numRelearningSteps: null,
+        },
       } as const;
       const service = {
         getEligibility: vi.fn(() => ({
@@ -80,6 +94,15 @@ describe("optimizer routes", () => {
             eligibleExampleCount: 0,
           },
           activeRun: null,
+        })),
+        preflight: vi.fn(() => ({
+          rawReviewCount: 450,
+          otherwiseEligibleExampleCount: 410,
+          excludedByMaxSeqLenCount: 10,
+          eligibleExampleCount: 400,
+          minimumEligibleExamples: 400,
+          sourceReviewCutoffMs: 5_000,
+          canTrain: true,
         })),
         startRun: vi.fn(() => run),
         getRun: vi.fn((runId: string) =>
@@ -110,6 +133,21 @@ describe("optimizer routes", () => {
           rawReviewCount: 450,
           eligibleExampleCount: 400,
           canTrain: true,
+        });
+        const preflight = await server.inject({
+          method: "POST",
+          url: "/api/v1/optimizer/preflight",
+          headers,
+          payload: {
+            scope: { scopeType: "section", sectionId: run.sectionId },
+            settings: { numEpochs: 7, batchSize: 256, maxSeqLen: 128 },
+          },
+        });
+        expect(preflight.statusCode).toBe(200);
+        expect(preflight.json()).toMatchObject({
+          otherwiseEligibleExampleCount: 410,
+          excludedByMaxSeqLenCount: 10,
+          eligibleExampleCount: 400,
         });
 
         const started = await server.inject({

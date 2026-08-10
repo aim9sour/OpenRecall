@@ -1,4 +1,5 @@
 import {
+  OptimizerSettingsRepository,
   OFFICIAL_PARAMETER_PROFILE_ID,
   openDatabase,
 } from "@openrecall/database";
@@ -37,9 +38,12 @@ const trainedResult: OptimizerResult = {
 function trainingSet(eligibleExampleCount: number): TrainingSetSummary {
   return {
     rawReviewCount: eligibleExampleCount + 25,
+    preFilterEligibleExampleCount: eligibleExampleCount,
     eligibleExampleCount,
+    maxSequenceExcludedCount: 0,
     sourceReviewCutoffMs:
       eligibleExampleCount === 0 ? null : 50_000,
+    sourceReviewFingerprint: "a".repeat(64),
     examples: Array.from({ length: eligibleExampleCount }, (_, index) => ({
       learningItemId: `item-${index}`,
       targetReviewLogId: `log-${index}`,
@@ -67,6 +71,55 @@ function seedSection(db: ReturnType<typeof openDatabase>): void {
 }
 
 describe("OptimizerRunService", () => {
+  it("persists and trains with one immutable effective input snapshot", async () => {
+    await withTempDatabase(async (databasePath) => {
+      const db = openDatabase(databasePath);
+      try {
+        seedSection(db);
+        new OptimizerSettingsRepository(db).saveSection({
+          sectionId: "section-a",
+          expectedUpdatedAtMs: null,
+          settings: { numEpochs: 7, batchSize: 256, maxSeqLen: 128 },
+          nowMs: 10,
+        });
+        let received: Parameters<OptimizerTrainer>[0] | undefined;
+        const service = new OptimizerRunService(db, {
+          loadTrainingSet: () => trainingSet(400),
+          nowMs: () => 1_000,
+          train: async (input) => {
+            received = input;
+            return trainedResult;
+          },
+        });
+
+        const run = service.startRun(sectionScope);
+        expect(run.inputSnapshot).toMatchObject({
+          trainingConfig: {
+            numEpochs: 7,
+            batchSize: 256,
+            seed: 2023,
+            maxSeqLen: 128,
+            learningRate: 0.04,
+            gamma: 1,
+          },
+          settingsSource: { kind: "section" },
+          enableShortTerm: true,
+          numRelearningSteps: 1,
+          sourceReviewFingerprint: "a".repeat(64),
+        });
+        await service.whenIdle();
+        expect(received?.trainingConfig).toEqual(run.inputSnapshot.kind === "current"
+          ? run.inputSnapshot.trainingConfig
+          : undefined);
+        expect(JSON.parse(String(db.prepare(
+          "SELECT input_snapshot_json FROM optimizer_runs WHERE id = ?",
+        ).pluck().get(run.id)))).toEqual(run.inputSnapshot);
+      } finally {
+        db.close();
+      }
+    });
+  });
+
   it("reports raw and eligible counts and rejects fewer than 400 examples", async () => {
     await withTempDatabase((databasePath) => {
       const db = openDatabase(databasePath);
@@ -95,7 +148,7 @@ describe("OptimizerRunService", () => {
             eligibleExampleCount: 399,
           }),
         );
-        expect(loadTrainingSet).toHaveBeenCalledWith(sectionScope);
+        expect(loadTrainingSet).toHaveBeenCalledWith(sectionScope, 256);
         expect(train).not.toHaveBeenCalled();
       } finally {
         db.close();
