@@ -70,7 +70,6 @@ export function pnpmDeployArguments(target) {
     "--prod",
     "deploy",
     target,
-    "--legacy",
   ];
 }
 

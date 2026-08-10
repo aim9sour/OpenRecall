@@ -195,7 +195,7 @@ describe("Windows release artifact contracts", () => {
     }
   });
 
-  it("requests a production legacy deploy with a physical hoisted tree", () => {
+  it("requests a lockfile-backed production deploy with a physical hoisted tree", async () => {
     expect(pnpmDeployArguments("C:\\release staging\\server")).toEqual([
       "--config.node-linker=hoisted",
       "--filter",
@@ -203,8 +203,10 @@ describe("Windows release artifact contracts", () => {
       "--prod",
       "deploy",
       "C:\\release staging\\server",
-      "--legacy",
     ]);
+    await expect(
+      readFile(join(repositoryRoot, "pnpm-workspace.yaml"), "utf8"),
+    ).resolves.toMatch(/^injectWorkspacePackages: true$/mu);
   });
 
   it("refuses release directories that could erase broad or source paths", async () => {
