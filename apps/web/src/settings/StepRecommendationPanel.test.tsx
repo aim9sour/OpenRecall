@@ -134,25 +134,42 @@ function api(overrides: Partial<ApiClient> = {}): ApiClient {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 async function renderPanel(
   client: ApiClient,
   language: "en" | "ar" = "en",
   onSettingsChanged = vi.fn(async () => undefined),
   pollIntervalMs = 1,
+  initialScope: OptimizerScope = scope,
 ) {
   const i18n = await createI18n(language);
-  const rendered = render(
+  const panel = (selectedScope: OptimizerScope) => (
     <I18nProvider i18n={i18n}>
       <StepRecommendationPanel
         api={client}
         currentSettings={settings}
         onSettingsChanged={onSettingsChanged}
         pollIntervalMs={pollIntervalMs}
-        scope={scope}
+        scope={selectedScope}
       />
-    </I18nProvider>,
+    </I18nProvider>
   );
-  return { ...rendered, i18n, onSettingsChanged };
+  const rendered = render(panel(initialScope));
+  return {
+    ...rendered,
+    i18n,
+    onSettingsChanged,
+    rerenderScope(selectedScope: OptimizerScope) {
+      rendered.rerender(panel(selectedScope));
+    },
+  };
 }
 
 describe("StepRecommendationPanel", () => {
@@ -181,16 +198,116 @@ describe("StepRecommendationPanel", () => {
     await user.click(screen.getByRole("button", { name: "Learning-step recommendations" }));
     await user.click(screen.getByRole("button", { name: "Analyze learning steps" }));
 
-    expect(screen.getByRole("status").textContent).toContain("Analyzing learning steps");
+    expect(screen.getByText("Analyzing learning steps")).toBeDefined();
     expect(screen.queryByRole("progressbar")).toBeNull();
     await waitFor(() => expect(screen.getByTestId("step-live").textContent)
       .toContain("Learning-step analysis complete."));
     expect(screen.getByTestId("step-live").textContent).not.toContain("100");
     expect(screen.getByRole("heading", { name: "Again statistics" })).toBeDefined();
-    expect(screen.getByText("1 minute 20 seconds")).toBeDefined();
+    expect(screen.getByText("1 minute, 20 seconds", { selector: "dd" })).toBeDefined();
     expect(screen.getByText("1 minute", { selector: "dd" })).toBeDefined();
     expect((screen.getByRole("button", { name: "Apply relearning steps" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/below OpenRecall's one-minute resolution/i)).toBeDefined();
+  });
+
+  it("uses one polite live region while analysis is active", async () => {
+    const user = userEvent.setup();
+    const rendered = await renderPanel(api(), "en", undefined, 10_000);
+    await user.click(screen.getByRole("button", { name: "Learning-step recommendations" }));
+    await user.click(screen.getByRole("button", { name: "Analyze learning steps" }));
+
+    const liveRegions = rendered.container.querySelectorAll(
+      '[aria-live], [role="status"]',
+    );
+    expect(liveRegions).toHaveLength(1);
+    expect(liveRegions[0]?.textContent).toContain("Learning-step analysis started.");
+    expect(screen.getByText("Analyzing learning steps")).toBeDefined();
+  });
+
+  it("keeps every nonzero unit in exact upstream recommendations", async () => {
+    const user = userEvent.setup();
+    const completed = run("succeeded");
+    const exact = {
+      ...completed,
+      result: completed.result === null ? null : {
+        ...completed.result,
+        learning: {
+          rawSeconds: [3_661, 86_461],
+          applicableMinutes: [61, 1_441],
+          belowResolutionSeconds: [],
+        },
+      },
+    } satisfies StepRecommendationRun;
+    await renderPanel(api({
+      post: async <T,>() => exact as T,
+    }));
+    await user.click(screen.getByRole("button", { name: "Learning-step recommendations" }));
+    await user.click(screen.getByRole("button", { name: "Analyze learning steps" }));
+
+    const official = screen.getAllByText("Official recommendation")[0]
+      ?.parentElement?.textContent ?? "";
+    const saved = screen.getAllByText("Value OpenRecall can save")[0]
+      ?.parentElement?.textContent ?? "";
+    expect(official).toMatch(/1 hour.*1 minute.*1 second/u);
+    expect(official).toMatch(/1 day.*1 minute.*1 second/u);
+    expect(saved).toMatch(/1 hour.*1 minute/u);
+    expect(saved).toMatch(/1 day.*1 minute/u);
+    expect(saved).not.toContain("second");
+  });
+
+  it("discards a delayed start response after the settings scope changes", async () => {
+    const user = userEvent.setup();
+    const pendingStart = deferred<StepRecommendationRun>();
+    const rendered = await renderPanel(api({
+      post: async <T,>() => pendingStart.promise as Promise<T>,
+    }), "en", undefined, 10_000);
+    await user.click(screen.getByRole("button", { name: "Learning-step recommendations" }));
+    await user.click(screen.getByRole("button", { name: "Analyze learning steps" }));
+
+    rendered.rerenderScope({
+      scopeType: "section",
+      sectionId: "f9a78234-0de7-450c-aed4-991bf0565a3d",
+    });
+    await waitFor(() => expect(
+      (screen.getByRole("button", { name: "Analyze learning steps" }) as HTMLButtonElement).disabled,
+    ).toBe(false));
+    pendingStart.resolve(run("running"));
+    await pendingStart.promise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByRole("button", { name: "Cancel learning-step analysis" })).toBeNull();
+    expect(screen.queryByText("Analyzing learning steps")).toBeNull();
+  });
+
+  it("does not refresh settings when a delayed apply resolves for an old scope", async () => {
+    const user = userEvent.setup();
+    const completed = run("succeeded");
+    const pendingApply = deferred<StepRecommendationRun>();
+    const onSettingsChanged = vi.fn(async () => undefined);
+    const post: ApiClient["post"] = async <T,>(path: string) =>
+      (path.endsWith("/apply") ? pendingApply.promise : Promise.resolve(completed)) as Promise<T>;
+    const rendered = await renderPanel(api({ post }), "en", onSettingsChanged);
+    await user.click(screen.getByRole("button", { name: "Learning-step recommendations" }));
+    await user.click(screen.getByRole("button", { name: "Analyze learning steps" }));
+    await user.click(screen.getByRole("button", { name: "Apply learning steps" }));
+    await user.click(screen.getByRole("button", { name: "Confirm learning-step application" }));
+
+    rendered.rerenderScope({
+      scopeType: "section",
+      sectionId: "f9a78234-0de7-450c-aed4-991bf0565a3d",
+    });
+    pendingApply.resolve({
+      ...completed,
+      appliedParts: ["learning"],
+      priorSteps: { learning: [1, 10], relearning: [10] },
+      appliedSteps: { learning: [1, 96], relearning: [10] },
+      appliedAtMs: 3_000,
+    });
+    await pendingApply.promise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onSettingsChanged).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Analysis results" })).toBeNull();
   });
 
   it("cancels an active analysis and announces the terminal state", async () => {
@@ -235,9 +352,9 @@ describe("StepRecommendationPanel", () => {
     await user.click(screen.getByRole("button", { name: "Apply learning steps" }));
 
     expect(screen.getByRole("dialog").textContent).toContain("1 minute and 10 minutes");
-    expect(screen.getByRole("dialog").textContent).toContain("1 minute and 1 hour 36 minutes");
+    expect(screen.getByRole("dialog").textContent).toMatch(/1 minute and 1 hour,? 36 minutes/u);
     await user.click(screen.getByRole("button", { name: "Confirm learning-step application" }));
-    await waitFor(() => expect(onSettingsChanged).toHaveBeenCalledOnce());
+    await waitFor(() => expect(onSettingsChanged).toHaveBeenCalledWith(scope));
     expect(calls.at(-1)).toEqual({
       path: `/api/v1/optimizer/step-recommendations/${completed.id}/apply`,
       body: { parts: ["learning"], revisionToken: completed.revisionToken },
@@ -276,7 +393,7 @@ describe("StepRecommendationPanel", () => {
     await renderPanel(api({ get: async <T,>() => run("succeeded") as T }), "ar");
     await user.click(screen.getByRole("button", { name: "اقتراح خطوات التعلم" }));
     await user.click(screen.getByRole("button", { name: "تحليل خطوات التعلم" }));
-    expect(screen.getByRole("status").textContent).toContain("جارٍ تحليل خطوات التعلم");
+    expect(screen.getByText("جارٍ تحليل خطوات التعلم")).toBeDefined();
     await waitFor(() => expect(screen.getByTestId("step-live").textContent)
       .toContain("اكتمل تحليل خطوات التعلم."));
     expect(screen.getByTestId("step-live").textContent).not.toContain("١٠٠");

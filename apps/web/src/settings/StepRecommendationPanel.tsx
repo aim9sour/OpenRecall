@@ -49,7 +49,7 @@ export function StepRecommendationPanel({
 }: {
   readonly api: ApiClient;
   readonly currentSettings: SchedulerSettings;
-  readonly onSettingsChanged: () => Promise<void> | void;
+  readonly onSettingsChanged: (scope: OptimizerScope) => Promise<void> | void;
   readonly pollIntervalMs?: number;
   readonly scope: OptimizerScope;
 }) {
@@ -69,6 +69,10 @@ export function StepRecommendationPanel({
   const analyzeRef = useRef<HTMLButtonElement>(null);
   const dialogOpenerRef = useRef<HTMLButtonElement>(null);
   const lastTerminalRef = useRef("");
+  const scopeKey = `${scope.scopeType}:${scope.sectionId ?? ""}`;
+  const activeScopeKeyRef = useRef(scopeKey);
+  const requestGenerationRef = useRef(0);
+  activeScopeKeyRef.current = scopeKey;
 
   const number = new Intl.NumberFormat(i18n.language);
   const percent = new Intl.NumberFormat(i18n.language, {
@@ -80,53 +84,31 @@ export function StepRecommendationPanel({
     const seconds = Math.max(0, Math.floor(rawSeconds));
     const unit = (value: number, singular: string, plural: string) =>
       t(value === 1 ? singular : plural, { count: number.format(value) });
-    if (seconds < 60) {
-      return unit(
-        seconds,
-        "optimizer.steps.duration.second",
-        "optimizer.steps.duration.seconds",
-      );
-    }
-    if (seconds < 3_600) {
-      const minutes = Math.floor(seconds / 60);
-      const remainder = seconds % 60;
-      return remainder === 0
-        ? t(minutes === 1
-            ? "optimizer.steps.duration.minute"
-            : "optimizer.steps.duration.minutes", {
-            count: number.format(minutes),
-          })
-        : t("optimizer.steps.duration.minutesSeconds", {
-            minutes: unit(minutes, "optimizer.steps.duration.minute", "optimizer.steps.duration.minutes"),
-            seconds: unit(remainder, "optimizer.steps.duration.second", "optimizer.steps.duration.seconds"),
-          });
-    }
-    if (seconds < 86_400) {
-      const hours = Math.floor(seconds / 3_600);
-      const minutes = Math.floor((seconds % 3_600) / 60);
-      return minutes === 0
-        ? t(hours === 1
-            ? "optimizer.steps.duration.hour"
-            : "optimizer.steps.duration.hours", {
-            count: number.format(hours),
-          })
-        : t("optimizer.steps.duration.hoursMinutes", {
-            hours: unit(hours, "optimizer.steps.duration.hour", "optimizer.steps.duration.hours"),
-            minutes: unit(minutes, "optimizer.steps.duration.minute", "optimizer.steps.duration.minutes"),
-          });
-    }
     const days = Math.floor(seconds / 86_400);
     const hours = Math.floor((seconds % 86_400) / 3_600);
-    return hours === 0
-      ? t(days === 1
-          ? "optimizer.steps.duration.day"
-          : "optimizer.steps.duration.days", {
-          count: number.format(days),
-        })
-      : t("optimizer.steps.duration.daysHours", {
-          days: unit(days, "optimizer.steps.duration.day", "optimizer.steps.duration.days"),
-          hours: unit(hours, "optimizer.steps.duration.hour", "optimizer.steps.duration.hours"),
-        });
+    const minutes = Math.floor((seconds % 3_600) / 60);
+    const remainingSeconds = seconds % 60;
+    const parts: string[] = [];
+    if (days > 0) {
+      parts.push(unit(days, "optimizer.steps.duration.day", "optimizer.steps.duration.days"));
+    }
+    if (hours > 0) {
+      parts.push(unit(hours, "optimizer.steps.duration.hour", "optimizer.steps.duration.hours"));
+    }
+    if (minutes > 0) {
+      parts.push(unit(minutes, "optimizer.steps.duration.minute", "optimizer.steps.duration.minutes"));
+    }
+    if (remainingSeconds > 0 || parts.length === 0) {
+      parts.push(unit(
+        remainingSeconds,
+        "optimizer.steps.duration.second",
+        "optimizer.steps.duration.seconds",
+      ));
+    }
+    return new Intl.ListFormat(i18n.language, {
+      style: "long",
+      type: "unit",
+    }).format(parts);
   };
 
   const formatMinutes = (minutes: readonly number[]): string => {
@@ -142,13 +124,24 @@ export function StepRecommendationPanel({
   }, [expanded]);
 
   useEffect(() => {
+    requestGenerationRef.current += 1;
     setRun(null);
     setAnnouncement("");
     setRequestError("");
+    setStarting(false);
     setStale(false);
     setPending(null);
+    setMutationBusy(false);
     lastTerminalRef.current = "";
-  }, [scope.scopeType, scope.sectionId]);
+  }, [scopeKey]);
+
+  const beginRequest = () => ({
+    generation: ++requestGenerationRef.current,
+    scopeKey,
+  });
+  const requestIsCurrent = (request: ReturnType<typeof beginRequest>) =>
+    request.generation === requestGenerationRef.current &&
+    request.scopeKey === activeScopeKeyRef.current;
 
   useEffect(() => {
     if (run === null || !ACTIVE_STATUSES.has(run.status)) return;
@@ -193,6 +186,7 @@ export function StepRecommendationPanel({
   }, [run, t]);
 
   const start = async () => {
+    const request = beginRequest();
     setStarting(true);
     setRequestError("");
     setStale(false);
@@ -202,26 +196,31 @@ export function StepRecommendationPanel({
         "/api/v1/optimizer/step-recommendations",
         { scope },
       );
+      if (!requestIsCurrent(request)) return;
       setRun(started);
       setAnnouncement(t("optimizer.steps.started"));
     } catch {
+      if (!requestIsCurrent(request)) return;
       setRequestError(t("optimizer.steps.startError"));
     } finally {
-      setStarting(false);
+      if (requestIsCurrent(request)) setStarting(false);
     }
   };
 
   const cancel = async () => {
     if (run === null) return;
+    const request = beginRequest();
     setRequestError("");
     try {
       const updated = await api.post<StepRecommendationRun>(
         `/api/v1/optimizer/step-recommendations/${encodeURIComponent(run.id)}/cancel`,
         {},
       );
+      if (!requestIsCurrent(request)) return;
       setRun(updated);
       setAnnouncement(t("optimizer.steps.cancelling"));
     } catch {
+      if (!requestIsCurrent(request)) return;
       setRequestError(t("optimizer.steps.cancelError"));
     }
   };
@@ -267,16 +266,23 @@ export function StepRecommendationPanel({
     return false;
   };
 
-  const refreshSettings = async () => {
+  const refreshSettings = async (
+    expectedScope: OptimizerScope,
+    request: ReturnType<typeof beginRequest>,
+  ) => {
     try {
-      await onSettingsChanged();
+      await onSettingsChanged(expectedScope);
     } catch {
-      setRequestError(t("optimizer.steps.refreshError"));
+      if (requestIsCurrent(request)) {
+        setRequestError(t("optimizer.steps.refreshError"));
+      }
     }
   };
 
   const confirmAction = async () => {
     if (run === null || pending === null) return;
+    const request = beginRequest();
+    const expectedScope = scope;
     setMutationBusy(true);
     setRequestError("");
     const action = pending;
@@ -286,6 +292,7 @@ export function StepRecommendationPanel({
           `/api/v1/optimizer/step-recommendations/${encodeURIComponent(run.id)}/apply`,
           { parts: action.parts, revisionToken: run.revisionToken },
         );
+        if (!requestIsCurrent(request)) return;
         setRun(updated);
         setAnnouncement(t("optimizer.steps.applied", {
           parts: partsLabel(action.parts),
@@ -295,12 +302,14 @@ export function StepRecommendationPanel({
           `/api/v1/optimizer/step-recommendations/${encodeURIComponent(run.id)}/restore`,
           { revisionToken: run.revisionToken },
         );
+        if (!requestIsCurrent(request)) return;
         setRun(updated);
         setAnnouncement(t("optimizer.steps.restored"));
       }
       setPending(null);
-      await refreshSettings();
+      await refreshSettings(expectedScope, request);
     } catch (error) {
+      if (!requestIsCurrent(request)) return;
       setPending(null);
       if (!handleApiConflict(error)) {
         setRequestError(
@@ -310,7 +319,7 @@ export function StepRecommendationPanel({
         );
       }
     } finally {
-      setMutationBusy(false);
+      if (requestIsCurrent(request)) setMutationBusy(false);
     }
   };
 
@@ -413,7 +422,7 @@ export function StepRecommendationPanel({
             )}
           </div>
 
-          {active && <p role="status">{t("optimizer.steps.analyzing")}</p>}
+          {active && <p>{t("optimizer.steps.analyzing")}</p>}
           {run?.status === "failed" && (
             <p>{t("optimizer.steps.failedDetail", { code: run.errorCode ?? "" })}</p>
           )}

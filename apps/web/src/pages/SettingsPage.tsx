@@ -54,6 +54,8 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const scopeButtonRef = useRef<HTMLButtonElement>(null);
   const selectedSectionId =
     new URLSearchParams(location.search).get("sectionId") ?? "";
+  const selectedSectionIdRef = useRef(selectedSectionId);
+  selectedSectionIdRef.current = selectedSectionId;
   const selectableProfiles = (loaded.profiles ?? []).filter((profile) => {
     if (profile.status === "active" || profile.scopeType === "official") {
       return false;
@@ -81,12 +83,21 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const handleDirtyChange = useCallback((panelId: string, dirty: boolean) => {
     setDirtyPanels((current) => current[panelId] === dirty ? current : { ...current, [panelId]: dirty });
   }, []);
-  const refreshSchedulerView = useCallback(async () => {
-    const path = selectedSectionId === ""
+  const refreshSchedulerView = useCallback(async (expectedScope: {
+    readonly scopeType: "global" | "section";
+    readonly sectionId: string | null;
+  }) => {
+    const expectedSectionId = expectedScope.scopeType === "section"
+      ? expectedScope.sectionId ?? ""
+      : "";
+    const path = expectedSectionId === ""
       ? "/api/v1/settings"
-      : `/api/v1/settings?sectionId=${encodeURIComponent(selectedSectionId)}`;
-    setView(await api.get<SettingsView>(path));
-  }, [api, selectedSectionId]);
+      : `/api/v1/settings?sectionId=${encodeURIComponent(expectedSectionId)}`;
+    const refreshed = await api.get<SettingsView>(path);
+    if (selectedSectionIdRef.current === expectedSectionId) {
+      setView(refreshed);
+    }
+  }, [api]);
 
   return (
     <>

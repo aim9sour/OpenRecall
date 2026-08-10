@@ -60,12 +60,10 @@ async function expectNoSeriousAccessibilityViolations(
 }
 
 async function openSettingsDisclosures(page: Page): Promise<void> {
-  for (const name of [
-    /(?:إعدادات تدريب المحسّن المتقدمة|Advanced optimizer training settings)/,
-    /(?:معلومات النموذج التقنية|Technical model information)/,
-    /(?:اقتراح خطوات التعلم|Learning-step recommendations)/,
-  ]) {
-    const disclosure = page.getByRole("button", { name });
+  const disclosures = page.locator("main button.disclosure-toggle");
+  await expect(disclosures).toHaveCount(3);
+  for (let index = 0; index < await disclosures.count(); index += 1) {
+    const disclosure = disclosures.nth(index);
     await expect(disclosure).toHaveAttribute("aria-expanded", "false");
     await disclosure.click();
     await expect(disclosure).toHaveAttribute("aria-expanded", "true");
@@ -75,36 +73,28 @@ async function openSettingsDisclosures(page: Page): Promise<void> {
 
 test("learning-step results stay navigable without bloating live announcements", async ({
   page,
-}, testInfo) => {
-  test.skip(testInfo.project.name.endsWith("-xa"));
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/settings");
-  const disclosure = page.getByRole("button", {
-    name: /(?:اقتراح خطوات التعلم|Learning-step recommendations)/,
-  });
+  const recommendationPanel = page.locator("main section.panel").filter({
+    has: page.locator("button.disclosure-toggle"),
+  }).first();
+  const disclosure = recommendationPanel.locator("button.disclosure-toggle");
   await expect(disclosure).toHaveAttribute("aria-expanded", "false");
   await disclosure.click();
-  const analyze = page.getByRole("button", {
-    name: /(?:تحليل خطوات التعلم|Analyze learning steps)/,
-  });
+  const analyze = recommendationPanel.locator(".review-actions button").first();
   await expect(analyze).toBeFocused();
   await expectNoSeriousAccessibilityViolations(page);
   await analyze.click();
 
-  await expect(
-    page.getByRole("heading", {
-      name: /(?:نتائج التحليل|Analysis results)/,
-    }),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("step-live")).toContainText(
-    /(?:اكتمل تحليل خطوات التعلم|Learning-step analysis complete)/,
-  );
-  await expect(page.getByTestId("step-live")).not.toContainText(
-    /(?:المراجعات المصدرية|Source reviews|٨٤٢|842)/,
-  );
-  await expect(
-    page.getByText(/(?:المراجعات المصدرية|Source reviews)/),
-  ).toBeVisible();
+  await expect(recommendationPanel.locator(".step-recommendation-results"))
+    .toBeVisible({ timeout: 30_000 });
+  const liveText = (await page.getByTestId("step-live").textContent()) ?? "";
+  expect(liveText.trim().length).toBeGreaterThan(0);
+  expect(liveText.length).toBeLessThan(200);
+  expect(liveText).not.toMatch(/(?:٨٤٢|842)/u);
   await expectNoSeriousAccessibilityViolations(page);
+  await expectPageFitsViewport(page, "/settings#step-results", 320);
 });
 
 async function ensureReviewRoute(page: Page): Promise<string> {
@@ -154,7 +144,7 @@ test("visual accessibility covers every route, locale, theme, and reflow mode", 
       await expect(page.locator("main h1").first()).toBeVisible();
       await expectPageFitsViewport(page, route, viewport.width);
       await expectNoSeriousAccessibilityViolations(page);
-      if (route === "/settings" && !testInfo.project.name.endsWith("-xa")) {
+      if (route === "/settings") {
         await openSettingsDisclosures(page);
         await expectPageFitsViewport(page, route, viewport.width);
       }
