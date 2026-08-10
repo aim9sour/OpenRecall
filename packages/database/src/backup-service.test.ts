@@ -52,6 +52,26 @@ describe("BackupService", () => {
         nowMs: () => 1_785_232_800_000,
       });
       try {
+        db.exec(`
+          INSERT INTO sections (id, name, created_at_ms, updated_at_ms)
+          VALUES ('optimizer-backup-section', 'Backup section', 1, 1);
+          INSERT INTO optimizer_setting_scopes
+            (id, scope_type, section_id, adapter_version, settings_json,
+             created_at_ms, updated_at_ms)
+          VALUES
+            ('optimizer-backup-settings', 'section', 'optimizer-backup-section', 2,
+             '{"numEpochs":7,"batchSize":256,"maxSeqLen":128}', 2, 2);
+          INSERT INTO optimizer_runs
+            (id, scope_type, section_id, status, raw_review_count,
+             eligible_example_count, source_review_cutoff_ms, package_version,
+             algorithm_version, progress, created_at_ms, input_snapshot_json,
+             max_sequence_excluded_count, source_review_fingerprint)
+          VALUES
+            ('optimizer-backup-run', 'section', 'optimizer-backup-section',
+             'failed', 10, 4, 100, '0.5.0', '6.0', 0, 3,
+             '{"snapshot":"preserved"}', 2,
+             'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+        `);
         const snapshot = await service.createSnapshot(
           "automatic",
           "PRIVATE reason must not enter filename",
@@ -85,6 +105,21 @@ describe("BackupService", () => {
           );
           expect(copy.pragma("quick_check", { simple: true })).toBe("ok");
           expect(copy.pragma("foreign_key_check")).toEqual([]);
+          expect(copy.prepare(`
+            SELECT settings_json FROM optimizer_setting_scopes
+            WHERE id = 'optimizer-backup-settings'
+          `).pluck().get()).toBe(
+            '{"numEpochs":7,"batchSize":256,"maxSeqLen":128}',
+          );
+          expect(copy.prepare(`
+            SELECT input_snapshot_json, max_sequence_excluded_count,
+                   source_review_fingerprint
+            FROM optimizer_runs WHERE id = 'optimizer-backup-run'
+          `).get()).toEqual({
+            input_snapshot_json: '{"snapshot":"preserved"}',
+            max_sequence_excluded_count: 2,
+            source_review_fingerprint: "a".repeat(64),
+          });
         } finally {
           copy.close();
         }

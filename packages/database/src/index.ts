@@ -20,6 +20,7 @@ export {
 export { migrateDatabase, type Migration } from "./migrate.js";
 export { coreMigration } from "./migrations/001-core.js";
 export { sectionDeletionMigration } from "./migrations/006-section-deletion.js";
+export { optimizerTrainingSettingsMigration } from "./migrations/007-optimizer-training-settings.js";
 export {
   ExistingDatabaseValidationError,
   isExistingDatabaseValidationError,
@@ -94,6 +95,7 @@ export {
   OptimizerDataRepository,
   type OptimizerEligibilityCounts,
 } from "./optimizer-data-repository.js";
+export { OptimizerSettingsRepository } from "./optimizer-settings-repository.js";
 export {
   ProfileApplicationRepository,
   type CapturedApplicationItem,
