@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   OptimizerExample,
   OptimizerReview,
@@ -32,9 +33,35 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+export function fingerprintOptimizerReviews(
+  rows: readonly StoredOptimizerReview[],
+): string {
+  const hash = createHash("sha256");
+  for (const row of rows) {
+    for (const value of [
+      row.reviewLogId,
+      row.learningItemId,
+      row.sectionId,
+      String(row.rating),
+      String(row.deltaDays),
+      String(row.ratedAtMs),
+    ]) {
+      hash.update(String(Buffer.byteLength(value, "utf8")));
+      hash.update(":");
+      hash.update(value, "utf8");
+    }
+    hash.update(";");
+  }
+  return hash.digest("hex");
+}
+
 export function buildTrainingSet(
   storedReviews: readonly StoredOptimizerReview[],
+  options: { readonly maxSeqLen: number },
 ): TrainingSetSummary {
+  if (!Number.isSafeInteger(options.maxSeqLen) || options.maxSeqLen < 1) {
+    throw new Error("OPTIMIZER_MAX_SEQUENCE_LENGTH_INVALID");
+  }
   for (const row of storedReviews) validateRow(row);
   const rows = [...storedReviews].sort(
     (left, right) =>
@@ -81,15 +108,21 @@ export function buildTrainingSet(
         right.example.learningItemId,
       ),
   );
-  const examples = timestampedExamples.map(({ example }) => example);
+  const allExamples = timestampedExamples.map(({ example }) => example);
+  const examples = allExamples.filter(
+    (example) => example.reviews.length <= options.maxSeqLen,
+  );
 
   return {
     rawReviewCount: rows.length,
+    preFilterEligibleExampleCount: allExamples.length,
     eligibleExampleCount: examples.length,
+    maxSequenceExcludedCount: allExamples.length - examples.length,
     sourceReviewCutoffMs:
       rows.length === 0
         ? null
         : Math.max(...rows.map(({ ratedAtMs }) => ratedAtMs)),
+    sourceReviewFingerprint: fingerprintOptimizerReviews(rows),
     examples,
   };
 }

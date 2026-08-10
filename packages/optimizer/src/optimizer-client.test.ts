@@ -9,6 +9,7 @@ import {
   type OptimizerWorkerData,
   type OptimizerWorkerLike,
 } from "./optimizer-client.js";
+import { OFFICIAL_OPTIMIZER_TRAINING_CONFIG } from "./manifest.js";
 import { validateOptimizerOutput } from "./validate-output.js";
 import type { OptimizerExample } from "./types.js";
 
@@ -50,6 +51,12 @@ function input(signal: AbortSignal, onProgress = vi.fn()) {
     enableShortTerm: true,
     numRelearningSteps:
       DEFAULT_SCHEDULER_SETTINGS.relearningStepsMinutes.length,
+    trainingConfig: {
+      ...OFFICIAL_OPTIMIZER_TRAINING_CONFIG,
+      numEpochs: 7 as const,
+      batchSize: 256 as const,
+      maxSeqLen: 128 as const,
+    },
     signal,
     onProgress,
   };
@@ -83,6 +90,27 @@ describe("trainOptimizer worker protocol", () => {
       0.2,
       1,
     ]);
+  });
+
+  it("passes all six validated training values unchanged to the worker", async () => {
+    let received!: OptimizerWorkerData;
+    const resultPromise = trainOptimizer(input(new AbortController().signal), {
+      createWorker(data) {
+        received = data;
+        const worker = new FakeWorker(data);
+        queueMicrotask(() => worker.emit("message", { type: "result", result: validResult }));
+        return worker;
+      },
+    });
+    await expect(resultPromise).resolves.toEqual(validResult);
+    expect(received.trainingConfig).toEqual({
+      numEpochs: 7,
+      batchSize: 256,
+      seed: 2023,
+      maxSeqLen: 128,
+      learningRate: 0.04,
+      gamma: 1,
+    });
   });
 
   it("rejects cancellation before start without creating a worker", async () => {

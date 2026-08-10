@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import type { OptimizerTrainingConfig } from "@openrecall/contracts";
 import type { OptimizerExample } from "./types.js";
 import {
   validateOptimizerOutput,
@@ -9,6 +10,7 @@ export interface OptimizerWorkerData {
   readonly examples: readonly OptimizerExample[];
   readonly enableShortTerm: boolean;
   readonly numRelearningSteps: number;
+  readonly trainingConfig: OptimizerTrainingConfig;
   readonly cancelBuffer: SharedArrayBuffer;
 }
 
@@ -30,6 +32,7 @@ export interface TrainOptimizerInput {
   readonly examples: readonly OptimizerExample[];
   readonly enableShortTerm: boolean;
   readonly numRelearningSteps: number;
+  readonly trainingConfig: OptimizerTrainingConfig;
   readonly signal: AbortSignal;
   readonly onProgress: (fraction: number) => void;
 }
@@ -71,6 +74,7 @@ export function trainOptimizer(
     examples: input.examples,
     enableShortTerm: input.enableShortTerm,
     numRelearningSteps: input.numRelearningSteps,
+    trainingConfig: input.trainingConfig,
     cancelBuffer,
   };
   const worker = (dependencies.createWorker ?? defaultCreateWorker)(

@@ -13,8 +13,11 @@ export interface OptimizerExample {
 
 export interface TrainingSetSummary {
   readonly rawReviewCount: number;
+  readonly preFilterEligibleExampleCount: number;
   readonly eligibleExampleCount: number;
+  readonly maxSequenceExcludedCount: number;
   readonly sourceReviewCutoffMs: number | null;
+  readonly sourceReviewFingerprint: string;
   readonly examples: readonly OptimizerExample[];
 }
 

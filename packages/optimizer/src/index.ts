@@ -11,7 +11,10 @@ export {
   validateOptimizerTrainingConfig,
   validateOptimizerTrainingSettings,
 } from "./validate-settings.js";
-export { buildTrainingSet } from "./build-training-set.js";
+export {
+  buildTrainingSet,
+  fingerprintOptimizerReviews,
+} from "./build-training-set.js";
 export {
   trainOptimizer,
   type TrainOptimizerInput,

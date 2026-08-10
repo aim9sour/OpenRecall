@@ -5,6 +5,7 @@ import {
 import { parentPort, workerData } from "node:worker_threads";
 import { toBindingItems } from "./binding-adapter.js";
 import type { OptimizerWorkerData } from "./optimizer-client.js";
+import { validateOptimizerTrainingConfig } from "./validate-settings.js";
 
 function cancelled(flag: Int32Array): boolean {
   return Atomics.load(flag, 0) !== 0;
@@ -21,6 +22,16 @@ function evaluationInsufficient(error: unknown): boolean {
 async function run(): Promise<void> {
   const data = workerData as Partial<OptimizerWorkerData>;
   const numRelearningSteps = data.numRelearningSteps;
+  let trainingConfig;
+  try {
+    trainingConfig = validateOptimizerTrainingConfig(data.trainingConfig);
+  } catch {
+    parentPort?.postMessage({
+      type: "error",
+      code: "OPTIMIZER_WORKER_DATA_INVALID",
+    });
+    return;
+  }
   if (
     !Array.isArray(data.examples) ||
     typeof data.enableShortTerm !== "boolean" ||
@@ -50,6 +61,7 @@ async function run(): Promise<void> {
   const options = {
     enableShortTerm: data.enableShortTerm,
     numRelearningSteps,
+    trainingConfig,
     // Upstream defines this as a cooperative progress polling interval,
     // not as a deadline for the optimization run.
     timeout: 250,
