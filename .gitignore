@@ -6,6 +6,7 @@ coverage/
 playwright-report/
 test-results/
 tests/e2e/.openrecall-clock*
+tests/e2e/.openrecall-data-*
 .env
 .env.*
 !.env.example
