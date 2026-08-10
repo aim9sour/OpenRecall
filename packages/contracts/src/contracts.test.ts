@@ -6,6 +6,9 @@ import {
   ApiErrorSchema,
   CardImportSchema,
   ImportPreviewSchema,
+  OptimizerSettingsMutationSchema,
+  OptimizerTrainingConfigSchema,
+  OptimizerTrainingSettingsSchema,
   ReviewPageStateSchema,
   SectionConflictResponseSchema,
   SectionDeleteSchema,
@@ -195,5 +198,31 @@ describe("shared runtime contracts", () => {
         card: { ...questionState.card, back: "must not be present" },
       }),
     ).toBe(false);
+  });
+
+  it("accepts only reviewed optimizer training choices and closed mutations", () => {
+    expect(Value.Check(OptimizerTrainingSettingsSchema, {
+      numEpochs: 5,
+      batchSize: 512,
+      maxSeqLen: 256,
+    })).toBe(true);
+    expect(Value.Check(OptimizerTrainingSettingsSchema, {
+      numEpochs: 100,
+      batchSize: 512,
+      maxSeqLen: 256,
+    })).toBe(false);
+    expect(Value.Check(OptimizerTrainingConfigSchema, {
+      numEpochs: 5,
+      batchSize: 512,
+      seed: 2023,
+      maxSeqLen: 256,
+      learningRate: 0.04,
+      gamma: 1,
+    })).toBe(true);
+    expect(Value.Check(OptimizerSettingsMutationSchema, {
+      expectedUpdatedAtMs: 1_000,
+      settings: { numEpochs: 5, batchSize: 512, maxSeqLen: 256 },
+      seed: 1,
+    })).toBe(false);
   });
 });
