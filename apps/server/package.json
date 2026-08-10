@@ -21,7 +21,7 @@
   "dependencies": {
     "@fastify/helmet": "13.1.0",
     "@fastify/multipart": "10.1.0",
-    "@fastify/sse": "0.5.0",
+    "@fastify/sse": "0.6.0",
     "@fastify/static": "10.1.2",
     "@fastify/type-provider-typebox": "6.1.0",
     "@openrecall/contracts": "workspace:*",
