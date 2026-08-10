@@ -1,6 +1,8 @@
 import type {
   OptimizerEligibility,
   OptimizerProfile,
+  OptimizerSettingsView,
+  OptimizerTechnicalInfo,
   ReviewPageState,
   Section,
   SectionSummary,
@@ -150,18 +152,30 @@ export function createRoutes({
                 : `/api/v1/optimizer/eligibility?scopeType=section&sectionId=${encodeURIComponent(
                     sectionId,
                   )}`;
+            const optimizerSettingsPath =
+              sectionId === null || sectionId === ""
+                ? "/api/v1/settings/optimizer"
+                : `/api/v1/settings/optimizer?sectionId=${encodeURIComponent(sectionId)}`;
+            const technicalPath =
+              sectionId === null || sectionId === ""
+                ? "/api/v1/settings/technical"
+                : `/api/v1/settings/technical?sectionId=${encodeURIComponent(sectionId)}`;
             const [
               bootstrap,
               sections,
               view,
               optimizerEligibility,
               profiles,
+              optimizerView,
+              technicalInfo,
             ] = await Promise.all([
               api.bootstrap(),
               api.get<SectionSummary[]>("/api/v1/sections"),
               api.get<SettingsView>(settingsPath),
               api.get<OptimizerEligibility>(eligibilityPath),
               api.get<OptimizerProfile[]>("/api/v1/optimizer/profiles"),
+              api.get<OptimizerSettingsView>(optimizerSettingsPath),
+              api.get<OptimizerTechnicalInfo>(technicalPath),
             ]);
             return {
               localePreference: {
@@ -172,6 +186,8 @@ export function createRoutes({
               view,
               optimizerEligibility,
               profiles,
+              optimizerView,
+              technicalInfo,
             };
           },
           element: <SettingsPage api={api} />,

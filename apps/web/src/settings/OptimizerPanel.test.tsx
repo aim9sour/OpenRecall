@@ -38,6 +38,20 @@ function run(
     createdAtMs: 1_000,
     startedAtMs: 1_000,
     finishedAtMs: status === "succeeded" ? 2_000 : null,
+    inputSnapshot: {
+      kind: "legacy-official",
+      trainingConfig: {
+        numEpochs: 5,
+        batchSize: 512,
+        seed: 2023,
+        maxSeqLen: 256,
+        learningRate: 0.04,
+        gamma: 1,
+      },
+      settingsSource: null,
+      enableShortTerm: null,
+      numRelearningSteps: null,
+    },
   };
 }
 

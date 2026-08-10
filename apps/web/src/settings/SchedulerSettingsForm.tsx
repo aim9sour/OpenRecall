@@ -11,6 +11,8 @@ import {
 } from "react";
 import type { ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
+import { normalizeLocalizedNumber } from "./normalize-localized-number.js";
+import { SettingHelp } from "./SettingHelp.js";
 
 interface Draft {
   readonly requestedRetention: string;
@@ -37,7 +39,9 @@ function toDraft(settings: SchedulerSettings): Draft {
 
 function parseSteps(value: string, maxMinutes: number): number[] | null {
   if (value.trim() === "") return [];
-  const steps = value.split(",").map((part) => Number(part.trim()));
+  const normalized = value.split(",").map((part) => normalizeLocalizedNumber(part.trim()));
+  if (normalized.some((part) => part === null)) return null;
+  const steps = normalized.map((part) => Number(part));
   let previous = 0;
   for (const step of steps) {
     if (
@@ -66,10 +70,12 @@ export function SchedulerSettingsForm({
   api,
   onViewChange,
   view,
+  onDirtyChange,
 }: {
   readonly api: ApiClient;
   readonly onViewChange: (view: SettingsView) => void;
   readonly view: SettingsView;
+  readonly onDirtyChange?: (panelId: string, dirty: boolean) => void;
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState(() =>
@@ -86,6 +92,11 @@ export function SchedulerSettingsForm({
     );
     setErrors({});
   }, [view]);
+
+  useEffect(() => {
+    const baseline = toDraft(view.savedOverride?.settings ?? view.effective.settings);
+    onDirtyChange?.("scheduler", JSON.stringify(draft) !== JSON.stringify(baseline));
+  }, [draft, onDirtyChange, view]);
 
   useEffect(() => {
     if (Object.keys(errors).length > 0) summaryRef.current?.focus();
@@ -127,7 +138,8 @@ export function SchedulerSettingsForm({
       return null;
     }
 
-    const requestedRetention = Number(draft.requestedRetention);
+    const normalizedRetention = normalizeLocalizedNumber(draft.requestedRetention);
+    const requestedRetention = normalizedRetention === null ? Number.NaN : Number(normalizedRetention);
     if (
       !Number.isFinite(requestedRetention) ||
       requestedRetention < retentionControl.min ||
@@ -135,7 +147,8 @@ export function SchedulerSettingsForm({
     ) {
       nextErrors.requestedRetention = t("settings.error.numberBounds");
     }
-    const maximumIntervalDays = Number(draft.maximumIntervalDays);
+    const normalizedInterval = normalizeLocalizedNumber(draft.maximumIntervalDays);
+    const maximumIntervalDays = normalizedInterval === null ? Number.NaN : Number(normalizedInterval);
     if (
       !Number.isInteger(maximumIntervalDays) ||
       maximumIntervalDays < intervalControl.min ||
@@ -301,19 +314,15 @@ export function SchedulerSettingsForm({
           .filter((control) => !control.deprecated)
           .map((control) => {
             const id = `setting-${control.key}`;
-            const descriptionId = `${id}-description`;
             const errorId = `${id}-error`;
-            const describedBy =
-              errors[control.key] === undefined
-                ? descriptionId
-                : `${descriptionId} ${errorId}`;
 
             if (control.kind === "boolean") {
               return (
                 <div className="settings-field" key={control.key}>
                   <label htmlFor={id}>
                     <input
-                      aria-describedby={describedBy}
+                      aria-errormessage={errors[control.key] === undefined ? undefined : errorId}
+                      aria-invalid={errors[control.key] === undefined ? undefined : true}
                       checked={draft[control.key]}
                       disabled={busy}
                       id={id}
@@ -327,9 +336,9 @@ export function SchedulerSettingsForm({
                     />
                     {t(control.labelKey)}
                   </label>
-                  <p id={descriptionId}>{t(control.descriptionKey)}</p>
+                  <SettingHelp label={t("settings.explain", { setting: t(control.labelKey) })}>{t(control.descriptionKey)}</SettingHelp>
                   {errors[control.key] !== undefined && (
-                    <p id={errorId}>{errors[control.key]}</p>
+                    <p aria-live="polite" id={errorId}>{errors[control.key]}</p>
                   )}
                 </div>
               );
@@ -340,7 +349,8 @@ export function SchedulerSettingsForm({
                 <label htmlFor={id}>{t(control.labelKey)}</label>
                 {control.kind === "steps" ? (
                   <input
-                    aria-describedby={describedBy}
+                    aria-errormessage={errors[control.key] === undefined ? undefined : errorId}
+                    aria-invalid={errors[control.key] === undefined ? undefined : true}
                     disabled={busy}
                     id={id}
                     inputMode="numeric"
@@ -355,7 +365,8 @@ export function SchedulerSettingsForm({
                   />
                 ) : (
                   <input
-                    aria-describedby={describedBy}
+                    aria-errormessage={errors[control.key] === undefined ? undefined : errorId}
+                    aria-invalid={errors[control.key] === undefined ? undefined : true}
                     disabled={busy}
                     id={id}
                     max={control.max}
@@ -371,9 +382,9 @@ export function SchedulerSettingsForm({
                     value={draft[control.key]}
                   />
                 )}
-                <p id={descriptionId}>{t(control.descriptionKey)}</p>
+                <SettingHelp label={t("settings.explain", { setting: t(control.labelKey) })}>{t(control.descriptionKey)}</SettingHelp>
                 {errors[control.key] !== undefined && (
-                  <p id={errorId}>{errors[control.key]}</p>
+                  <p aria-live="polite" id={errorId}>{errors[control.key]}</p>
                 )}
               </div>
             );

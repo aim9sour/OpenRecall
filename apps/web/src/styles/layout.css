@@ -123,6 +123,15 @@ form > * {
   margin: 0;
 }
 
+.disclosure-toggle {
+  inline-size: 100%;
+  text-align: start;
+}
+
+.setting-help {
+  margin-block: var(--space-2);
+}
+
 .settings-field label:has(input[type="checkbox"]) {
   display: flex;
   align-items: center;
