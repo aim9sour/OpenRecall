@@ -85,7 +85,7 @@ function settingsView(
 }
 
 describe("SettingsPage refresh isolation", () => {
-  it("does not let an old-scope refresh overwrite the newly selected scope", async () => {
+  it("rejects an old refresh after navigating away and back to the same scope", async () => {
     const user = userEvent.setup();
     const delayedGlobalRefresh = deferred<SettingsView>();
     let globalSettingsRequests = 0;
@@ -112,9 +112,13 @@ describe("SettingsPage refresh isolation", () => {
         }
         if (path === "/api/v1/settings") {
           globalSettingsRequests += 1;
-          return (globalSettingsRequests === 1
-            ? settingsView(0.9, "global")
-            : delayedGlobalRefresh.promise) as T;
+          if (globalSettingsRequests === 1) {
+            return settingsView(0.9, "global") as T;
+          }
+          if (globalSettingsRequests === 2) {
+            return delayedGlobalRefresh.promise as T;
+          }
+          return settingsView(0.92, "global") as T;
         }
         if (path === `/api/v1/settings?sectionId=${sectionId}`) {
           return settingsView(0.94, "section") as T;
@@ -145,12 +149,18 @@ describe("SettingsPage refresh isolation", () => {
     await waitFor(() => expect((screen.getByRole("spinbutton", {
       name: "Requested retention",
     }) as HTMLInputElement).value).toBe("0.94"));
+    await act(async () => {
+      await router.navigate("/settings");
+    });
+    await waitFor(() => expect((screen.getByRole("spinbutton", {
+      name: "Requested retention",
+    }) as HTMLInputElement).value).toBe("0.92"));
 
     await act(async () => delayedGlobalRefresh.resolve(
       settingsView(0.81, "global"),
     ));
     await waitFor(() => expect((screen.getByRole("spinbutton", {
       name: "Requested retention",
-    }) as HTMLInputElement).value).toBe("0.94"));
+    }) as HTMLInputElement).value).toBe("0.92"));
   });
 });

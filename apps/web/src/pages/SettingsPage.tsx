@@ -54,8 +54,20 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const scopeButtonRef = useRef<HTMLButtonElement>(null);
   const selectedSectionId =
     new URLSearchParams(location.search).get("sectionId") ?? "";
-  const selectedSectionIdRef = useRef(selectedSectionId);
-  selectedSectionIdRef.current = selectedSectionId;
+  const navigationKey = `${location.key}:${selectedSectionId}`;
+  const navigationRef = useRef({
+    generation: 0,
+    key: navigationKey,
+    sectionId: selectedSectionId,
+  });
+  if (navigationRef.current.key !== navigationKey) {
+    navigationRef.current = {
+      generation: navigationRef.current.generation + 1,
+      key: navigationKey,
+      sectionId: selectedSectionId,
+    };
+  }
+  const refreshRequestRef = useRef(0);
   const selectableProfiles = (loaded.profiles ?? []).filter((profile) => {
     if (profile.status === "active" || profile.scopeType === "official") {
       return false;
@@ -87,6 +99,8 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
     readonly scopeType: "global" | "section";
     readonly sectionId: string | null;
   }) => {
+    const expectedNavigationGeneration = navigationRef.current.generation;
+    const requestId = ++refreshRequestRef.current;
     const expectedSectionId = expectedScope.scopeType === "section"
       ? expectedScope.sectionId ?? ""
       : "";
@@ -94,7 +108,11 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
       ? "/api/v1/settings"
       : `/api/v1/settings?sectionId=${encodeURIComponent(expectedSectionId)}`;
     const refreshed = await api.get<SettingsView>(path);
-    if (selectedSectionIdRef.current === expectedSectionId) {
+    if (
+      navigationRef.current.generation === expectedNavigationGeneration &&
+      navigationRef.current.sectionId === expectedSectionId &&
+      refreshRequestRef.current === requestId
+    ) {
       setView(refreshed);
     }
   }, [api]);
