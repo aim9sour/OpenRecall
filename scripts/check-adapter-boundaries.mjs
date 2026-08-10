@@ -25,6 +25,7 @@ const ADAPTER_IMPORTS = new Map([
     new Set([
       "packages/optimizer/src/binding-adapter.ts",
       "packages/optimizer/src/optimizer-worker.ts",
+      "packages/optimizer/src/step-recommendation-worker.ts",
     ]),
   ],
 ]);
