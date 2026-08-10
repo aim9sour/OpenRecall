@@ -71,6 +71,22 @@ describe("BackupService", () => {
              'failed', 10, 4, 100, '0.5.0', '6.0', 0, 3,
              '{"snapshot":"preserved"}', 2,
              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+          INSERT INTO step_recommendation_runs (
+            id, scope_type, section_id, status, source_review_cutoff_ms,
+            source_fingerprint, revision_token, input_snapshot_json,
+            result_json, applied_parts_json, prior_steps_json,
+            applied_steps_json, applied_at_ms, created_at_ms, started_at_ms,
+            finished_at_ms
+          ) VALUES (
+            'step-backup-run', 'section', 'optimizer-backup-section',
+            'succeeded', 100,
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+            '{"snapshot":"step-preserved"}',
+            '{"result":"step-preserved"}', '["learning"]',
+            '{"learning":[1,10],"relearning":[10]}',
+            '{"learning":[1,96],"relearning":[10]}', 5, 3, 3, 4
+          );
         `);
         const snapshot = await service.createSnapshot(
           "automatic",
@@ -119,6 +135,18 @@ describe("BackupService", () => {
             input_snapshot_json: '{"snapshot":"preserved"}',
             max_sequence_excluded_count: 2,
             source_review_fingerprint: "a".repeat(64),
+          });
+          expect(copy.prepare(`
+            SELECT status, input_snapshot_json, result_json,
+                   applied_parts_json, prior_steps_json, applied_steps_json
+            FROM step_recommendation_runs WHERE id = 'step-backup-run'
+          `).get()).toEqual({
+            status: "succeeded",
+            input_snapshot_json: '{"snapshot":"step-preserved"}',
+            result_json: '{"result":"step-preserved"}',
+            applied_parts_json: '["learning"]',
+            prior_steps_json: '{"learning":[1,10],"relearning":[10]}',
+            applied_steps_json: '{"learning":[1,96],"relearning":[10]}',
           });
         } finally {
           copy.close();

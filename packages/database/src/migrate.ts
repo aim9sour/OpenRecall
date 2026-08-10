@@ -7,6 +7,7 @@ import { statisticsMigration } from "./migrations/004-statistics.js";
 import { settingsOptimizerMigration } from "./migrations/005-settings-optimizer.js";
 import { sectionDeletionMigration } from "./migrations/006-section-deletion.js";
 import { optimizerTrainingSettingsMigration } from "./migrations/007-optimizer-training-settings.js";
+import { stepRecommendationsMigration } from "./migrations/008-step-recommendations.js";
 
 export interface Migration {
   readonly version: number;
@@ -21,6 +22,7 @@ const MIGRATIONS: readonly Migration[] = [
   settingsOptimizerMigration,
   sectionDeletionMigration,
   optimizerTrainingSettingsMigration,
+  stepRecommendationsMigration,
 ];
 
 function readIntegerPragma(db: Database.Database, name: string): number {

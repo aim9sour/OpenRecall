@@ -13,7 +13,7 @@ import {
 describe("openDatabase", () => {
   it("enforces and verifies the durable connection policy", async () => {
     await withTempDatabase((databasePath) => {
-      expect(SCHEMA_VERSION).toBe(7);
+      expect(SCHEMA_VERSION).toBe(8);
       const db = openDatabase(databasePath);
 
       try {

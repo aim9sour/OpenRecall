@@ -4,12 +4,12 @@ import { SCHEMA_VERSION } from "../constants.js";
 import { openDatabase } from "../open-database.js";
 
 describe("optimizer training settings migration", () => {
-  it("creates version 7 with a valid seeded global row and legacy-compatible run columns", async () => {
+  it("keeps the version 7 data valid after later migrations", async () => {
     await withTempDatabase((databasePath) => {
       const db = openDatabase(databasePath);
       try {
-        expect(SCHEMA_VERSION).toBe(7);
-        expect(db.pragma("user_version", { simple: true })).toBe(7);
+        expect(SCHEMA_VERSION).toBe(8);
+        expect(db.pragma("user_version", { simple: true })).toBe(8);
         expect(
           db.prepare("SELECT settings_json FROM optimizer_setting_scopes WHERE scope_type = 'global'").get(),
         ).toEqual({
