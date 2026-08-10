@@ -162,6 +162,24 @@ describe("optimizer routes", () => {
         expect(started.statusCode).toBe(202);
         expect(started.json()).toEqual(run);
 
+        service.startRun.mockImplementationOnce(() => {
+          throw new Error("OPTIMIZER_SECTION_DELETION_IN_PROGRESS");
+        });
+        const deletionConflict = await server.inject({
+          method: "POST",
+          url: "/api/v1/optimizer/runs",
+          headers,
+          payload: {
+            scopeType: "section",
+            sectionId: run.sectionId,
+          },
+        });
+        expect(deletionConflict.statusCode).toBe(409);
+        expect(deletionConflict.json()).toEqual({
+          code: "OPTIMIZER_SECTION_DELETION_IN_PROGRESS",
+          messageKey: "optimizer.runConflict",
+        });
+
         const read = await server.inject({
           method: "GET",
           url: `/api/v1/optimizer/runs/${run.id}`,

@@ -3,8 +3,8 @@ import type {
   OptimizerTrainingPreflight,
   OptimizerTrainingSettings,
 } from "@openrecall/contracts";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { ApiClient } from "../api/client.js";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ApiClientError, type ApiClient } from "../api/client.js";
 import { useI18n } from "../app/I18nProvider.js";
 import { SettingHelp } from "./SettingHelp.js";
 
@@ -39,22 +39,37 @@ function SupportedOptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChan
   const [preflight, setPreflight] = useState<OptimizerTrainingPreflight | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const preflightRequestId = useRef(0);
 
   useEffect(() => { setDraft(baseline); setNotice(""); }, [baseline]);
   useEffect(() => { onDirtyChange?.("optimizer-training", !same(draft, baseline)); }, [baseline, draft, onDirtyChange]);
 
   const refreshPreflight = async (settings = draft) => {
+    const requestId = ++preflightRequestId.current;
+    setPreflight(null);
     try {
-      setPreflight(await api.post<OptimizerTrainingPreflight>("/api/v1/optimizer/preflight", {
+      const next = await api.post<OptimizerTrainingPreflight>("/api/v1/optimizer/preflight", {
         scope: view.selectedScope,
         settings,
-      }));
+      });
+      if (requestId === preflightRequestId.current) setPreflight(next);
     } catch {
-      setNotice(t("settings.optimizer.preflightError"));
+      if (requestId === preflightRequestId.current) {
+        setNotice(t("settings.optimizer.preflightError"));
+      }
     }
   };
 
-  useEffect(() => { void refreshPreflight(baseline); }, [baseline, view.selectedScope.sectionId, view.selectedScope.scopeType]);
+  useEffect(() => {
+    void refreshPreflight(baseline);
+    return () => { preflightRequestId.current += 1; };
+  }, [baseline, view.selectedScope.sectionId, view.selectedScope.scopeType]);
+
+  const saveFailureNotice = (error: unknown) =>
+    error instanceof ApiClientError &&
+    error.envelope.code === "SETTINGS_EDIT_CONFLICT"
+      ? t("settings.editConflict")
+      : t("settings.saveError");
 
   const persist = async (settings: OptimizerTrainingSettings) => {
     const path = view.selectedScope.scopeType === "global"
@@ -71,7 +86,7 @@ function SupportedOptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChan
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setNotice("");
-    try { await persist(draft); } catch { setNotice(t("settings.saveError")); } finally { setBusy(false); }
+    try { await persist(draft); } catch (error) { setNotice(saveFailureNotice(error)); } finally { setBusy(false); }
   };
 
   const inherit = async () => {
@@ -83,7 +98,15 @@ function SupportedOptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChan
         { expectedUpdatedAtMs: view.savedOverride.updatedAtMs },
       );
       onViewChange(updated); setNotice(t("settings.resetDone"));
-    } catch { setNotice(t("settings.saveError")); } finally { setBusy(false); }
+    } catch (error) { setNotice(saveFailureNotice(error)); } finally { setBusy(false); }
+  };
+
+  const restoreOfficial = async () => {
+    if (busy) return;
+    setBusy(true); setNotice(""); setDraft(view.defaults);
+    try { await persist(view.defaults); }
+    catch (error) { setNotice(saveFailureNotice(error)); }
+    finally { setBusy(false); }
   };
 
   return <>
@@ -107,7 +130,7 @@ function SupportedOptimizerTrainingSettingsForm({ api, onDirtyChange, onViewChan
       <div className="review-actions">
         <button disabled={busy} type="submit">{busy ? t("form.submitting") : t("settings.save")}</button>
         <button disabled={busy} onClick={() => void refreshPreflight()} type="button">{t("settings.optimizer.refreshPreflight")}</button>
-        <button disabled={busy} onClick={() => { setDraft(view.defaults); void persist(view.defaults).catch(() => setNotice(t("settings.saveError"))); }} type="button">{t("settings.optimizer.restoreOfficial")}</button>
+        <button disabled={busy} onClick={() => void restoreOfficial()} type="button">{t("settings.optimizer.restoreOfficial")}</button>
         {view.selectedScope.scopeType === "section" && view.savedOverride !== null && <button disabled={busy} onClick={() => void inherit()} type="button">{t("settings.optimizer.useGeneral")}</button>}
       </div>
     </form>

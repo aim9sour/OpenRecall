@@ -5,6 +5,48 @@ import { createRoutes } from "../router.js";
 import type { SettingsPageData } from "./SettingsPage.js";
 
 describe("settings route", () => {
+  it("keeps core settings available when every optimizer panel fails to load", async () => {
+    const schedulerView = { marker: "scheduler-remains-usable" };
+    const api: ApiClient = {
+      bootstrap: async () => ({
+        apiVersion: 1,
+        csrfToken: "token",
+        databaseRevision: 3,
+        locale: "en",
+        localeUpdatedAtMs: 1_500,
+      }),
+      get: async <T,>(path: string) => {
+        if (path === "/api/v1/settings") return schedulerView as T;
+        if (path === "/api/v1/sections") return [] as T;
+        throw new Error("OPTIMIZER_SETTINGS_PERSISTED_INCOMPATIBLE");
+      },
+      patch: async <T,>() => ({}) as T,
+      post: async <T,>() => ({}) as T,
+      put: async <T,>() => ({}) as T,
+      delete: async <T,>() => ({}) as T,
+    };
+    const routes = createRoutes({ api, i18n: await createI18n("en") });
+    const settingsRoute = routes[0]?.children?.find(
+      (route) => route.id === "settings",
+    );
+
+    const loaded = (await (settingsRoute!.loader as Function)({
+      request: new Request("http://openrecall.local/settings"),
+      params: {},
+    })) as SettingsPageData;
+
+    expect(loaded.view).toBe(schedulerView);
+    expect(loaded.optimizerView).toBeNull();
+    expect(loaded.optimizerEligibility).toBeNull();
+    expect(loaded.technicalInfo).toBeNull();
+    expect(loaded.optimizerErrors).toEqual({
+      eligibility: true,
+      profiles: true,
+      technical: true,
+      training: true,
+    });
+  });
+
   it("loads the cached application locale preference once with the page data", async () => {
     const bootstrap = vi.fn(async () => ({
       apiVersion: 1 as const,

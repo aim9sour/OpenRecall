@@ -7,6 +7,7 @@ import type {
   ComputeParametersOptions,
   TrainingConfig,
 } from "@open-spaced-repetition/binding";
+import * as binding from "@open-spaced-repetition/binding";
 import { OPTIMIZER_TRAINING_MANIFEST } from "./manifest.js";
 
 type ExpectedTrainingKeys =
@@ -61,6 +62,27 @@ async function sourceFilesUnder(directory: string): Promise<string[]> {
 }
 
 describe("optimizer binding upgrade boundary", () => {
+  it("requires classification when the runtime export surface changes", () => {
+    expect(Object.keys(binding).sort()).toEqual([
+      "BindingItemState",
+      "BindingMemoryState",
+      "BindingNextStates",
+      "FSRS",
+      "FSRSBinding",
+      "FSRSBindingItem",
+      "FSRSBindingReview",
+      "FSRSItem",
+      "FSRSReview",
+      "ItemState",
+      "MemoryState",
+      "NextStates",
+      "computeOptimalSteps",
+      "computeParameters",
+      "convertCsvToFsrsItems",
+      "evaluateWithTimeSeriesSplits",
+    ].sort());
+  });
+
   it("requires a product decision for every upstream option and version change", async () => {
     const noUnknownTrainingKeys: UnknownTrainingKeys extends never ? true : never = true;
     const noMissingTrainingKeys: MissingTrainingKeys extends never ? true : never = true;

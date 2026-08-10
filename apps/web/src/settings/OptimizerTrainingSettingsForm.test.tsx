@@ -1,9 +1,12 @@
-import type { OptimizerSettingsView } from "@openrecall/contracts";
+import type {
+  OptimizerSettingsView,
+  OptimizerTrainingPreflight,
+} from "@openrecall/contracts";
 import { createI18n } from "@openrecall/i18n";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import type { ApiClient } from "../api/client.js";
+import { ApiClientError, type ApiClient } from "../api/client.js";
 import { I18nProvider } from "../app/I18nProvider.js";
 import { OptimizerTrainingSettingsForm } from "./OptimizerTrainingSettingsForm.js";
 
@@ -36,7 +39,94 @@ const view: OptimizerSettingsView = {
   },
 };
 
+function preflight(eligibleExampleCount: number): OptimizerTrainingPreflight {
+  return {
+    rawReviewCount: eligibleExampleCount,
+    otherwiseEligibleExampleCount: eligibleExampleCount,
+    excludedByMaxSeqLenCount: 0,
+    eligibleExampleCount,
+    minimumEligibleExamples: 400,
+    sourceReviewCutoffMs: 10,
+    canTrain: eligibleExampleCount >= 400,
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => { resolve = next; });
+  return { promise, resolve };
+}
+
 describe("OptimizerTrainingSettingsForm", () => {
+  it("announces an optimistic conflict and preserves the edited draft", async () => {
+    const user = userEvent.setup();
+    const api = {
+      bootstrap: async () => ({ apiVersion: 1 as const, csrfToken: "x", databaseRevision: 1, locale: "en" as const, localeUpdatedAtMs: 0 }),
+      get: async <T,>() => ({}) as T,
+      patch: async <T,>() => ({}) as T,
+      post: async <T,>() => preflight(400) as T,
+      put: async <T,>() => { throw new ApiClientError(409, { code: "SETTINGS_EDIT_CONFLICT", messageKey: "settings.editConflict" }); },
+      delete: async <T,>() => ({}) as T,
+    } satisfies ApiClient;
+    render(<I18nProvider i18n={await createI18n("en")}><OptimizerTrainingSettingsForm api={api} onViewChange={() => undefined} view={view} /></I18nProvider>);
+
+    const epochs = screen.getByLabelText("Training epochs") as HTMLSelectElement;
+    await user.selectOptions(epochs, "7");
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+
+    await waitFor(() => expect(screen.getByText(/changed elsewhere/u)).toBeTruthy());
+    expect(epochs.value).toBe("7");
+  });
+
+  it("discards a preflight response superseded by a newer request", async () => {
+    const user = userEvent.setup();
+    const first = deferred<OptimizerTrainingPreflight>();
+    const second = deferred<OptimizerTrainingPreflight>();
+    let calls = 0;
+    const api = {
+      bootstrap: async () => ({ apiVersion: 1 as const, csrfToken: "x", databaseRevision: 1, locale: "en" as const, localeUpdatedAtMs: 0 }),
+      get: async <T,>() => ({}) as T,
+      patch: async <T,>() => ({}) as T,
+      post: async <T,>() => (++calls === 1 ? first.promise : second.promise) as Promise<T>,
+      put: async <T,>() => view as T,
+      delete: async <T,>() => ({}) as T,
+    } satisfies ApiClient;
+    render(<I18nProvider i18n={await createI18n("en")}><OptimizerTrainingSettingsForm api={api} onViewChange={() => undefined} view={view} /></I18nProvider>);
+    await waitFor(() => expect(calls).toBe(1));
+    await user.click(screen.getByRole("button", { name: "Refresh training preview" }));
+    expect(calls).toBe(2);
+
+    await act(async () => { second.resolve(preflight(422)); });
+    await waitFor(() => expect(screen.getAllByText("422").length).toBeGreaterThan(0));
+    await act(async () => { first.resolve(preflight(111)); });
+
+    expect(screen.queryByText("111")).toBeNull();
+    expect(screen.getAllByText("422").length).toBeGreaterThan(0);
+  });
+
+  it("serializes restore-official saves behind the busy state", async () => {
+    const user = userEvent.setup();
+    const pending = deferred<OptimizerSettingsView>();
+    let putCalls = 0;
+    const api = {
+      bootstrap: async () => ({ apiVersion: 1 as const, csrfToken: "x", databaseRevision: 1, locale: "en" as const, localeUpdatedAtMs: 0 }),
+      get: async <T,>() => ({}) as T,
+      patch: async <T,>() => ({}) as T,
+      post: async <T,>() => preflight(400) as T,
+      put: async <T,>() => { putCalls += 1; return pending.promise as Promise<T>; },
+      delete: async <T,>() => ({}) as T,
+    } satisfies ApiClient;
+    render(<I18nProvider i18n={await createI18n("en")}><OptimizerTrainingSettingsForm api={api} onViewChange={() => undefined} view={view} /></I18nProvider>);
+    const restore = screen.getByRole("button", { name: "Save official optimizer defaults" });
+
+    await user.click(restore);
+    await user.click(restore);
+
+    expect(putCalls).toBe(1);
+    expect((restore as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { pending.resolve(view); });
+  });
+
   it("isolates an unsupported optimizer manifest without rendering controls", async () => {
     const incompatibleView = {
       ...view,

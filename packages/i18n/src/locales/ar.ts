@@ -102,6 +102,10 @@ export const arabicLocale = {
     "settings.optimizer.preflightError": "تعذر تحميل معاينة التدريب.",
     "settings.optimizer.manifestInvalid":
       "بيان إعدادات المحسّن غير متوافق مع هذه الصفحة. بقيت بقية الإعدادات متاحة.",
+    "settings.optimizer.loadError":
+      "تعذر تحميل هذه اللوحة من المحسّن. بقيت بقية الإعدادات متاحة.",
+    "settings.optimizer.profilesLoadError":
+      "تعذر تحميل ملفات معاملات المحسّن المحفوظة.",
     "settings.optimizer.restoreOfficial": "حفظ إعدادات المحسّن الرسمية",
     "settings.optimizer.useGeneral": "استخدام إعدادات المحسّن العامة",
     "settings.optimizer.otherwiseEligible": "المؤهلة قبل مرشح طول التسلسل",

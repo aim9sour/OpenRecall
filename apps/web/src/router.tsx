@@ -36,6 +36,20 @@ import {
   type SettingsPageData,
 } from "./pages/SettingsPage.js";
 
+type OptionalPanelResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false };
+
+async function loadOptionalPanel<T>(
+  request: Promise<T>,
+): Promise<OptionalPanelResult<T>> {
+  try {
+    return { ok: true, value: await request };
+  } catch {
+    return { ok: false };
+  }
+}
+
 function statisticsPath(
   basePath: string,
   searchParams: URLSearchParams,
@@ -164,18 +178,18 @@ export function createRoutes({
               bootstrap,
               sections,
               view,
-              optimizerEligibility,
-              profiles,
-              optimizerView,
-              technicalInfo,
+              optimizerEligibilityResult,
+              profilesResult,
+              optimizerViewResult,
+              technicalInfoResult,
             ] = await Promise.all([
               api.bootstrap(),
               api.get<SectionSummary[]>("/api/v1/sections"),
               api.get<SettingsView>(settingsPath),
-              api.get<OptimizerEligibility>(eligibilityPath),
-              api.get<OptimizerProfile[]>("/api/v1/optimizer/profiles"),
-              api.get<OptimizerSettingsView>(optimizerSettingsPath),
-              api.get<OptimizerTechnicalInfo>(technicalPath),
+              loadOptionalPanel(api.get<OptimizerEligibility>(eligibilityPath)),
+              loadOptionalPanel(api.get<OptimizerProfile[]>("/api/v1/optimizer/profiles")),
+              loadOptionalPanel(api.get<OptimizerSettingsView>(optimizerSettingsPath)),
+              loadOptionalPanel(api.get<OptimizerTechnicalInfo>(technicalPath)),
             ]);
             return {
               localePreference: {
@@ -184,10 +198,22 @@ export function createRoutes({
               },
               sections,
               view,
-              optimizerEligibility,
-              profiles,
-              optimizerView,
-              technicalInfo,
+              optimizerEligibility: optimizerEligibilityResult.ok
+                ? optimizerEligibilityResult.value
+                : null,
+              profiles: profilesResult.ok ? profilesResult.value : null,
+              optimizerView: optimizerViewResult.ok
+                ? optimizerViewResult.value
+                : null,
+              technicalInfo: technicalInfoResult.ok
+                ? technicalInfoResult.value
+                : null,
+              optimizerErrors: {
+                eligibility: !optimizerEligibilityResult.ok,
+                profiles: !profilesResult.ok,
+                technical: !technicalInfoResult.ok,
+                training: !optimizerViewResult.ok,
+              },
             };
           },
           element: <SettingsPage api={api} />,

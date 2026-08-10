@@ -27,10 +27,16 @@ import { TechnicalSettingsPanel } from "../settings/TechnicalSettingsPanel.js";
 export interface SettingsPageData {
   readonly localePreference: LocalePreferenceView;
   readonly sections: readonly SectionSummary[];
-  readonly optimizerEligibility: OptimizerEligibility;
-  readonly profiles: readonly OptimizerProfile[];
-  readonly optimizerView: OptimizerSettingsView;
-  readonly technicalInfo: OptimizerTechnicalInfo;
+  readonly optimizerEligibility: OptimizerEligibility | null;
+  readonly profiles: readonly OptimizerProfile[] | null;
+  readonly optimizerView: OptimizerSettingsView | null;
+  readonly technicalInfo: OptimizerTechnicalInfo | null;
+  readonly optimizerErrors: {
+    readonly eligibility: boolean;
+    readonly profiles: boolean;
+    readonly technical: boolean;
+    readonly training: boolean;
+  };
   readonly view: SettingsView;
 }
 
@@ -47,7 +53,7 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
   const scopeButtonRef = useRef<HTMLButtonElement>(null);
   const selectedSectionId =
     new URLSearchParams(location.search).get("sectionId") ?? "";
-  const selectableProfiles = loaded.profiles.filter((profile) => {
+  const selectableProfiles = (loaded.profiles ?? []).filter((profile) => {
     if (profile.status === "active" || profile.scopeType === "official") {
       return false;
     }
@@ -111,20 +117,40 @@ export function SettingsPage({ api }: { readonly api: ApiClient }) {
         view={view}
       />
       <DisclosureSection heading={t("settings.optimizer.trainingTitle")}>
-        <OptimizerTrainingSettingsForm
+        {optimizerView === null ? (
+          <p role="alert">{t("settings.optimizer.loadError")}</p>
+        ) : (
+          <OptimizerTrainingSettingsForm
+            api={api}
+            onDirtyChange={handleDirtyChange}
+            onViewChange={setOptimizerView}
+            view={optimizerView}
+          />
+        )}
+      </DisclosureSection>
+      {loaded.optimizerEligibility === null ? (
+        <section aria-labelledby="optimizer-heading" className="panel">
+          <h2 id="optimizer-heading">{t("optimizer.title")}</h2>
+          <p role="alert">{t("settings.optimizer.loadError")}</p>
+        </section>
+      ) : (
+        <OptimizerPanel
           api={api}
-          onDirtyChange={handleDirtyChange}
-          onViewChange={setOptimizerView}
-          view={optimizerView}
+          initialEligibility={loaded.optimizerEligibility}
         />
-      </DisclosureSection>
-      <OptimizerPanel
-        api={api}
-        initialEligibility={loaded.optimizerEligibility}
-      />
+      )}
       <DisclosureSection heading={t("settings.optimizer.technicalTitle")}>
-        <TechnicalSettingsPanel info={loaded.technicalInfo} />
+        {loaded.technicalInfo === null ? (
+          <p role="alert">{t("settings.optimizer.loadError")}</p>
+        ) : (
+          <TechnicalSettingsPanel info={loaded.technicalInfo} />
+        )}
       </DisclosureSection>
+      {loaded.optimizerErrors.profiles && (
+        <p className="panel" role="alert">
+          {t("settings.optimizer.profilesLoadError")}
+        </p>
+      )}
       {selectableProfiles.length > 0 && (
         <section
           aria-labelledby="parameter-profile-history"

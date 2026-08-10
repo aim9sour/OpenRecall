@@ -12,10 +12,17 @@ describe("installed optimizer binding", () => {
       new FSRSBindingReview(3, 0),
       new FSRSBindingReview(4, 1),
     ]);
-    await expect(computeParameters([item], {
+    const explicit = await computeParameters([item], {
       enableShortTerm: true,
       numRelearningSteps: 1,
       trainingConfig: OFFICIAL_OPTIMIZER_TRAINING_CONFIG,
-    })).resolves.toHaveLength(21);
+    });
+    const upstreamDefaults = await computeParameters([item], {
+      enableShortTerm: true,
+      numRelearningSteps: 1,
+    });
+
+    expect(explicit).toHaveLength(21);
+    expect(explicit).toEqual(upstreamDefaults);
   }, 180_000);
 });

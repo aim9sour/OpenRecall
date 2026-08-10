@@ -55,7 +55,23 @@ export const OptimizerTrainingControlSchema = Type.Object(
 
 export const OptimizerCapabilitySchema = Type.Object(
   {
-    key: Type.String({ minLength: 1, maxLength: 100 }),
+    key: Type.Union([
+      Type.Literal("weights"),
+      Type.Literal("enableShortTerm"),
+      Type.Literal("numRelearningSteps"),
+      Type.Literal("computeParameters"),
+      Type.Literal("evaluateWithTimeSeriesSplits"),
+      Type.Literal("computeOptimalSteps"),
+      Type.Literal("progress"),
+      Type.Literal("timeout"),
+      Type.Literal("convertCsvToFsrsItems"),
+      Type.Literal("dynamicWasi"),
+      Type.Literal("bindingClasses"),
+      Type.Literal("FSRSBinding.nextStates"),
+      Type.Literal("FSRSBinding.evaluate"),
+      Type.Literal("FSRSBinding.memoryStateFromSM2"),
+      Type.Literal("FSRSBinding.universalMetrics"),
+    ]),
     classification: Type.Union([
       Type.Literal("managed"),
       Type.Literal("derived"),

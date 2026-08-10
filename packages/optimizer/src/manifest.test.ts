@@ -81,20 +81,23 @@ describe("optimizer training capability manifest", () => {
   });
 
   it("classifies every upstream capability without exposing dangerous knobs", () => {
-    expect(OPTIMIZER_TRAINING_MANIFEST.capabilities).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ key: "weights", classification: "managed" }),
-        expect.objectContaining({ key: "enableShortTerm", classification: "derived" }),
-        expect.objectContaining({ key: "numRelearningSteps", classification: "derived" }),
-        expect.objectContaining({ key: "progress", classification: "internal" }),
-        expect.objectContaining({ key: "timeout", classification: "internal" }),
-        expect.objectContaining({ key: "convertCsvToFsrsItems", classification: "tool" }),
-        expect.objectContaining({ key: "wasiLoader", classification: "internal" }),
-        expect.objectContaining({ key: "bindingConstructors", classification: "internal" }),
-        expect.objectContaining({ key: "evaluationHelpers", classification: "tool" }),
-        expect.objectContaining({ key: "sm2Migration", classification: "tool" }),
-      ]),
-    );
+    expect(OPTIMIZER_TRAINING_MANIFEST.capabilities).toEqual([
+      { key: "weights", classification: "managed" },
+      { key: "enableShortTerm", classification: "derived" },
+      { key: "numRelearningSteps", classification: "derived" },
+      { key: "computeParameters", classification: "tool" },
+      { key: "evaluateWithTimeSeriesSplits", classification: "tool" },
+      { key: "computeOptimalSteps", classification: "tool" },
+      { key: "progress", classification: "internal" },
+      { key: "timeout", classification: "internal" },
+      { key: "convertCsvToFsrsItems", classification: "internal" },
+      { key: "dynamicWasi", classification: "internal" },
+      { key: "bindingClasses", classification: "internal" },
+      { key: "FSRSBinding.nextStates", classification: "internal" },
+      { key: "FSRSBinding.evaluate", classification: "internal" },
+      { key: "FSRSBinding.memoryStateFromSM2", classification: "internal" },
+      { key: "FSRSBinding.universalMetrics", classification: "internal" },
+    ]);
     expect(
       OPTIMIZER_TRAINING_MANIFEST.capabilities.some(
         (capability) => (capability.classification as string) === "editable",

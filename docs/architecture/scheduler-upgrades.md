@@ -43,10 +43,11 @@ security boundary.
 | seed, learning rate, gamma | official values, read-only | reproducibility and no useful safe tuning contract |
 | weights | managed parameter profiles, never edited directly | trained/official atomic model state |
 | `enableShortTerm`, `numRelearningSteps` optimizer inputs | derived from effective scheduler settings | one authoritative behavior source |
+| parameter computation and time-series evaluation | user workflows | durable training, metrics, preview, and explicit application |
+| optimal-step computation | user tool | separately designed analysis, preview, and explicit application workflow |
 | progress and polling timeout | internal | job orchestration, not model tuning |
-| CSV conversion and evaluation helpers | internal tools | implementation boundary, not persisted preferences |
-| WASI loaders and binding constructors | internal | runtime plumbing |
-| SM-2 migration helpers | excluded | OpenRecall does not store an SM-2 model |
+| CSV conversion | internal | adapter input boundary, not a persisted preference |
+| WASI loaders, binding constructors, scheduling, evaluation, metrics, and SM-2 conversion methods | internal | runtime/adapter operations without generic settings |
 
 Histories longer than the selected maximum are excluded intact and counted in
 preflight; they are never silently truncated. General settings and explicit

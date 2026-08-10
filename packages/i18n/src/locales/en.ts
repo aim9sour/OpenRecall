@@ -105,6 +105,10 @@ export const englishLocale = {
     "settings.optimizer.preflightError": "The training preview could not be loaded.",
     "settings.optimizer.manifestInvalid":
       "The optimizer settings manifest is incompatible with this page. Other settings remain available.",
+    "settings.optimizer.loadError":
+      "This optimizer panel could not be loaded. Other settings remain available.",
+    "settings.optimizer.profilesLoadError":
+      "Saved optimizer parameter profiles could not be loaded.",
     "settings.optimizer.restoreOfficial": "Save official optimizer defaults",
     "settings.optimizer.useGeneral": "Use general optimizer settings",
     "settings.optimizer.otherwiseEligible": "Eligible before sequence filter",

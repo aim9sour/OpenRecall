@@ -63,7 +63,10 @@ function optimizerError(reply: FastifyReply, error: unknown) {
       messageKey: "optimizer.insufficient",
     });
   }
-  if (code === "OPTIMIZER_RUN_CONFLICT") {
+  if (
+    code === "OPTIMIZER_RUN_CONFLICT" ||
+    code === "OPTIMIZER_SECTION_DELETION_IN_PROGRESS"
+  ) {
     return reply.code(409).send({
       code,
       messageKey: "optimizer.runConflict",
