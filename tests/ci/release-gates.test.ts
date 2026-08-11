@@ -294,6 +294,46 @@ describe("lockfile and install-script gate", () => {
     );
   });
 
+  it("rejects an unreviewed Rolldown native binding version", async () => {
+    const root = await temporaryRoot();
+    await write(
+      root,
+      "package.json",
+      JSON.stringify({ packageManager: "pnpm@11.17.0" }),
+    );
+    await write(
+      root,
+      "pnpm-workspace.yaml",
+      [
+        "packages: []",
+        "allowBuilds:",
+        "  better-sqlite3: true",
+        "  esbuild: true",
+        "  sharp: true",
+      ].join("\n"),
+    );
+    await write(
+      root,
+      "pnpm-lock.yaml",
+      [
+        "lockfileVersion: '9.0'",
+        "importers:",
+        "  .:",
+        "packages:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
+        "  rolldown@1.2.3:",
+        "  '@rolldown/binding-win32-x64-msvc@9.9.9':",
+        "  sharp@0.35.3:",
+        "snapshots:",
+      ].join("\n"),
+    );
+
+    await expect(checkLockfileVersions(root)).rejects.toThrow(
+      "LOCKED_NATIVE_PREFIX_VERSION_INVALID:@rolldown/binding-",
+    );
+  });
+
   it("accepts CRLF package and snapshot section boundaries", async () => {
     const root = await temporaryRoot();
     await write(
@@ -322,6 +362,8 @@ describe("lockfile and install-script gate", () => {
         "packages:",
         "  better-sqlite3@13.0.3:",
         "  esbuild@0.28.2:",
+        "  rolldown@1.2.3:",
+        "  '@rolldown/binding-win32-x64-msvc@1.2.3':",
         "  sharp@0.35.3:",
         "snapshots:",
       ].join("\r\n"),
@@ -560,7 +602,11 @@ describe("repository release automation", () => {
     expect(workflow).toContain("node-version: 24.18.0");
     expect(workflow).toContain("PNPM_VERSION: 11.17.0");
     expect(workflow).toContain('"v$Version"');
-    expect(workflow).toContain("github.ref_name");
+    expect(workflow).toContain("$env:GITHUB_REF_NAME");
+    expect(workflow).not.toContain("${{ github.ref_name }}");
+    expect(workflow).toContain("git rev-parse HEAD");
+    expect(workflow).toContain("refs/remotes/origin/main");
+    expect(workflow).toContain("OPENRECALL_RELEASE_MAIN_COMMIT_MISMATCH");
     expect(workflow).toContain('"VERSION=$Version" >> $env:GITHUB_ENV');
     expect(workflow).toContain('"ARCHIVE_NAME=$Archive" >> $env:GITHUB_ENV');
     expect(workflow).toContain(
@@ -575,6 +621,11 @@ describe("repository release automation", () => {
     expect(workflow).toContain("actions/upload-artifact@v7");
     expect(workflow).toContain("actions/attest@v4");
     expect(workflow).toContain("subject-path:");
+    expect(workflow).toContain("gh release list --limit 1000");
+    expect(workflow).toContain("--json tagName,isDraft");
+    expect(workflow).toContain("OPENRECALL_RELEASE_ALREADY_PUBLISHED");
+    expect(workflow).toContain("gh release upload");
+    expect(workflow).toContain("--clobber");
     const draftAt = workflow.indexOf("gh release create");
     const uploadAt = workflow.indexOf("gh release upload");
     const publishAt = workflow.indexOf("--draft=false");

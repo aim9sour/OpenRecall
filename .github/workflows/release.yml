@@ -47,8 +47,21 @@ jobs:
         run: |
           $Version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
           $Archive = "OpenRecall-v$Version-windows-x64.zip"
-          if ($env:GITHUB_REF_TYPE -eq "tag" -and "v$Version" -ne "${{ github.ref_name }}") {
-            throw "OPENRECALL_RELEASE_TAG_VERSION_MISMATCH"
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            if ("v$Version" -ne $env:GITHUB_REF_NAME) {
+              throw "OPENRECALL_RELEASE_TAG_VERSION_MISMATCH"
+            }
+            $HeadCommit = (git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "OPENRECALL_RELEASE_GIT_IDENTITY_FAILED"
+            }
+            $MainCommit = (git rev-parse refs/remotes/origin/main).Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "OPENRECALL_RELEASE_GIT_IDENTITY_FAILED"
+            }
+            if ($HeadCommit -ne $MainCommit) {
+              throw "OPENRECALL_RELEASE_MAIN_COMMIT_MISMATCH"
+            }
           }
           "VERSION=$Version" >> $env:GITHUB_ENV
           "ARCHIVE_NAME=$Archive" >> $env:GITHUB_ENV
@@ -81,20 +94,36 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: release-output/${{ env.ARCHIVE_NAME }}
-      - name: Create draft release
+      - name: Create or reuse draft release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall $env:VERSION" --notes-file "$env:RELEASE_NOTES"
+          $ReleaseJson = gh release list --limit 1000 --json tagName,isDraft
+          if ($LASTEXITCODE -ne 0) {
+            throw "OPENRECALL_RELEASE_LIST_FAILED"
+          }
+          $ExistingRelease = @($ReleaseJson | ConvertFrom-Json) |
+            Where-Object { $_.tagName -eq $env:GITHUB_REF_NAME } |
+            Select-Object -First 1
+          if ($null -eq $ExistingRelease) {
+            gh release create "$env:GITHUB_REF_NAME" --draft --verify-tag --title "OpenRecall $env:VERSION" --notes-file "$env:RELEASE_NOTES"
+          } elseif (-not $ExistingRelease.isDraft) {
+            throw "OPENRECALL_RELEASE_ALREADY_PUBLISHED"
+          } else {
+            gh release edit "$env:GITHUB_REF_NAME" --draft --verify-tag --title "OpenRecall $env:VERSION" --notes-file "$env:RELEASE_NOTES"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "OPENRECALL_RELEASE_DRAFT_PREPARE_FAILED"
+          }
       - name: Upload release assets
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.ref_name }}" "release-output\$env:ARCHIVE_NAME" "release-output\$env:ARCHIVE_NAME.sha256"
+          gh release upload "$env:GITHUB_REF_NAME" "release-output\$env:ARCHIVE_NAME" "release-output\$env:ARCHIVE_NAME.sha256" --clobber
       - name: Publish only after successful upload
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false --latest
+        run: gh release edit "$env:GITHUB_REF_NAME" --draft=false --latest

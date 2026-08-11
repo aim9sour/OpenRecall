@@ -103,6 +103,13 @@ describe("Windows release artifact contracts", () => {
       output: resolve(repositoryRoot, "release-output"),
       version: "2.0.0",
     });
+    const manifestlessRoot = await temporaryRoot();
+    await expect(
+      parseWindowsPackageArguments(["--version", "2.0.0"], manifestlessRoot),
+    ).resolves.toEqual({
+      output: resolve(manifestlessRoot, "release-output"),
+      version: "2.0.0",
+    });
     for (const args of [
       ["--version", "2.0.0", "--output", output, "--unknown"],
       ["--version", "2.0.0", "--version", "2.0.1"],

@@ -52,10 +52,13 @@ export async function parseWindowsPackageArguments(args, root = repositoryRoot) 
     }
     values.set(name, value);
   }
-  const manifest = JSON.parse(
-    await readFile(resolve(root, "package.json"), "utf8"),
-  );
-  const version = values.get("--version") ?? manifest.version;
+  let version = values.get("--version");
+  if (version === undefined) {
+    const manifest = JSON.parse(
+      await readFile(resolve(root, "package.json"), "utf8"),
+    );
+    version = manifest.version;
+  }
   releaseArtifactNames(version);
   const outputValue = values.get("--output") ?? resolve(root, "release-output");
   return {
