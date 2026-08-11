@@ -325,6 +325,44 @@ describe("Windows release artifact contracts", () => {
     );
   });
 
+  it("accepts only the reviewed esbuild Windows binary license exception", async () => {
+    const collect = async (version: string) => {
+      const root = await temporaryRoot();
+      const nodeModules = join(root, "node_modules");
+      await write(
+        nodeModules,
+        "@esbuild/win32-x64/package.json",
+        JSON.stringify({
+          name: "@esbuild/win32-x64",
+          version,
+          license: "MIT",
+        }),
+      );
+      await write(
+        nodeModules,
+        "esbuild/package.json",
+        JSON.stringify({ name: "esbuild", version, license: "MIT" }),
+      );
+      await write(nodeModules, "esbuild/LICENSE.md", "esbuild license");
+      return collectDependencyLicenseFiles({
+        destination: join(root, "licenses"),
+        nodeModules,
+        repositoryRoot,
+      });
+    };
+
+    await expect(collect("0.28.2")).resolves.toEqual([
+      "@esbuild/win32-x64@0.28.2",
+      "esbuild@0.28.2",
+    ]);
+    await expect(collect("0.28.1")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@esbuild/win32-x64@0.28.1",
+    );
+    await expect(collect("0.28.3")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@esbuild/win32-x64@0.28.3",
+    );
+  });
+
   it("removes only dependency source maps before artifact inspection", async () => {
     const root = await temporaryRoot();
     await write(root, "node_modules/runtime/index.js", "runtime");

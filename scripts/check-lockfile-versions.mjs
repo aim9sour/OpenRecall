@@ -14,8 +14,8 @@ const APPROVED_BUILD_PACKAGES = new Set([
   "sharp",
 ]);
 const REQUIRED_LOCKED_VERSIONS = new Map([
-  ["better-sqlite3", new Set(["13.0.1"])],
-  ["esbuild", new Set(["0.28.1"])],
+  ["better-sqlite3", new Set(["13.0.3"])],
+  ["esbuild", new Set(["0.28.2"])],
   ["sharp", new Set(["0.35.3"])],
 ]);
 

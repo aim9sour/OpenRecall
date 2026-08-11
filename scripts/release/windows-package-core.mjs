@@ -151,7 +151,7 @@ async function copyAuditedLicenseException({
     ]);
     return true;
   }
-  if (name === "@esbuild/win32-x64" && version === "0.28.1") {
+  if (name === "@esbuild/win32-x64" && version === "0.28.2") {
     await copyFile(
       resolve(nodeModules, "esbuild", "LICENSE.md"),
       resolve(destination, "LICENSE.md"),

@@ -162,6 +162,25 @@ describe("adapter and runtime-network boundary gate", () => {
 });
 
 describe("lockfile and install-script gate", () => {
+  it("pins the reviewed native versions and keeps Node types on the runtime major", async () => {
+    const [lockPolicy, dependabot] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "scripts/check-lockfile-versions.mjs"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, ".github/dependabot.yml"), "utf8"),
+    ]);
+
+    expect(lockPolicy).toContain(
+      '["better-sqlite3", new Set(["13.0.3"])]',
+    );
+    expect(lockPolicy).toContain(
+      '["esbuild", new Set(["0.28.2"])]',
+    );
+    expect(dependabot).toContain('dependency-name: "@types/node"');
+    expect(dependabot).toContain('"version-update:semver-major"');
+  });
+
   it("accepts exact direct versions and only the required build scripts", async () => {
     await expect(
       checkLockfileVersions(repositoryRoot),
@@ -226,8 +245,8 @@ describe("lockfile and install-script gate", () => {
         "        specifier: ^1.2.3",
         "        version: 1.2.3",
         "packages:",
-        "  better-sqlite3@13.0.1:",
-        "  esbuild@0.28.1:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
       ].join("\n"),
     );
 
@@ -301,8 +320,8 @@ describe("lockfile and install-script gate", () => {
         "importers:",
         "  .:",
         "packages:",
-        "  better-sqlite3@13.0.1:",
-        "  esbuild@0.28.1:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
         "  sharp@0.35.3:",
         "snapshots:",
       ].join("\r\n"),
