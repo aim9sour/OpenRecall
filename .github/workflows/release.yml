@@ -17,7 +17,6 @@ concurrency:
 
 env:
   PNPM_VERSION: 11.17.0
-  ARCHIVE_NAME: OpenRecall-v1.0.1-windows-x64.zip
 
 jobs:
   release:
@@ -47,12 +46,13 @@ jobs:
       - name: Verify release identity
         run: |
           $Version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          $Archive = "OpenRecall-v$Version-windows-x64.zip"
           if ($env:GITHUB_REF_TYPE -eq "tag" -and "v$Version" -ne "${{ github.ref_name }}") {
             throw "OPENRECALL_RELEASE_TAG_VERSION_MISMATCH"
           }
-          if ($env:ARCHIVE_NAME -ne "OpenRecall-v$Version-windows-x64.zip") {
-            throw "OPENRECALL_RELEASE_ARCHIVE_VERSION_MISMATCH"
-          }
+          "VERSION=$Version" >> $env:GITHUB_ENV
+          "ARCHIVE_NAME=$Archive" >> $env:GITHUB_ENV
+          "RELEASE_NOTES=docs/releases/v$Version.md" >> $env:GITHUB_ENV
       - name: Run release policy gates
         run: |
           node scripts/check-committed-whitespace.mjs
@@ -70,7 +70,7 @@ jobs:
       - name: Upload temporary workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: OpenRecall-v1.0.1-windows-x64
+          name: ${{ env.ARCHIVE_NAME }}
           path: |
             release-output/${{ env.ARCHIVE_NAME }}
             release-output/${{ env.ARCHIVE_NAME }}.sha256
@@ -86,7 +86,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall 1.0.1" --notes-file docs/releases/v1.0.1.md
+          gh release create "${{ github.ref_name }}" --draft --verify-tag --title "OpenRecall $env:VERSION" --notes-file "$env:RELEASE_NOTES"
       - name: Upload release assets
         if: github.ref_type == 'tag'
         env:

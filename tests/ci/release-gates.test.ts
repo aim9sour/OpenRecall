@@ -561,12 +561,15 @@ describe("repository release automation", () => {
     expect(workflow).toContain("PNPM_VERSION: 11.17.0");
     expect(workflow).toContain('"v$Version"');
     expect(workflow).toContain("github.ref_name");
-    expect(workflow).toContain("pnpm package:windows");
+    expect(workflow).toContain('"VERSION=$Version" >> $env:GITHUB_ENV');
+    expect(workflow).toContain('"ARCHIVE_NAME=$Archive" >> $env:GITHUB_ENV');
     expect(workflow).toContain(
-      "OpenRecall-v1.0.1-windows-x64.zip",
+      '"RELEASE_NOTES=docs/releases/v$Version.md" >> $env:GITHUB_ENV',
     );
-    expect(workflow).toContain('docs/releases/v1.0.1.md');
-    expect(workflow).toContain('--title "OpenRecall 1.0.1"');
+    expect(workflow).toContain("pnpm package:windows");
+    expect(workflow).not.toMatch(/OpenRecall-v1\./u);
+    expect(workflow).not.toMatch(/docs\/releases\/v1\./u);
+    expect(workflow).toContain('--title "OpenRecall $env:VERSION"');
     expect(workflow).toContain("pnpm smoke:package:windows --archive");
     expect(workflow).not.toContain("smoke:package:windows -- --archive");
     expect(workflow).toContain("actions/upload-artifact@v7");

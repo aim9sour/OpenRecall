@@ -74,27 +74,43 @@ afterEach(async () => {
 });
 
 describe("Windows release artifact contracts", () => {
-  it("parses only an explicit stable version and safe absolute output", () => {
+  it("uses the root manifest version unless a safe explicit version overrides it", async () => {
     const output = join(repositoryRoot, "release-output");
-    expect(
+    const repositoryVersion = JSON.parse(
+      await readFile(resolve(repositoryRoot, "package.json"), "utf8"),
+    ).version;
+    await expect(
+      parseWindowsPackageArguments([], repositoryRoot),
+    ).resolves.toEqual({
+      output: resolve(repositoryRoot, "release-output"),
+      version: repositoryVersion,
+    });
+    await expect(
+      parseWindowsPackageArguments(["--output", output], repositoryRoot),
+    ).resolves.toEqual({
+      output: resolve(output),
+      version: repositoryVersion,
+    });
+    await expect(
       parseWindowsPackageArguments(
         ["--version", "1.0.1", "--output", output],
         repositoryRoot,
       ),
-    ).toEqual({ output: resolve(output), version: "1.0.1" });
-    expect(
+    ).resolves.toEqual({ output: resolve(output), version: "1.0.1" });
+    await expect(
       parseWindowsPackageArguments(["--version", "1.0.1"], repositoryRoot),
-    ).toEqual({
+    ).resolves.toEqual({
       output: resolve(repositoryRoot, "release-output"),
       version: "1.0.1",
     });
     for (const args of [
-      ["--output", output],
       ["--version", "1.0.1", "--output", output, "--unknown"],
+      ["--version", "1.0.1", "--version", "1.0.2"],
+      ["--output", "release-output"],
     ]) {
-      expect(() =>
+      await expect(
         parseWindowsPackageArguments(args, repositoryRoot),
-      ).toThrow("OPENRECALL_PACKAGE_ARGUMENT_INVALID");
+      ).rejects.toThrow(/OPENRECALL_PACKAGE_(ARGUMENT_INVALID|OUTPUT_UNSAFE)/u);
     }
   });
 

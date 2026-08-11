@@ -34,8 +34,8 @@ function packageError(code, detail) {
   return new Error(detail === undefined ? code : `${code}:${detail}`);
 }
 
-export function parseWindowsPackageArguments(args, root = repositoryRoot) {
-  if (args.length !== 2 && args.length !== 4) {
+export async function parseWindowsPackageArguments(args, root = repositoryRoot) {
+  if (args.length !== 0 && args.length !== 2 && args.length !== 4) {
     throw packageError("OPENRECALL_PACKAGE_ARGUMENT_INVALID");
   }
   const values = new Map();
@@ -52,10 +52,10 @@ export function parseWindowsPackageArguments(args, root = repositoryRoot) {
     }
     values.set(name, value);
   }
-  const version = values.get("--version");
-  if (version === undefined) {
-    throw packageError("OPENRECALL_PACKAGE_ARGUMENT_INVALID");
-  }
+  const manifest = JSON.parse(
+    await readFile(resolve(root, "package.json"), "utf8"),
+  );
+  const version = values.get("--version") ?? manifest.version;
   releaseArtifactNames(version);
   const outputValue = values.get("--output") ?? resolve(root, "release-output");
   return {
@@ -292,7 +292,7 @@ function isDirectExecution() {
 if (isDirectExecution()) {
   try {
     await assembleWindowsPackage(
-      parseWindowsPackageArguments(process.argv.slice(2)),
+      await parseWindowsPackageArguments(process.argv.slice(2)),
     );
   } catch (error) {
     process.stderr.write(
