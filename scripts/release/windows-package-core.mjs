@@ -144,7 +144,7 @@ async function copyAuditedLicenseException({
   repositoryRoot,
   version,
 }) {
-  if (name.startsWith("@openrecall/") && version === "1.0.1") {
+  if (name.startsWith("@openrecall/") && version === "1.1.0") {
     await Promise.all([
       copyFile(resolve(repositoryRoot, "LICENSE"), resolve(destination, "LICENSE")),
       copyFile(resolve(repositoryRoot, "NOTICE"), resolve(destination, "NOTICE")),

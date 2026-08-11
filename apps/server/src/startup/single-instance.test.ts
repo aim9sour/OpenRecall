@@ -522,7 +522,7 @@ describe("Windows launch boundary", () => {
       expect(guide).toContain("OPENRECALL_PORT_OCCUPIED");
       expect(guide).toMatch(/OpenRecall-nodejs[\\/]Data/u);
       expect(guide).toMatch(/backups/u);
-      expect(guide).toContain("OpenRecall-v1.0.1-windows-x64.zip");
+      expect(guide).toContain("OpenRecall-v1.1.0-windows-x64.zip");
       expect(guide).not.toMatch(/Chrome|PWA/u);
       expect(guide).toMatch(/Ctrl\+C/u);
     }

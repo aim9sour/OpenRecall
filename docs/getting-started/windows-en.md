@@ -6,7 +6,7 @@ no account or cloud service.
 ## Recommended: release ZIP
 
 1. Open the [latest release](https://github.com/aim9sour/OpenRecall/releases/latest).
-2. Download `OpenRecall-v1.0.1-windows-x64.zip` and extract the complete ZIP to
+2. Download `OpenRecall-v1.1.0-windows-x64.zip` and extract the complete ZIP to
    a writable folder. Do not run files from inside the compressed preview.
 3. Double-click one launcher:
    - `OpenRecall.cmd` uses normal mode.
