@@ -90,7 +90,7 @@ describe("repository documentation", () => {
       };
       expect(manifest, manifestPath).toMatchObject({
         license: "Apache-2.0",
-        version: "1.0.1",
+        version: "1.1.0",
       });
     }
   });
@@ -176,6 +176,11 @@ describe("repository documentation", () => {
       text("README.md"),
       text("README.ar.md"),
     ]);
+    const historicalArchive = [
+      "OpenRecall-v1",
+      "0",
+      "1-windows-x64.zip",
+    ].join(".");
     for (const readme of [english, arabic]) {
       expect(readme).toContain(
         "https://github.com/aim9sour/OpenRecall/releases/latest",
@@ -187,6 +192,18 @@ describe("repository documentation", () => {
       expect(readme).toContain("docs/assets/openrecall-review.png");
       expect(readme).toContain("%LOCALAPPDATA%\\OpenRecall-nodejs\\Data");
       expect(readme).toMatch(/(?:portable|محمول)[\s\S]{0,180}(?:Data|البيانات)/iu);
+      expect(readme).toContain("OpenRecall-v1.1.0-windows-x64.zip");
+      expect(readme).not.toContain(historicalArchive);
+    }
+
+    const currentInstallDocuments = await Promise.all([
+      text("docs/getting-started/windows-en.md"),
+      text("docs/getting-started/windows-ar.md"),
+      text("distribution/windows/README.txt"),
+    ]);
+    for (const document of currentInstallDocuments) {
+      expect(document).toContain("OpenRecall-v1.1.0-windows-x64.zip");
+      expect(document).not.toContain(historicalArchive);
     }
 
     const expectedImages = [
@@ -198,6 +215,27 @@ describe("repository documentation", () => {
       const metadata = await sharp(fileURLToPath(new URL(path, root))).metadata();
       expect(metadata, path).toMatchObject({ format: "png", height, width });
     }
+  });
+
+  it("publishes complete 1.1.0 release notes with SQLite and scheduling safety", async () => {
+    const notes = await text("docs/releases/v1.1.0.md");
+    for (const heading of [
+      "# OpenRecall 1.1.0",
+      "## Highlights",
+      "## Learning-step recommendations",
+      "## Advanced optimizer settings",
+      "## Review and import improvements",
+      "## Accessibility and localization",
+      "## Installation and portable mode",
+      "## Updating and SQLite safety",
+      "## Dependency and runtime baseline",
+      "## Verify the download",
+      "## Known limitations",
+    ]) {
+      expect(notes).toContain(heading);
+    }
+    expect(notes).toMatch(/SQLite[\s\S]{0,240}backup/iu);
+    expect(notes).toMatch(/scheduled due dates[\s\S]{0,160}not[\s\S]{0,160}rewritten/iu);
   });
 });
 

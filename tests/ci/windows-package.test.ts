@@ -74,32 +74,55 @@ afterEach(async () => {
 });
 
 describe("Windows release artifact contracts", () => {
-  it("parses only an explicit stable version and safe absolute output", () => {
+  it("uses the root manifest version unless a safe explicit version overrides it", async () => {
     const output = join(repositoryRoot, "release-output");
-    expect(
+    const repositoryVersion = JSON.parse(
+      await readFile(resolve(repositoryRoot, "package.json"), "utf8"),
+    ).version;
+    await expect(
+      parseWindowsPackageArguments([], repositoryRoot),
+    ).resolves.toEqual({
+      output: resolve(repositoryRoot, "release-output"),
+      version: repositoryVersion,
+    });
+    await expect(
+      parseWindowsPackageArguments(["--output", output], repositoryRoot),
+    ).resolves.toEqual({
+      output: resolve(output),
+      version: repositoryVersion,
+    });
+    await expect(
       parseWindowsPackageArguments(
-        ["--version", "1.0.1", "--output", output],
+        ["--version", "2.0.0", "--output", output],
         repositoryRoot,
       ),
-    ).toEqual({ output: resolve(output), version: "1.0.1" });
-    expect(
-      parseWindowsPackageArguments(["--version", "1.0.1"], repositoryRoot),
-    ).toEqual({
+    ).resolves.toEqual({ output: resolve(output), version: "2.0.0" });
+    await expect(
+      parseWindowsPackageArguments(["--version", "2.0.0"], repositoryRoot),
+    ).resolves.toEqual({
       output: resolve(repositoryRoot, "release-output"),
-      version: "1.0.1",
+      version: "2.0.0",
+    });
+    const manifestlessRoot = await temporaryRoot();
+    await expect(
+      parseWindowsPackageArguments(["--version", "2.0.0"], manifestlessRoot),
+    ).resolves.toEqual({
+      output: resolve(manifestlessRoot, "release-output"),
+      version: "2.0.0",
     });
     for (const args of [
-      ["--output", output],
-      ["--version", "1.0.1", "--output", output, "--unknown"],
+      ["--version", "2.0.0", "--output", output, "--unknown"],
+      ["--version", "2.0.0", "--version", "2.0.1"],
+      ["--output", "release-output"],
     ]) {
-      expect(() =>
+      await expect(
         parseWindowsPackageArguments(args, repositoryRoot),
-      ).toThrow("OPENRECALL_PACKAGE_ARGUMENT_INVALID");
+      ).rejects.toThrow(/OPENRECALL_PACKAGE_(ARGUMENT_INVALID|OUTPUT_UNSAFE)/u);
     }
   });
 
   it("accepts only one absolute Windows package smoke target", () => {
-    const archive = join(repositoryRoot, "release-output", "OpenRecall-v1.0.1-windows-x64.zip");
+    const archive = join(repositoryRoot, "release-output", "OpenRecall-v1.1.0-windows-x64.zip");
     expect(parseWindowsSmokeArguments(["--archive", archive])).toEqual({
       archive: resolve(archive),
     });
@@ -184,9 +207,9 @@ describe("Windows release artifact contracts", () => {
   );
 
   it("derives stable Windows x64 names from a strict semantic version", () => {
-    expect(releaseArtifactNames("1.0.1")).toEqual({
-      archive: "OpenRecall-v1.0.1-windows-x64.zip",
-      checksum: "OpenRecall-v1.0.1-windows-x64.zip.sha256",
+    expect(releaseArtifactNames("1.1.0")).toEqual({
+      archive: "OpenRecall-v1.1.0-windows-x64.zip",
+      checksum: "OpenRecall-v1.1.0-windows-x64.zip.sha256",
     });
     for (const invalid of ["v1.0.0", "1.0", "1.0.0-beta.1", "../1.0.0"]) {
       expect(() => releaseArtifactNames(invalid)).toThrow(
@@ -322,6 +345,75 @@ describe("Windows release artifact contracts", () => {
       }),
     ).rejects.toThrow(
       "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:missing@1.0.0",
+    );
+  });
+
+  it("accepts only the reviewed esbuild Windows binary license exception", async () => {
+    const collect = async (version: string) => {
+      const root = await temporaryRoot();
+      const nodeModules = join(root, "node_modules");
+      await write(
+        nodeModules,
+        "@esbuild/win32-x64/package.json",
+        JSON.stringify({
+          name: "@esbuild/win32-x64",
+          version,
+          license: "MIT",
+        }),
+      );
+      await write(
+        nodeModules,
+        "esbuild/package.json",
+        JSON.stringify({ name: "esbuild", version, license: "MIT" }),
+      );
+      await write(nodeModules, "esbuild/LICENSE.md", "esbuild license");
+      return collectDependencyLicenseFiles({
+        destination: join(root, "licenses"),
+        nodeModules,
+        repositoryRoot,
+      });
+    };
+
+    await expect(collect("0.28.2")).resolves.toEqual([
+      "@esbuild/win32-x64@0.28.2",
+      "esbuild@0.28.2",
+    ]);
+    await expect(collect("0.28.1")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@esbuild/win32-x64@0.28.1",
+    );
+    await expect(collect("0.28.3")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@esbuild/win32-x64@0.28.3",
+    );
+  });
+
+  it("accepts only the current OpenRecall workspace license exception", async () => {
+    const collect = async (version: string) => {
+      const root = await temporaryRoot();
+      const nodeModules = join(root, "node_modules");
+      await write(
+        nodeModules,
+        "@openrecall/example/package.json",
+        JSON.stringify({
+          name: "@openrecall/example",
+          version,
+          license: "Apache-2.0",
+        }),
+      );
+      return collectDependencyLicenseFiles({
+        destination: join(root, "licenses"),
+        nodeModules,
+        repositoryRoot,
+      });
+    };
+
+    await expect(collect("1.1.0")).resolves.toEqual([
+      "@openrecall/example@1.1.0",
+    ]);
+    await expect(collect("1.0.9")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@openrecall/example@1.0.9",
+    );
+    await expect(collect("1.1.1")).rejects.toThrow(
+      "OPENRECALL_PACKAGE_DEPENDENCY_LICENSE_MISSING:@openrecall/example@1.1.1",
     );
   });
 

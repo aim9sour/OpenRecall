@@ -162,6 +162,25 @@ describe("adapter and runtime-network boundary gate", () => {
 });
 
 describe("lockfile and install-script gate", () => {
+  it("pins the reviewed native versions and keeps Node types on the runtime major", async () => {
+    const [lockPolicy, dependabot] = await Promise.all([
+      readFile(
+        join(repositoryRoot, "scripts/check-lockfile-versions.mjs"),
+        "utf8",
+      ),
+      readFile(join(repositoryRoot, ".github/dependabot.yml"), "utf8"),
+    ]);
+
+    expect(lockPolicy).toContain(
+      '["better-sqlite3", new Set(["13.0.3"])]',
+    );
+    expect(lockPolicy).toContain(
+      '["esbuild", new Set(["0.28.2"])]',
+    );
+    expect(dependabot).toContain('dependency-name: "@types/node"');
+    expect(dependabot).toContain('"version-update:semver-major"');
+  });
+
   it("accepts exact direct versions and only the required build scripts", async () => {
     await expect(
       checkLockfileVersions(repositoryRoot),
@@ -226,8 +245,8 @@ describe("lockfile and install-script gate", () => {
         "        specifier: ^1.2.3",
         "        version: 1.2.3",
         "packages:",
-        "  better-sqlite3@13.0.1:",
-        "  esbuild@0.28.1:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
       ].join("\n"),
     );
 
@@ -275,6 +294,46 @@ describe("lockfile and install-script gate", () => {
     );
   });
 
+  it("rejects an unreviewed Rolldown native binding version", async () => {
+    const root = await temporaryRoot();
+    await write(
+      root,
+      "package.json",
+      JSON.stringify({ packageManager: "pnpm@11.17.0" }),
+    );
+    await write(
+      root,
+      "pnpm-workspace.yaml",
+      [
+        "packages: []",
+        "allowBuilds:",
+        "  better-sqlite3: true",
+        "  esbuild: true",
+        "  sharp: true",
+      ].join("\n"),
+    );
+    await write(
+      root,
+      "pnpm-lock.yaml",
+      [
+        "lockfileVersion: '9.0'",
+        "importers:",
+        "  .:",
+        "packages:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
+        "  rolldown@1.2.3:",
+        "  '@rolldown/binding-win32-x64-msvc@9.9.9':",
+        "  sharp@0.35.3:",
+        "snapshots:",
+      ].join("\n"),
+    );
+
+    await expect(checkLockfileVersions(root)).rejects.toThrow(
+      "LOCKED_NATIVE_PREFIX_VERSION_INVALID:@rolldown/binding-",
+    );
+  });
+
   it("accepts CRLF package and snapshot section boundaries", async () => {
     const root = await temporaryRoot();
     await write(
@@ -301,8 +360,10 @@ describe("lockfile and install-script gate", () => {
         "importers:",
         "  .:",
         "packages:",
-        "  better-sqlite3@13.0.1:",
-        "  esbuild@0.28.1:",
+        "  better-sqlite3@13.0.3:",
+        "  esbuild@0.28.2:",
+        "  rolldown@1.2.3:",
+        "  '@rolldown/binding-win32-x64-msvc@1.2.3':",
         "  sharp@0.35.3:",
         "snapshots:",
       ].join("\r\n"),
@@ -541,18 +602,30 @@ describe("repository release automation", () => {
     expect(workflow).toContain("node-version: 24.18.0");
     expect(workflow).toContain("PNPM_VERSION: 11.17.0");
     expect(workflow).toContain('"v$Version"');
-    expect(workflow).toContain("github.ref_name");
-    expect(workflow).toContain("pnpm package:windows");
+    expect(workflow).toContain("$env:GITHUB_REF_NAME");
+    expect(workflow).not.toContain("${{ github.ref_name }}");
+    expect(workflow).toContain("git rev-parse HEAD");
+    expect(workflow).toContain("refs/remotes/origin/main");
+    expect(workflow).toContain("OPENRECALL_RELEASE_MAIN_COMMIT_MISMATCH");
+    expect(workflow).toContain('"VERSION=$Version" >> $env:GITHUB_ENV');
+    expect(workflow).toContain('"ARCHIVE_NAME=$Archive" >> $env:GITHUB_ENV');
     expect(workflow).toContain(
-      "OpenRecall-v1.0.1-windows-x64.zip",
+      '"RELEASE_NOTES=docs/releases/v$Version.md" >> $env:GITHUB_ENV',
     );
-    expect(workflow).toContain('docs/releases/v1.0.1.md');
-    expect(workflow).toContain('--title "OpenRecall 1.0.1"');
+    expect(workflow).toContain("pnpm package:windows");
+    expect(workflow).not.toMatch(/OpenRecall-v1\./u);
+    expect(workflow).not.toMatch(/docs\/releases\/v1\./u);
+    expect(workflow).toContain('--title "OpenRecall $env:VERSION"');
     expect(workflow).toContain("pnpm smoke:package:windows --archive");
     expect(workflow).not.toContain("smoke:package:windows -- --archive");
     expect(workflow).toContain("actions/upload-artifact@v7");
     expect(workflow).toContain("actions/attest@v4");
     expect(workflow).toContain("subject-path:");
+    expect(workflow).toContain("gh release list --limit 1000");
+    expect(workflow).toContain("--json tagName,isDraft");
+    expect(workflow).toContain("OPENRECALL_RELEASE_ALREADY_PUBLISHED");
+    expect(workflow).toContain("gh release upload");
+    expect(workflow).toContain("--clobber");
     const draftAt = workflow.indexOf("gh release create");
     const uploadAt = workflow.indexOf("gh release upload");
     const publishAt = workflow.indexOf("--draft=false");

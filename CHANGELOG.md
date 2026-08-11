@@ -6,6 +6,22 @@ licensed under Apache-2.0 and follows
 
 ## Unreleased
 
+## [1.1.0] - 2026-08-11
+
+### Added
+
+- Layered global and per-section optimizer-training controls expose the
+  supported upstream power-user settings, eligibility details, compatibility
+  boundaries, and safe fallback to global settings when section history is
+  insufficient.
+- Official learning and relearning step recommendations can analyze retained
+  review history in a cancellable worker, report exclusions and sample counts,
+  preview exact upstream durations, apply rounded minute values, and restore
+  the prior settings.
+- Optimizer results are fingerprinted and become stale after relevant history,
+  settings, restore, or section changes instead of being applied to a different
+  data state.
+
 ### Changed
 
 - Import previews now show each card's primary optional notes beside its
@@ -14,11 +30,27 @@ licensed under Apache-2.0 and follows
   load their heavy content only when opened.
 - End review now finishes the session immediately instead of opening a
   pause-or-finish dialog.
+- Fastify, Vite, TypeBox, SQLite, accessibility, browser-test, and supporting
+  tooling dependencies now use their reviewed stable releases while the
+  runtime remains Node.js 24.18.0 and pnpm 11.17.0.
 
 ### Fixed
 
 - Learning repetitions that become due during a review now appear immediately
   after the active card instead of waiting behind the original session backlog.
+- Optimizer panels isolate compatibility and operational failures so unrelated
+  language, scheduler, backup, and restore settings remain usable.
+- Scope changes, repeated navigation, and delayed optimizer responses can no
+  longer replace the visible section with stale counts, runs, or settings.
+- Optimizer conflicts, deletion races, exact upstream duration remainders, and
+  live announcements now have deterministic, screen-reader-friendly behavior.
+
+### Safety
+
+- Applying optimizer parameters or recommended learning steps affects future
+  scheduling decisions without silently rewriting stored due dates.
+- Existing databases receive a validated automatic pre-migration SQLite
+  snapshot before the new optimizer settings and step-run tables are added.
 
 ## [1.0.1] - 2026-08-09
 

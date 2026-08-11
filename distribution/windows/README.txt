@@ -1,7 +1,8 @@
-OpenRecall 1.0.1 for Windows
+OpenRecall 1.1.0 for Windows
 ============================
 
 No Node.js or pnpm installation is required.
+This folder comes from OpenRecall-v1.1.0-windows-x64.zip.
 
 Normal mode
 -----------

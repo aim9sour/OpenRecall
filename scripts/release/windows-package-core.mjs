@@ -144,14 +144,14 @@ async function copyAuditedLicenseException({
   repositoryRoot,
   version,
 }) {
-  if (name.startsWith("@openrecall/") && version === "1.0.1") {
+  if (name.startsWith("@openrecall/") && version === "1.1.0") {
     await Promise.all([
       copyFile(resolve(repositoryRoot, "LICENSE"), resolve(destination, "LICENSE")),
       copyFile(resolve(repositoryRoot, "NOTICE"), resolve(destination, "NOTICE")),
     ]);
     return true;
   }
-  if (name === "@esbuild/win32-x64" && version === "0.28.1") {
+  if (name === "@esbuild/win32-x64" && version === "0.28.2") {
     await copyFile(
       resolve(nodeModules, "esbuild", "LICENSE.md"),
       resolve(destination, "LICENSE.md"),

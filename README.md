@@ -16,7 +16,7 @@ remote runtime service.
 
 ## Run it in two clicks
 
-1. Download `OpenRecall-v1.0.1-windows-x64.zip` from the latest release and
+1. Download `OpenRecall-v1.1.0-windows-x64.zip` from the latest release and
    extract the whole ZIP to a writable folder.
 2. Double-click one launcher:
    - `OpenRecall.cmd` keeps data in

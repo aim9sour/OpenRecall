@@ -14,9 +14,13 @@ const APPROVED_BUILD_PACKAGES = new Set([
   "sharp",
 ]);
 const REQUIRED_LOCKED_VERSIONS = new Map([
-  ["better-sqlite3", new Set(["13.0.1"])],
-  ["esbuild", new Set(["0.28.1"])],
+  ["better-sqlite3", new Set(["13.0.3"])],
+  ["esbuild", new Set(["0.28.2"])],
+  ["rolldown", new Set(["1.2.3"])],
   ["sharp", new Set(["0.35.3"])],
+]);
+const REQUIRED_LOCKED_PREFIX_VERSIONS = new Map([
+  ["@rolldown/binding-", new Set(["1.2.3"])],
 ]);
 
 async function json(path) {
@@ -216,6 +220,24 @@ function assertRequiredLockEntries(lockfile) {
       [...versions].some((version) => !entries.has(version))
     ) {
       throw new Error(`LOCKED_NATIVE_VERSION_INVALID:${name}`);
+    }
+  }
+  for (const [prefix, versions] of REQUIRED_LOCKED_PREFIX_VERSIONS) {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const pattern = new RegExp(
+      `^  ['"]?(${escaped}[^@'"]+)@([^:'"]+)['"]?:$`,
+      "u",
+    );
+    const entries = new Set(
+      lines
+        .map((line) => pattern.exec(line)?.[2])
+        .filter((version) => version !== undefined),
+    );
+    if (
+      entries.size !== versions.size ||
+      [...versions].some((version) => !entries.has(version))
+    ) {
+      throw new Error(`LOCKED_NATIVE_PREFIX_VERSION_INVALID:${prefix}`);
     }
   }
 }
