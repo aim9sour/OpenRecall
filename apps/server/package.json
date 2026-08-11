@@ -22,7 +22,7 @@
     "@fastify/helmet": "13.1.0",
     "@fastify/multipart": "10.1.0",
     "@fastify/sse": "0.6.0",
-    "@fastify/static": "10.1.2",
+    "@fastify/static": "10.1.3",
     "@fastify/type-provider-typebox": "6.1.0",
     "@openrecall/contracts": "workspace:*",
     "@openrecall/database": "workspace:*",
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@openrecall/test-support": "workspace:*",
-    "@types/better-sqlite3": "7.6.13",
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "24.13.3",
     "better-sqlite3": "13.0.3",
     "typescript": "7.0.2",

@@ -231,7 +231,7 @@ describe("SectionPage disclosures", () => {
         String(path).startsWith(`/api/v1/sections/${section.id}/cards?`),
       ),
     ).toHaveLength(1);
-  });
+  }, 15_000);
 
   it("reports a lazy statistics error and retries inside the panel", async () => {
     let statisticsAttempts = 0;

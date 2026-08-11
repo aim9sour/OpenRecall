@@ -390,10 +390,19 @@ describe("StepRecommendationPanel", () => {
 
   it("uses concise Arabic analysis and completion announcements", async () => {
     const user = userEvent.setup();
-    await renderPanel(api({ get: async <T,>() => run("succeeded") as T }), "ar");
+    const startRequest = deferred<StepRecommendationRun>();
+    const pollRequest = deferred<StepRecommendationRun>();
+    await renderPanel(api({
+      get: async <T,>() => pollRequest.promise as Promise<T>,
+      post: async <T,>() => startRequest.promise as Promise<T>,
+    }), "ar");
     await user.click(screen.getByRole("button", { name: "اقتراح خطوات التعلم" }));
     await user.click(screen.getByRole("button", { name: "تحليل خطوات التعلم" }));
-    expect(screen.getByText("جارٍ تحليل خطوات التعلم")).toBeDefined();
+    expect(screen.getByRole("button", { name: "جارٍ بدء التحليل…" })).toBeDefined();
+    startRequest.resolve(run("running"));
+    await waitFor(() => expect(screen.getByText("جارٍ تحليل خطوات التعلم"))
+      .toBeDefined());
+    pollRequest.resolve(run("succeeded"));
     await waitFor(() => expect(screen.getByTestId("step-live").textContent)
       .toContain("اكتمل تحليل خطوات التعلم."));
     expect(screen.getByTestId("step-live").textContent).not.toContain("١٠٠");
