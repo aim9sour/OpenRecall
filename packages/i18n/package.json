@@ -13,7 +13,7 @@
     "test": "vitest run packages/i18n/src"
   },
   "dependencies": {
-    "i18next": "26.3.6"
+    "i18next": "26.4.0"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
