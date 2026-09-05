@@ -15,7 +15,7 @@
   "dependencies": {
     "@openrecall/contracts": "workspace:*",
     "@openrecall/domain": "workspace:*",
-    "ts-fsrs": "5.4.1"
+    "ts-fsrs": "5.4.2"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
