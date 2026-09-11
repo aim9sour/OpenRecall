@@ -25,6 +25,6 @@
     "@openrecall/test-support": "workspace:*",
     "@types/better-sqlite3": "9.6.0",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }
